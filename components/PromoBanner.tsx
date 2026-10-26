@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
+import { Sparkles, X } from "lucide-react";
 import { PriceGroup, ServiceId, TIERS, currentPromos, priceFor } from "@/lib/data";
 import { dateKey } from "@/lib/schedule";
 import { useStore } from "@/lib/store";
@@ -18,11 +18,13 @@ export const PROMO_LABELS: Record<PriceGroup, { label: string; sample: ServiceId
   treatment: { label: "Treatments", sample: "massage" },
 };
 
-// The specials Wellness Accounts get right now. Sits under the user's name on Home.
+// The specials Wellness Accounts get right now. Sits under the user's name on Home until the
+// specials end or the person closes it. A new special brings the banner back.
 export function PromoBanner() {
-  const { member } = useStore();
+  const { member, dismissPromos } = useStore();
   const today = dateKey(new Date());
-  const promos = currentPromos(today);
+  const dismissed = new Set(member.dismissedPromos ?? []);
+  const promos = currentPromos(today).filter((p) => !dismissed.has(p.id));
   if (promos.length === 0 || TIERS[member.tier].isMember) return null;
 
   const items = promos.flatMap((p) =>
@@ -34,7 +36,8 @@ export function PromoBanner() {
   );
 
   return (
-    <Link href="/book" className="relative block overflow-hidden rounded-3xl bg-sage p-5 text-shell shadow-sm">
+    <div className="relative">
+    <Link href="/book" className="relative block overflow-hidden rounded-3xl bg-sage p-5 pr-12 text-shell shadow-sm">
       <Sparkles size={110} strokeWidth={1} className="pointer-events-none absolute -right-4 -top-4 opacity-15" aria-hidden />
       <p className="relative inline-flex items-center rounded-full bg-shell/20 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-widest">
         Wellness Account specials
@@ -53,5 +56,13 @@ export function PromoBanner() {
       </div>
       <p className="relative mt-3 text-sm opacity-90">At West LA and Studio City · Book now →</p>
     </Link>
+    <button
+      onClick={() => dismissPromos(promos.map((p) => p.id))}
+      aria-label="Hide specials"
+      className="absolute right-3 top-3 rounded-full bg-shell/20 p-1.5 text-shell hover:bg-shell/30"
+    >
+      <X size={16} />
+    </button>
+    </div>
   );
 }

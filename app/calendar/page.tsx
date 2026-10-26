@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import clsx from "clsx";
 import { CalendarPlus, ChevronLeft, ChevronRight, Ticket } from "lucide-react";
 import { LOCATIONS } from "@/lib/data";
@@ -17,12 +18,23 @@ const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
 
 // Every booking lands here automatically. Stays available after a membership is cancelled.
 export default function CalendarPage() {
+  return (
+    <Suspense>
+      <CalendarView />
+    </Suspense>
+  );
+}
+
+function CalendarView() {
   const { bookings, termsForBooking } = useStore();
+  const params = useSearchParams();
+  const dayParam = params.get("day");
   const [cancelling, setCancelling] = useState<Booking | null>(null);
-  const [selected, setSelected] = useState<string | null>(null);
+  // Opened from a day on the Home calendar: start on that day.
+  const [selected, setSelected] = useState<string | null>(dayParam && /^\d{4}-\d{2}-\d{2}$/.test(dayParam) ? dayParam : null);
   const [showPast, setShowPast] = useState(false);
   const [month, setMonth] = useState(() => {
-    const d = new Date();
+    const d = selected ? sessionStart(selected, "12:00") : new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1);
   });
   const now = Date.now();

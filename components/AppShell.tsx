@@ -28,7 +28,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           ARTHA
         </Link>
       </header>
-      <main className="flex-1 px-4 pb-28 pt-4">{children}</main>
+      <main className="flex-1 px-4 pb-20 pt-3">{children}</main>
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-shell/95 backdrop-blur">
         <div className="mx-auto grid max-w-md grid-cols-4">
           {TABS.map(({ href, label, icon: Icon }) => {

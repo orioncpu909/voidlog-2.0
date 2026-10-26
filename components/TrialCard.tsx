@@ -17,9 +17,8 @@ const CHOICES: { id: TrialCancelChoice; title: string; text: string }[] = [
 // Shown while an account is on its 7-day trial: how long is left, what happens next,
 // and a Cancel button that's always one tap away.
 export function TrialCard() {
-  const { member, cancelTrial, keepTrial, setTrialBecomes } = useStore();
+  const { member, keepTrial, setTrialBecomes } = useStore();
   const [confirming, setConfirming] = useState(false);
-  const [choice, setChoice] = useState<TrialCancelChoice>("downgrade");
   if (member.tier !== "trial" || !member.trialEndsAt) return null;
 
   const ends = new Date(member.trialEndsAt);
@@ -84,7 +83,20 @@ export function TrialCard() {
         Cancel trial
       </button>
 
-      <Sheet open={confirming} onClose={() => setConfirming(false)} title="Cancel your trial?">
+      <TrialCancelSheet open={confirming} onClose={() => setConfirming(false)} />
+    </section>
+  );
+}
+
+// The cancel-trial confirmation, also opened from the slim trial row on Home.
+export function TrialCancelSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { member, cancelTrial } = useStore();
+  const [choice, setChoice] = useState<TrialCancelChoice>("downgrade");
+  if (!member.trialEndsAt) return null;
+  const ends = new Date(member.trialEndsAt);
+  const setConfirming = (v: boolean) => !v && onClose();
+  return (
+      <Sheet open={open} onClose={onClose} title="Cancel your trial?">
         <div className="space-y-4 text-sm">
           <p>
             You won&apos;t be charged for a membership, and you can keep using your trial until {momentLabel(ends)}.
@@ -123,7 +135,6 @@ export function TrialCard() {
           </div>
         </div>
       </Sheet>
-    </section>
   );
 }
 

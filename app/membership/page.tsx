@@ -10,6 +10,8 @@ import { money } from "@/lib/format";
 import { PriceList } from "@/components/PriceList";
 import { NoticeBanner, TrialCard } from "@/components/TrialCard";
 import { MembershipCard } from "@/components/MembershipCard";
+import { StatsOverview } from "@/components/StatsOverview";
+import { ConnectedApps } from "@/components/ConnectedApps";
 import { Button, Sheet } from "@/components/Sheet";
 
 export default function AccountPage() {
@@ -43,10 +45,8 @@ export default function AccountPage() {
       <TrialCard />
       <MembershipCard />
 
-      <Link href="/stats" className="flex items-center justify-between rounded-2xl border border-line bg-shell px-4 py-3 text-sm hover:border-muted">
-        <span>Your stats: streaks, visits and favorites</span>
-        <span className="text-moss">→</span>
-      </Link>
+      <StatsOverview />
+      <ConnectedApps />
 
       <section className="space-y-2">
         <h2 className="font-serif text-2xl">Your prices at {location.short}</h2>

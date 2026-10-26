@@ -279,9 +279,11 @@ export const PROMOS: Promo[] = [
 
 export type QuoteKind = "included" | "member" | "promo" | "regular" | "firstVisit";
 
-// A new account's very first paid appointment is half off, for every service. Doesn't apply to
-// special (promo) prices or event tickets. Taken off whatever that person would otherwise pay.
+// A new account's very first paid appointment is discounted: classes and therapies are half off,
+// HBOT and treatments drop to $125. Doesn't apply to special (promo) prices or event tickets.
 export const FIRST_VISIT_DISCOUNT = 0.5;
+// HBOT and treatments aren't half off on a first visit; they drop to a set price instead.
+export const FIRST_VISIT_FIXED: Partial<Record<PriceGroup, number>> = { hbot: 125, treatment: 125 };
 
 export interface Quote {
   price: number;
@@ -303,16 +305,13 @@ function activePromo(group: PriceGroup, date: string): Promo | undefined {
 // The one price a person sees and pays. Every screen uses this.
 export function priceFor(tierId: TierId, serviceId: ServiceId, location: LocationId, date: string, firstVisit = false): Quote {
   const base = basePrice(tierId, serviceId, location, date);
+  const group = SERVICES[serviceId].group;
   // Never stacks: specials and event tickets keep their own price.
-  if (!firstVisit || base.price === 0 || base.kind === "promo" || SERVICES[serviceId].group === "event") return base;
-  return {
-    ...base,
-    price: Math.round(base.price * (1 - FIRST_VISIT_DISCOUNT) * 100) / 100,
-    regular: base.price,
-    kind: "firstVisit",
-    label: "Welcome offer for new accounts",
-    promo: undefined,
-  };
+  if (!firstVisit || base.price === 0 || base.kind === "promo" || group === "event") return base;
+  const fixed = FIRST_VISIT_FIXED[group];
+  const price = fixed !== undefined ? Math.min(base.price, fixed) : Math.round(base.price * (1 - FIRST_VISIT_DISCOUNT) * 100) / 100;
+  if (price >= base.price) return base; // already at or below the first-visit price
+  return { ...base, price, regular: base.price, kind: "firstVisit", label: "Welcome offer for new accounts", promo: undefined };
 }
 
 function basePrice(tierId: TierId, serviceId: ServiceId, location: LocationId, date: string): Quote {

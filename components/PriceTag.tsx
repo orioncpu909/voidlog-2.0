@@ -20,7 +20,12 @@ export function PriceTag({ quote, size = "sm" }: { quote: Quote; size?: "sm" | "
 
 export function PromoNote({ quote }: { quote: Quote }) {
   if (quote.kind === "firstVisit") {
-    return <span className="inline-flex items-center rounded-full bg-moss-soft px-2 py-0.5 text-[11px] font-medium text-sage">First appointment · 50% off</span>;
+    const half = Math.abs(quote.price - quote.regular / 2) < 0.01;
+    return (
+      <span className="inline-flex items-center rounded-full bg-moss-soft px-2 py-0.5 text-[11px] font-medium text-sage">
+        {half ? "First appointment · 50% off" : "First appointment price"}
+      </span>
+    );
   }
   if (quote.kind !== "promo" || !quote.promo) return null;
   return (

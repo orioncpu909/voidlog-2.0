@@ -123,7 +123,7 @@ export function Onboarding() {
             </div>
 
             {!member.firstVisitUsed && (
-              <p className="rounded-2xl bg-sage p-4 text-sm font-medium text-shell">Welcome offer: your first appointment is 50% off, for any class, therapy or treatment.</p>
+              <p className="rounded-2xl bg-sage p-4 text-sm font-medium text-shell">Welcome offer: 50% off your first class or therapy, or $125 for your first treatment or HBOT.</p>
             )}
 
             {promos.length > 0 && !tier.isMember && (

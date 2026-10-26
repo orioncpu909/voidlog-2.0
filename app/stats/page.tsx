@@ -3,16 +3,18 @@
 import { useState } from "react";
 import Link from "next/link";
 import clsx from "clsx";
-import { ArrowLeft, Flame, Heart, Sparkles, Timer, Trophy, UserRound } from "lucide-react";
-import { TIERS } from "@/lib/data";
+import { ArrowLeft, Flame, Heart, Receipt, Sparkles, Timer, Trophy, UserRound } from "lucide-react";
+import { LOCATIONS, SERVICES, TIERS } from "@/lib/data";
 import { useStore } from "@/lib/store";
 import { computeStats } from "@/lib/stats";
-import { money } from "@/lib/format";
+import { money, shortDate } from "@/lib/format";
+import { StepsCard } from "@/components/StepsCard";
 
 export default function StatsPage() {
   const { member, bookings } = useStore();
   const s = computeStats(bookings);
   const [hover, setHover] = useState<number | null>(null);
+  const [showAll, setShowAll] = useState(false);
   const maxWeek = Math.max(1, ...s.weekly.map((w) => w.count));
   const maxService = Math.max(1, ...s.byService.map((x) => x.count));
   const shownWeek = hover ?? s.weekly.length - 1;
@@ -22,6 +24,7 @@ export default function StatsPage() {
     return (
       <div className="space-y-5">
         <Header />
+        <StepsCard />
         <div className="rounded-3xl border border-dashed border-line p-8 text-center text-sm text-muted">
           <p>Your stats will show up here after your first visit.</p>
           <Link href="/book" className="mt-3 inline-block rounded-full bg-moss px-5 py-2 text-shell">
@@ -53,6 +56,8 @@ export default function StatsPage() {
           </div>
         ))}
       </section>
+
+      <StepsCard />
 
       <section className="rounded-3xl border border-line bg-shell p-5">
         <div className="flex items-baseline justify-between">
@@ -117,13 +122,53 @@ export default function StatsPage() {
         {s.favoriteInstructor && (
           <Favorite icon={UserRound} label="Most booked with" value={s.favoriteInstructor.name} detail={`${s.favoriteInstructor.count}×`} />
         )}
-        {TIERS[member.tier].isMember && s.saved > 0 && (
-          <Favorite icon={Heart} label="Saved with your membership" value={money(s.saved)} detail="vs regular prices" />
+        {s.saved > 0 && (
+          <Favorite
+            icon={Heart}
+            label={TIERS[member.tier].isMember ? "Saved with your membership" : "Saved with specials and offers"}
+            value={money(s.saved)}
+            detail="vs regular prices"
+          />
+        )}
+        {!TIERS[member.tier].isMember && <Favorite icon={Receipt} label="Spent on visits" value={money(s.spent)} detail={`${s.visits} visits`} />}
+      </section>
+
+      <section className="rounded-3xl border border-line bg-shell p-5">
+        <div className="flex items-baseline justify-between">
+          <h2 className="font-serif text-xl">Visit history</h2>
+          <p className="text-xs text-muted">{s.history.length} total</p>
+        </div>
+        <ul className="mt-3 divide-y divide-line">
+          {(showAll ? s.history : s.history.slice(0, HISTORY_PREVIEW)).map((b) => (
+            <li key={b.id} className="flex items-center gap-3 py-2.5 text-sm">
+              <span className="w-12 shrink-0 text-xs text-muted">{shortDate(b.date)}</span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate">{b.title}</p>
+                <p className="truncate text-xs text-muted">
+                  {[
+                    SERVICES[b.serviceId].category === "class" ? "Class" : SERVICES[b.serviceId].category === "event" ? "Event" : null,
+                    LOCATIONS[b.location].short,
+                    b.serviceId !== "event" ? b.instructor : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              </div>
+              <span className="shrink-0 text-xs">{b.usedCredit ? "Credit" : b.price === 0 ? "Included" : money(b.price)}</span>
+            </li>
+          ))}
+        </ul>
+        {s.history.length > HISTORY_PREVIEW && (
+          <button onClick={() => setShowAll(!showAll)} className="mt-2 text-sm text-moss underline-offset-2 hover:underline">
+            {showAll ? "Show less" : `Show all ${s.history.length}`}
+          </button>
         )}
       </section>
     </div>
   );
 }
+
+const HISTORY_PREVIEW = 8;
 
 function plural(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`;

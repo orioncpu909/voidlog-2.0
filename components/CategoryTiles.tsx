@@ -7,12 +7,14 @@ import { CATEGORY_BLURB, CATEGORY_LABEL, Category, lowestPriceIn } from "@/lib/d
 import { dateKey } from "@/lib/schedule";
 import { useStore } from "@/lib/store";
 import { money } from "@/lib/format";
+import { CATEGORY_IMAGE } from "@/lib/images";
 
-const STYLE: Record<Category, { bg: string; icon: typeof Dumbbell }> = {
-  class: { bg: "bg-moss", icon: Dumbbell },
-  therapy: { bg: "bg-ocean", icon: Flame },
-  treatment: { bg: "bg-walnut", icon: Hand },
-  event: { bg: "bg-sage", icon: Dumbbell }, // events are booked from Home, not from these tiles
+// Each tile is a photo of the service with a tint in the tile's color, darkest on the text side.
+const STYLE: Record<Category, { bg: string; tint: string; icon: typeof Dumbbell }> = {
+  class: { bg: "bg-moss", tint: "from-moss/95 via-moss/75 to-moss/25", icon: Dumbbell },
+  therapy: { bg: "bg-ocean", tint: "from-ocean/95 via-ocean/75 to-ocean/25", icon: Flame },
+  treatment: { bg: "bg-walnut", tint: "from-walnut/95 via-walnut/75 to-walnut/25", icon: Hand },
+  event: { bg: "bg-sage", tint: "from-sage/95 via-sage/75 to-sage/25", icon: Dumbbell }, // events are booked from Home, not from these tiles
 };
 
 // Big, colored entry points into booking. Used on Home and the first Book step.
@@ -24,11 +26,14 @@ export function CategoryTiles({ onPick, showFirstVisit = false }: { onPick?: (c:
   return (
     <div className="space-y-3">
       {(["class", "therapy", "treatment"] as Category[]).map((c) => {
-        const { bg, icon: Icon } = STYLE[c];
+        const { bg, tint, icon: Icon } = STYLE[c];
+        const image = CATEGORY_IMAGE[c];
         const from = lowestPriceIn(member.tier, c, member.home, today, showFirstVisit && firstVisitEligible);
         const body = (
           <>
-            <Icon size={120} strokeWidth={1} className="pointer-events-none absolute -bottom-6 -right-4 opacity-10" aria-hidden />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={image.src} alt="" aria-hidden loading="lazy" className="pointer-events-none absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+            <span className={clsx("pointer-events-none absolute inset-0 bg-gradient-to-r", tint)} aria-hidden />
             <div className="relative flex items-center gap-4">
               <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-shell/15">
                 <Icon size={24} />
@@ -41,7 +46,8 @@ export function CategoryTiles({ onPick, showFirstVisit = false }: { onPick?: (c:
                 <ArrowRight size={18} />
               </span>
             </div>
-            {from && (
+            {/* Therapies vary in price, so that tile shows no single price. */}
+            {from && c !== "therapy" && (
               <div className="relative mt-4 inline-flex items-baseline gap-1.5 rounded-full bg-shell/15 px-3 py-1 text-sm">
                 {from.kind === "included" ? (
                   "Included with your membership"
@@ -58,7 +64,7 @@ export function CategoryTiles({ onPick, showFirstVisit = false }: { onPick?: (c:
             )}
           </>
         );
-        const className = clsx("group relative block w-full overflow-hidden rounded-3xl p-5 text-left text-shell shadow-sm transition hover:shadow-md active:scale-[0.99]", bg);
+        const className = clsx("group relative block min-h-[140px] w-full overflow-hidden rounded-3xl p-5 text-left text-shell shadow-sm transition hover:shadow-md active:scale-[0.99]", bg);
         return onPick ? (
           <button key={c} onClick={() => onPick(c)} className={className}>
             {body}

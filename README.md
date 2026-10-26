@@ -7,6 +7,20 @@ npm install
 npm run dev   # http://localhost:3100
 ```
 
+## Home
+Home fits on one phone screen with no scrolling. Top to bottom:
+1. **Streak:** current streak, the last 7 days as dots, best streak, visits this month and total visits. Taps through to Stats.
+2. **This month's calendar:** a full month grid. Sage dots are upcoming bookings and faint dots are past visits. Tapping a day opens it in the Calendar. Your next booking shows underneath. The calendar stretches or shrinks to fill the space left.
+3. **Upcoming events.**
+
+Account alerts show as slim one-line rows above the streak, only when they apply:
+- a one-time notice
+- the trial (days left, what it becomes, a **Cancel** button)
+- a cancelled membership with "Keep"
+- the specials, with ✕
+
+The full trial and membership cards are on Account. Booking is in the Book tab.
+
 ## Design rules
 - **One price, always the one you pay.** Prices never sit in class titles. During a promo the regular price is crossed out next to the special rate, with the promo name and end date. With no promo, Wellness Accounts see the regular price.
 - **One booking flow for everything.** Book → Classes / Therapies / Treatments → time → review → confirm. Every screen shows the location, and the back arrow always works.
@@ -24,12 +38,12 @@ npm run dev   # http://localhost:3100
 - Members get 4 welcome credits.
 - Restore (from artha.la): 1 massage, 1 sauna, 1 cryo and 1 class per month, then 25% off regular prices. Massage $125. So far only the massage is tracked as a monthly credit.
 - Trial prices follow the trial agreement.
-- Promos live in `PROMOS`. A promo always runs at both locations. Current specials:
+- Promos live in `PROMOS`. A promo always runs at both locations. Its Home banner has an ✕. A closed banner stays hidden until a new special starts, and it disappears when the special ends. Current specials:
   - $9 classes until Nov 1, per artha.la.
   - $10 cryo, which has no published end date. It's set to Dec 31 and marked CONFIRM.
 
 ## First appointment 50% off (lib/data.ts)
-- Every new account's first paid appointment is half off, for any class, therapy or treatment (`FIRST_VISIT_DISCOUNT`). It never applies to special (promo) prices or to $10 event tickets.
+- Every new account's first paid appointment is discounted. Classes and therapies are half off (`FIRST_VISIT_DISCOUNT`). HBOT and treatments drop to $125 instead (`FIRST_VISIT_FIXED`); members already paying $125 get no extra discount there. It never applies to special (promo) prices or to $10 event tickets.
 - Home doesn't advertise it. It shows in onboarding and on prices once someone is booking, with the normal price crossed out.
 - If that booking is cancelled for free, the offer comes back. A late cancel uses it up.
 
@@ -45,6 +59,7 @@ npm run dev   # http://localhost:3100
 - Demo: the Gold account joined 2 days ago, so it's inside the refund window. The Classic account is past it. "Jump to the end of this month" ends a cancelled membership right away.
 
 ## Streaks and stats (lib/stats.ts, app/stats)
+- **Account tab:** a stats panel with streak, best streak, visits, hours and top services, linking to the full dashboard.
 - **Home streak card:** current streak (consecutive days with a visit, ending today or yesterday) and total visits.
 - **Your stats:** reached from the streak card or Account. Shows:
   - Current and longest streak, total visits and hours.
@@ -53,6 +68,17 @@ npm run dev   # http://localhost:3100
   - Favorite class and most-booked instructor or therapist.
   - For members: savings versus regular prices.
 - Only completed visits count. Cancelled bookings and future bookings don't.
+- Works the same for Wellness accounts and members. Every account also gets a **Visit history** list: date, service, location, therapist or instructor, and what was paid. Wellness accounts see what they've saved with specials and offers, and their total spent; members see what they've saved with their membership.
+
+## Connected apps and steps (lib/devices.ts)
+- **Account → Connected apps:** Apple Health, Garmin Connect, WHOOP and Strava. Connecting shows a read-only consent sheet. Tap Connected to disconnect.
+- **Steps** show in Stats (today vs a 10,000 goal, the daily average over the last 6 days, a 7-day bar chart) and on the Account stats panel.
+- **Which app counts:** with several apps connected, steps come from one in this order: Apple Health, Garmin, WHOOP, Strava. That way the same walk is never counted twice.
+- **Demo only:** connections and step counts are simulated. Real connections need:
+  - **Apple Health:** a native iPhone app (HealthKit). It has no web API.
+  - **Garmin, WHOOP, Strava:** a developer account with each, plus a server for their sign-in.
+  - **Strava:** it shares workouts, not all-day steps, so steps from Strava would be estimated from walks and runs.
+- The demo Classic account has Apple Health connected. The demo Gold account has WHOOP and Strava, so its steps come from WHOOP.
 
 ## Therapists (lib/therapists.ts)
 - Treatments → **Meet your therapists**: Christian, Tiffany and Victor, with specialties and a short bio. Each has "Book … with {name}" buttons that open only that therapist's times. Bios are placeholders to replace.
@@ -81,6 +107,9 @@ npm run dev   # http://localhost:3100
   - Trials: no charge.
 - Every booking goes through a final **Confirm your booking** sheet. It shows the price and the policy as one sentence, e.g. "To avoid a no-show charge of $9, cancel by tomorrow at 7:30 AM." The Calendar and the success screen use the same sentence.
 
+## Photos
+- The Book tiles (Classes, Therapies, Treatments) show a photo of the service behind a color tint. They're free Unsplash photos set in `lib/images.ts`. Replace them with ARTHA's own photos by adding files to `/public/images` and pointing those entries at `/images/<file>`.
+
 ## Where to change things
 - `lib/data.ts`: services, account types, prices and promos. Lines marked CONFIRM are assumptions.
 - `lib/schedule.ts`: the real class week (Oct 25–31) for both locations, from ARTHA's public booking pages. It repeats weekly in the demo.
@@ -91,4 +120,4 @@ npm run dev   # http://localhost:3100
 - `docs/artha-public-info.md`: everything collected from artha.la, with sources.
 - `lib/store.tsx`: demo data in localStorage. Swap it for a real backend later.
 
-All data lives in the browser. No payments are taken. Every demo account is named Karan. On the Account tab, "Demo · view as" switches between a new user, Wellness, Classic, Gold, Restore and Trial accounts, which come with a few weeks of past visits.
+All data lives in the browser. No payments are taken. Every demo account is named Karan. On the Account tab, "Demo · view as" switches between a new user, Wellness, Classic, Gold, Restore and Trial accounts. Each account except the new user has a visit history generated from an activity profile (`ACTIVITY` in `lib/store.tsx`): Gold and Classic are advanced regulars (92 and 58 visits, 14- and 9-day streaks), and Restore, Wellness and Trial are intermediate (22–26 visits).

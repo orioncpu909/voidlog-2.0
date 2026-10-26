@@ -4,12 +4,14 @@
 // No real payments; charges are a ledger of what the card on file would be billed.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { LocationId, Quote, ServiceId, TIERS, TierId, priceFor } from "./data";
-import { Session, dateKey, sessionStart, slotsFor } from "./schedule";
+import { EVENT_TICKET_PRICE, LocationId, Quote, ServiceId, TIERS, TierId, priceFor } from "./data";
+import { Session, dateKey, eventSessions, sessionStart, slotsFor } from "./schedule";
+import { EVENTS } from "./events";
 import { CancelTerms, canUseCredit, cancelTerms } from "./policy";
 import { TRIAL_BECOMES, firstMonthCharge, trialEndsAt } from "./trial";
 import { endOfMonth, inRefundWindow } from "./membership";
 import { money } from "./format";
+import type { ProviderId } from "./devices";
 
 export interface Member {
   id: string;
@@ -24,6 +26,8 @@ export interface Member {
   trialCancel?: TrialCancelChoice; // set when a trial is cancelled; the trial still runs to its end date
   trialBecomes?: TierId; // membership the trial turns into; Classic when not chosen
   notice?: string; // one-time message shown on Home (e.g. trial ended)
+  dismissedPromos?: string[]; // specials whose Home banner this account closed
+  connections?: ProviderId[]; // fitness apps connected for step tracking
   firstVisitUsed?: boolean; // the 50%-off first appointment has been used
   memberSince?: string; // ISO start of the current paid membership
   membershipEndsAt?: string; // set when a paid membership is cancelled after the refund window
@@ -79,9 +83,9 @@ function seedMembers(): Member[] {
   return [
     { id: "m-new", name: "Karan", tier: "wellness", home: "weho", credits: 0, onboarded: false },
     { id: "m-wellness", name: "Karan", tier: "wellness", home: "weho", credits: 0, onboarded: true, trialUsed: true, firstVisitUsed: true },
-    { id: "m-classic", name: "Karan", tier: "classic", home: "weho", credits: 4, onboarded: true, firstVisitUsed: true, memberSince: daysAgo(20) },
+    { id: "m-classic", name: "Karan", tier: "classic", home: "weho", credits: 4, onboarded: true, firstVisitUsed: true, memberSince: daysAgo(20), connections: ["apple-health"] },
     // Joined 2 days ago, so still inside the 5-day refund window.
-    { id: "m-gold", name: "Karan", tier: "gold", home: "weho", credits: 5, onboarded: true, firstVisitUsed: true, memberSince: daysAgo(2) },
+    { id: "m-gold", name: "Karan", tier: "gold", home: "weho", credits: 5, onboarded: true, firstVisitUsed: true, memberSince: daysAgo(2), connections: ["whoop", "strava"] },
     { id: "m-restore", name: "Karan", tier: "restore", home: "scity", credits: 4, onboarded: true, firstVisitUsed: true, memberSince: daysAgo(40) },
     {
       id: "m-trial",
@@ -116,28 +120,106 @@ function makeBooking(member: Member, session: Session, price: number, usedCredit
   };
 }
 
-// Past visits for the demo accounts, as [service, days ago], so streaks and stats have data.
-const HISTORY: Record<string, [ServiceId, number][]> = {
-  "m-classic": [
-    ["class", 1], ["class", 2], ["cryo", 2], ["class", 3], ["ir-sauna", 3], ["class", 4], ["class", 6], ["cryo", 6],
-    ["class", 8], ["float", 8], ["class", 9], ["class", 12], ["contrast", 12], ["class", 15], ["class", 19], ["massage", 22],
-  ],
-  "m-wellness": [["class", 2], ["cryo", 2], ["class", 3], ["ir-sauna", 10], ["class", 11]],
-  "m-gold": [["float", 1], ["class", 2], ["class", 3], ["red-light", 3]],
-  "m-restore": [["class", 1], ["massage", 5], ["class", 9]],
-  "m-trial": [["class", 1], ["class", 2], ["cryo", 2]],
+// Demo visit history. Each account gets an activity profile so streaks and stats look like a
+// real member's: the Gold and Classic accounts are advanced regulars, the others intermediate.
+interface Activity {
+  weeks: number; // how far back the history goes
+  perWeek: number; // average visit days per week before the current streak
+  streak: number; // consecutive visit days ending yesterday
+  recovery: number; // chance a visit day also includes a therapy
+  mix: [ServiceId, number][]; // therapies and how often each is picked
+  treatmentsPerMonth: number;
+  treatmentsWithCredit?: boolean;
+  events?: boolean; // went to past ticketed events at their location
+}
+
+const ACTIVITY: Record<string, Activity> = {
+  "m-gold": {
+    weeks: 12, perWeek: 4, streak: 14, recovery: 0.8, treatmentsPerMonth: 1, treatmentsWithCredit: true, events: true,
+    mix: [["cryo", 3], ["ir-sauna", 3], ["red-light", 2], ["float", 2], ["contrast", 2], ["hbot", 1]],
+  },
+  "m-classic": {
+    weeks: 10, perWeek: 4, streak: 9, recovery: 0.5, treatmentsPerMonth: 1, events: true,
+    mix: [["cryo", 4], ["ir-sauna", 2], ["contrast", 1], ["float", 1], ["red-light", 1]],
+  },
+  "m-restore": {
+    weeks: 8, perWeek: 2, streak: 3, recovery: 0.4, treatmentsPerMonth: 1, treatmentsWithCredit: true,
+    mix: [["ir-sauna", 2], ["cryo", 2], ["contrast", 1]],
+  },
+  "m-wellness": {
+    weeks: 6, perWeek: 2.5, streak: 4, recovery: 0.35, treatmentsPerMonth: 0.5,
+    mix: [["cryo", 3], ["ir-sauna", 2], ["contrast", 1]],
+  },
+  "m-trial": {
+    weeks: 5, perWeek: 2, streak: 3, recovery: 0.3, treatmentsPerMonth: 0,
+    mix: [["cryo", 2], ["ir-sauna", 1]],
+  },
 };
 
+// Small seeded random generator so the demo history is the same on every reset.
+function seeded(seed: string): () => number {
+  let h = 1779033703 ^ seed.length;
+  for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 3432918353);
+  return () => {
+    h = Math.imul(h ^ (h >>> 16), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    return ((h ^= h >>> 16) >>> 0) / 4294967296;
+  };
+}
+
 function pastBookings(member: Member): Booking[] {
-  return (HISTORY[member.id] ?? []).flatMap(([serviceId, daysBack]) => {
+  const a = ACTIVITY[member.id];
+  if (!a) return [];
+  const rand = seeded(member.id);
+  const out: Booking[] = [];
+  const dayKey = (back: number) => {
     const d = new Date();
-    d.setDate(d.getDate() - daysBack);
-    const slots = slotsFor(member.home, serviceId, dateKey(d));
-    const session = slots[(daysBack * 3) % Math.max(1, slots.length)];
-    if (!session) return [];
-    const price = priceFor(member.tier, serviceId, member.home, session.date).price;
-    return [{ ...makeBooking(member, session, price, false), createdAt: d.toISOString() }];
-  });
+    d.setDate(d.getDate() - back);
+    return dateKey(d);
+  };
+  const add = (serviceId: ServiceId, back: number, pick: (slots: Session[]) => Session | undefined, usedCredit = false) => {
+    const session = pick(slotsFor(member.home, serviceId, dayKey(back)));
+    if (!session) return;
+    const price = usedCredit ? 0 : priceFor(member.tier, serviceId, member.home, session.date).price;
+    out.push({ ...makeBooking(member, session, price, usedCredit), createdAt: sessionStart(session.date, "00:00").toISOString() });
+  };
+  const morning = (slots: Session[]) => slots[Math.floor(rand() * Math.max(1, Math.ceil(slots.length / 2)))];
+  const afternoon = (slots: Session[]) => slots[Math.floor(slots.length / 2 + rand() * Math.floor(slots.length / 2))];
+  const pickTherapy = () => {
+    const total = a.mix.reduce((sum, [, w]) => sum + w, 0);
+    let r = rand() * total;
+    for (const [id, w] of a.mix) if ((r -= w) < 0) return id;
+    return a.mix[0][0];
+  };
+
+  // Visit days: the current streak, then a skipped day, then a typical week-by-week pattern.
+  const days: number[] = [];
+  for (let back = 1; back <= a.streak; back++) days.push(back);
+  for (let back = a.streak + 2; back <= a.weeks * 7; back++) if (rand() < a.perWeek / 7) days.push(back);
+
+  // Every visit day gets at least one visit: usually a class, sometimes a therapy too, or instead.
+  for (const back of days) {
+    const before = out.length;
+    if (rand() < 0.85) add("class", back, morning);
+    if (rand() < a.recovery) add(pickTherapy(), back, afternoon);
+    if (out.length === before) add("class", back, morning);
+  }
+
+  const treatments = Math.round((a.weeks / 4.3) * a.treatmentsPerMonth);
+  for (let i = 0; i < treatments; i++) {
+    const back = Math.round(((i + 0.5) * a.weeks * 7) / treatments);
+    add("massage", back, (slots) => slots[Math.floor(rand() * slots.length)], a.treatmentsWithCredit);
+  }
+
+  if (a.events) {
+    const today = dateKey(new Date());
+    for (const e of EVENTS) {
+      if (!e.ticket || e.host !== member.home || e.date >= today) continue;
+      const session = eventSessions(member.home, e.date).find((x) => x.time === e.time);
+      if (session) out.push(makeBooking(member, session, EVENT_TICKET_PRICE, false));
+    }
+  }
+  return out;
 }
 
 function seedState(): State {
@@ -266,6 +348,9 @@ interface Store {
   setTrialBecomes: (tier: TierId) => void;
   endTrialNow: () => void; // demo only: jump to the end of the trial
   dismissNotice: () => void;
+  dismissPromos: (ids: string[]) => void;
+  connectApp: (id: ProviderId) => void;
+  disconnectApp: (id: ProviderId) => void;
   setLocation: (loc: LocationId) => void;
   toggleRsvp: (eventId: string) => void;
   finishOnboarding: () => void;
@@ -453,6 +538,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       endTrialNow: () =>
         update((s) => (member.tier !== "trial" ? s : applyScheduledChanges({ ...s, members: patchMember(s, { trialEndsAt: new Date(Date.now() - 1000).toISOString() }) }))),
       dismissNotice: () => update((s) => ({ ...s, members: patchMember(s, { notice: undefined }) })),
+      connectApp: (id) => update((s) => ({ ...s, members: patchMember(s, { connections: [...new Set([...(member.connections ?? []), id])] }) })),
+      disconnectApp: (id) => update((s) => ({ ...s, members: patchMember(s, { connections: (member.connections ?? []).filter((x) => x !== id) }) })),
+      dismissPromos: (ids) => update((s) => ({ ...s, members: patchMember(s, { dismissedPromos: [...new Set([...(member.dismissedPromos ?? []), ...ids])] }) })),
       setLocation: (loc) => update((s) => ({ ...s, members: patchMember(s, { home: loc }) })),
       toggleRsvp: (eventId) =>
         update((s) => {

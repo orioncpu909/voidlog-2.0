@@ -22,6 +22,8 @@ export interface Stats {
   favoriteClass?: { title: string; count: number };
   favoriteInstructor?: { name: string; count: number };
   saved: number; // vs regular Wellness prices
+  spent: number; // paid for completed visits
+  history: Booking[]; // completed visits, newest first
 }
 
 const DAY = 864e5;
@@ -97,6 +99,7 @@ export function computeStats(bookings: Booking[], now = new Date()): Stats {
   const fav = top(classTitles);
   const favI = top(instructors);
   const month = today.slice(0, 7);
+  const history = [...done].sort((a, b) => sessionStart(b.date, b.time).getTime() - sessionStart(a.date, a.time).getTime());
   return {
     visits: done.length,
     thisMonth: done.filter((b) => b.date.startsWith(month)).length,
@@ -110,5 +113,7 @@ export function computeStats(bookings: Booking[], now = new Date()): Stats {
     favoriteClass: fav && { title: fav.key, count: fav.count },
     favoriteInstructor: favI && { name: favI.key, count: favI.count },
     saved: Math.round(saved * 100) / 100,
+    spent: Math.round(done.reduce((sum, b) => sum + b.price, 0) * 100) / 100,
+    history,
   };
 }

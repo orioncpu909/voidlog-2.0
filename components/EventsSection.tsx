@@ -27,8 +27,8 @@ export function EventsSection() {
   if (upcoming.length === 0) return null;
 
   return (
-    <section className="space-y-2">
-      <h2 className="font-serif text-xl">Upcoming events</h2>
+    <section className="shrink-0 space-y-2">
+      <h2 className="font-serif text-lg leading-none">Upcoming events</h2>
       <div className="no-scrollbar -mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-1">
         {upcoming.map((e) => {
           const d = sessionStart(e.date, e.time);
