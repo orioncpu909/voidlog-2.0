@@ -123,11 +123,11 @@ export function Onboarding() {
             </div>
 
             {!member.firstVisitUsed && (
-              <p className="rounded-2xl bg-sage p-4 text-sm font-medium text-shell">Welcome offer: 50% off your first class or therapy, or $125 for your first treatment or HBOT.</p>
+              <p className="rounded-2xl bg-sage p-4 text-sm font-medium text-ink">Welcome offer: 50% off your first class or therapy, or $125 for your first treatment or HBOT.</p>
             )}
 
             {promos.length > 0 && !tier.isMember && (
-              <div className="rounded-2xl bg-sage p-4 text-sm text-shell">
+              <div className="rounded-2xl bg-sage p-4 text-sm text-ink">
                 <p className="font-medium">Specials right now, at both locations</p>
                 <ul className="mt-1 space-y-0.5 opacity-90">
                   {promos.flatMap((p) =>

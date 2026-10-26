@@ -13,7 +13,6 @@ A web rebuild of the **"ARTHA, a Wellness Sanctuary"** member app for ARTHA's tw
 It's a **demo**:
 - All data lives in the browser (localStorage).
 - No real payments, sign-in or server.
-- Connected fitness apps are simulated.
 
 | | |
 |---|---|
@@ -62,11 +61,11 @@ app/
   page.tsx              Home: streak, month calendar, events (fits one screen)
   book/page.tsx         Booking flow: category → service → time → review → confirm sheet → done
   calendar/page.tsx     Month calendar + bookings, cancel, add to phone calendar (?day=YYYY-MM-DD)
-  stats/page.tsx        Full stats dashboard + steps + visit history
-  membership/page.tsx   "Account" tab: plan, trial/membership cards, stats panel, connected apps,
+  stats/page.tsx        Full stats dashboard + visit history
+  membership/page.tsx   "Account" tab: plan, trial/membership cards, stats panel,
                         prices, change plan, policies, contact, charges, demo controls
 components/             UI pieces (HomeAlerts, StreakCard, HomeCalendar, CategoryTiles, TrialCard,
-                        MembershipCard, ConnectedApps, StepsCard, StatsOverview, EventsSection, …)
+                        MembershipCard, StatsOverview, EventsSection, …)
 lib/
   data.ts         Locations, services, tiers, prices, promos, first-visit rules, priceFor()
   schedule.ts     Real weekly class schedule, therapy/treatment slot rules (SLOT_RULES)
@@ -77,10 +76,10 @@ lib/
   stats.ts        Streaks and stats from completed visits
   events.ts       Events (free RSVP or $10 ticketed)
   therapists.ts   Christian, Tiffany, Victor (bios are placeholders)
-  devices.ts      Apple Health / Garmin / WHOOP / Strava (simulated) + step data
   images.ts       Photos behind the Book tiles (Unsplash, swappable)
   ics.ts          "Add to phone calendar" .ics file
 docs/artha-public-info.md   Everything collected from artha.la, with sources
+docs/artha-brand-palette.md ARTHA's colors from artha.la and how the app uses them
 README.md                   Rules and where to change them
 ```
 
@@ -160,7 +159,7 @@ README.md                   Rules and where to change them
 ### Stats
 
 - **Streak:** consecutive days with a completed visit, ending today or yesterday.
-- **Stats page:** streaks, weekly visits, visits by service, favorites, savings, spend, visit history and steps.
+- **Stats page:** streaks, weekly visits, visits by service, favorites, savings, spend and visit history.
 
 ### Demo accounts
 
@@ -170,8 +169,8 @@ Every account is named "Karan". Switch between them in **Account → Demo · vie
 |---|---|
 | New user | none: shows onboarding and the first-visit offer |
 | Wellness | intermediate: about 24 visits, 4-day streak, specials banner |
-| Classic | advanced: about 58 visits, 9-day streak, Apple Health connected, a booking tomorrow |
-| Gold | advanced: about 92 visits, 14-day streak, WHOOP + Strava; joined 2 days ago, so it's inside the refund window |
+| Classic | advanced: about 58 visits, 9-day streak, a booking tomorrow |
+| Gold | advanced: about 92 visits, 14-day streak; joined 2 days ago, so it's inside the refund window |
 | Restore | intermediate (Studio City) |
 | Trial | intermediate: 3 days left on the trial |
 
@@ -202,10 +201,6 @@ Every account is named "Karan". Switch between them in **Account → Demo · vie
 
 - **No backend:** each browser has its own data, nothing syncs, and there's no real sign-in.
 - **No payments:** the charges list is a ledger only.
-- **Connected apps are simulated:**
-  - Apple Health needs a native iPhone app (HealthKit).
-  - Garmin, WHOOP and Strava each need a developer account and a server for OAuth.
-  - Strava gives workouts, not daily steps.
 - **"Add to phone calendar"** downloads an .ics file. Fully automatic syncing needs the native app or a server feed.
 - **Screen size:** Home is sized for iPhone 12–15 (812px tall). On much shorter screens it scrolls a little.
 
@@ -213,6 +208,7 @@ Every account is named "Karan". Switch between them in **Account → Demo · vie
 
 ## 8. Gotchas (learned the hard way)
 
+- **Colors:** the app uses ARTHA's brand palette (see `docs/artha-brand-palette.md`). Token names like `moss` and `sage` are app roles, not the actual colors anymore; the comments in `tailwind.config.ts` say which brand color each one holds.
 - **New Tailwind colors:** after adding a color to `tailwind.config.ts`, **restart the dev server**, or the class won't apply.
 - **`next build` while the dev server runs:** it breaks the dev server's `.next` folder. Stop dev, run `rm -rf .next`, then restart.
 - **useEffect returns:** an effect must never return a value. Write `useEffect(() => { … }, [])`, not `useEffect(() => fn(), [])`. Otherwise you get the runtime error "destroy is not a function".
@@ -229,5 +225,5 @@ Every account is named "Karan". Switch between them in **Account → Demo · vie
 2. **Real backend:** for example Supabase, for sign-in, bookings, members and an admin view.
 3. **Stripe test mode:** for memberships, trials and drop-ins.
 4. **Admin tools:** let staff edit specials, events, the schedule, and partner-group (Nominations) pricing without code.
-5. **Native iPhone app (or Expo):** for Apple Health steps, push notifications and true calendar sync.
+5. **Native iPhone app (or Expo):** for push notifications and true calendar sync.
 6. **Streak rewards:** e.g. 5 classes earn a complimentary sauna, from the vault's Software Notes.

@@ -31,7 +31,7 @@ export function StreakCard() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="flex items-center gap-1.5 font-serif text-3xl leading-none">
-            <Flame size={22} className="text-clay-soft" />
+            <Flame size={22} className="text-copper" />
             {s.currentStreak}-day streak
           </p>
           <p className="mt-1 text-xs opacity-80">{hint}</p>

@@ -70,16 +70,6 @@ The full trial and membership cards are on Account. Booking is in the Book tab.
 - Only completed visits count. Cancelled bookings and future bookings don't.
 - Works the same for Wellness accounts and members. Every account also gets a **Visit history** list: date, service, location, therapist or instructor, and what was paid. Wellness accounts see what they've saved with specials and offers, and their total spent; members see what they've saved with their membership.
 
-## Connected apps and steps (lib/devices.ts)
-- **Account → Connected apps:** Apple Health, Garmin Connect, WHOOP and Strava. Connecting shows a read-only consent sheet. Tap Connected to disconnect.
-- **Steps** show in Stats (today vs a 10,000 goal, the daily average over the last 6 days, a 7-day bar chart) and on the Account stats panel.
-- **Which app counts:** with several apps connected, steps come from one in this order: Apple Health, Garmin, WHOOP, Strava. That way the same walk is never counted twice.
-- **Demo only:** connections and step counts are simulated. Real connections need:
-  - **Apple Health:** a native iPhone app (HealthKit). It has no web API.
-  - **Garmin, WHOOP, Strava:** a developer account with each, plus a server for their sign-in.
-  - **Strava:** it shares workouts, not all-day steps, so steps from Strava would be estimated from walks and runs.
-- The demo Classic account has Apple Health connected. The demo Gold account has WHOOP and Strava, so its steps come from WHOOP.
-
 ## Therapists (lib/therapists.ts)
 - Treatments → **Meet your therapists**: Christian, Tiffany and Victor, with specialties and a short bio. Each has "Book … with {name}" buttons that open only that therapist's times. Bios are placeholders to replace.
 - Treatment times are assigned to the therapists who do that treatment.

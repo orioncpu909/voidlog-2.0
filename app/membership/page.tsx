@@ -11,7 +11,6 @@ import { PriceList } from "@/components/PriceList";
 import { NoticeBanner, TrialCard } from "@/components/TrialCard";
 import { MembershipCard } from "@/components/MembershipCard";
 import { StatsOverview } from "@/components/StatsOverview";
-import { ConnectedApps } from "@/components/ConnectedApps";
 import { Button, Sheet } from "@/components/Sheet";
 
 export default function AccountPage() {
@@ -46,7 +45,6 @@ export default function AccountPage() {
       <MembershipCard />
 
       <StatsOverview />
-      <ConnectedApps />
 
       <section className="space-y-2">
         <h2 className="font-serif text-2xl">Your prices at {location.short}</h2>

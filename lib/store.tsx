@@ -11,7 +11,6 @@ import { CancelTerms, canUseCredit, cancelTerms } from "./policy";
 import { TRIAL_BECOMES, firstMonthCharge, trialEndsAt } from "./trial";
 import { endOfMonth, inRefundWindow } from "./membership";
 import { money } from "./format";
-import type { ProviderId } from "./devices";
 
 export interface Member {
   id: string;
@@ -27,7 +26,6 @@ export interface Member {
   trialBecomes?: TierId; // membership the trial turns into; Classic when not chosen
   notice?: string; // one-time message shown on Home (e.g. trial ended)
   dismissedPromos?: string[]; // specials whose Home banner this account closed
-  connections?: ProviderId[]; // fitness apps connected for step tracking
   firstVisitUsed?: boolean; // the 50%-off first appointment has been used
   memberSince?: string; // ISO start of the current paid membership
   membershipEndsAt?: string; // set when a paid membership is cancelled after the refund window
@@ -83,9 +81,9 @@ function seedMembers(): Member[] {
   return [
     { id: "m-new", name: "Karan", tier: "wellness", home: "weho", credits: 0, onboarded: false },
     { id: "m-wellness", name: "Karan", tier: "wellness", home: "weho", credits: 0, onboarded: true, trialUsed: true, firstVisitUsed: true },
-    { id: "m-classic", name: "Karan", tier: "classic", home: "weho", credits: 4, onboarded: true, firstVisitUsed: true, memberSince: daysAgo(20), connections: ["apple-health"] },
+    { id: "m-classic", name: "Karan", tier: "classic", home: "weho", credits: 4, onboarded: true, firstVisitUsed: true, memberSince: daysAgo(20) },
     // Joined 2 days ago, so still inside the 5-day refund window.
-    { id: "m-gold", name: "Karan", tier: "gold", home: "weho", credits: 5, onboarded: true, firstVisitUsed: true, memberSince: daysAgo(2), connections: ["whoop", "strava"] },
+    { id: "m-gold", name: "Karan", tier: "gold", home: "weho", credits: 5, onboarded: true, firstVisitUsed: true, memberSince: daysAgo(2) },
     { id: "m-restore", name: "Karan", tier: "restore", home: "scity", credits: 4, onboarded: true, firstVisitUsed: true, memberSince: daysAgo(40) },
     {
       id: "m-trial",
@@ -349,8 +347,6 @@ interface Store {
   endTrialNow: () => void; // demo only: jump to the end of the trial
   dismissNotice: () => void;
   dismissPromos: (ids: string[]) => void;
-  connectApp: (id: ProviderId) => void;
-  disconnectApp: (id: ProviderId) => void;
   setLocation: (loc: LocationId) => void;
   toggleRsvp: (eventId: string) => void;
   finishOnboarding: () => void;
@@ -538,8 +534,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       endTrialNow: () =>
         update((s) => (member.tier !== "trial" ? s : applyScheduledChanges({ ...s, members: patchMember(s, { trialEndsAt: new Date(Date.now() - 1000).toISOString() }) }))),
       dismissNotice: () => update((s) => ({ ...s, members: patchMember(s, { notice: undefined }) })),
-      connectApp: (id) => update((s) => ({ ...s, members: patchMember(s, { connections: [...new Set([...(member.connections ?? []), id])] }) })),
-      disconnectApp: (id) => update((s) => ({ ...s, members: patchMember(s, { connections: (member.connections ?? []).filter((x) => x !== id) }) })),
       dismissPromos: (ids) => update((s) => ({ ...s, members: patchMember(s, { dismissedPromos: [...new Set([...(member.dismissedPromos ?? []), ...ids])] }) })),
       setLocation: (loc) => update((s) => ({ ...s, members: patchMember(s, { home: loc }) })),
       toggleRsvp: (eventId) =>

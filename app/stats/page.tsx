@@ -8,7 +8,6 @@ import { LOCATIONS, SERVICES, TIERS } from "@/lib/data";
 import { useStore } from "@/lib/store";
 import { computeStats } from "@/lib/stats";
 import { money, shortDate } from "@/lib/format";
-import { StepsCard } from "@/components/StepsCard";
 
 export default function StatsPage() {
   const { member, bookings } = useStore();
@@ -24,7 +23,6 @@ export default function StatsPage() {
     return (
       <div className="space-y-5">
         <Header />
-        <StepsCard />
         <div className="rounded-3xl border border-dashed border-line p-8 text-center text-sm text-muted">
           <p>Your stats will show up here after your first visit.</p>
           <Link href="/book" className="mt-3 inline-block rounded-full bg-moss px-5 py-2 text-shell">
@@ -56,8 +54,6 @@ export default function StatsPage() {
           </div>
         ))}
       </section>
-
-      <StepsCard />
 
       <section className="rounded-3xl border border-line bg-shell p-5">
         <div className="flex items-baseline justify-between">

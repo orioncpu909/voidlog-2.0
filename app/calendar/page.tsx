@@ -90,7 +90,7 @@ function CalendarView() {
                 )}
               >
                 {day}
-                {has && <span className={clsx("absolute bottom-1 h-1.5 w-1.5 rounded-full", isSel ? "bg-shell" : "bg-sage")} />}
+                {has && <span className={clsx("absolute bottom-1 h-1.5 w-1.5 rounded-full", isSel ? "bg-shell" : "bg-sage-deep")} />}
               </button>
             );
           })}
@@ -139,7 +139,7 @@ function CalendarView() {
                     ) : (
                       <span>{b.price === 0 ? "Included" : money(b.price)}</span>
                     )}
-                    {b.firstVisit && <p className="text-[11px] text-sage">First visit 50% off</p>}
+                    {b.firstVisit && <p className="text-[11px] text-sage-deep">First visit 50% off</p>}
                   </div>
                 </div>
                 {!isPast && (

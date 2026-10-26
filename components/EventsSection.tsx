@@ -179,8 +179,8 @@ function TicketPanel({ event }: { event: ArthaEvent }) {
 
 // Each location gets its own dot color so events are easy to tell apart.
 const HOST_STYLE: Record<LocationId, string> = {
-  weho: "bg-ocean",
-  scity: "bg-walnut",
+  weho: "bg-moss",
+  scity: "bg-copper",
 };
 
 function HostTag({ host }: { host: LocationId }) {

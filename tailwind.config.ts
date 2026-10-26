@@ -5,16 +5,19 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        sand: "#F4EEE4",
-        shell: "#FBF8F3",
-        line: "#E5DCCD",
-        ink: "#2A2925",
-        muted: "#857D70",
-        clay: { DEFAULT: "#B0603F", soft: "#F1E1D6" },
-        moss: { DEFAULT: "#2F4A3A", soft: "#E1E8DF" },
-        sage: "#4A7356", // specials
-        ocean: "#2C4A57",
-        walnut: "#5B4535",
+        // ARTHA brand palette, from artha.la (see docs/artha-brand-palette.md). Token names are
+        // the app's roles; the comments give the brand color behind each one.
+        sand: "#EEEAE0", // page background: a light tint of ARTHA sand #C6BC9B
+        shell: "#FAF8F3", // cards
+        line: "#DDD6C4", // borders, sand-toned
+        ink: "#2F2E2E", // ARTHA charcoal text
+        muted: "#6E685B", // secondary text, warm gray
+        clay: { DEFAULT: "#9F2747", soft: "#F3E4E6" }, // warnings and credits: ARTHA burgundy
+        moss: { DEFAULT: "#5C4733", soft: "#E7E2D6" }, // primary: mid-brown, lighter than ARTHA's near-black so it stands out
+        sage: { DEFAULT: "#C9A44C", deep: "#7A5C12" }, // specials: gold (dark text on it); deep = gold text on light backgrounds
+        copper: "#D68D51", // ARTHA copper, accents on dark only (fails contrast with white text)
+        ocean: "#322F27", // Therapies: ARTHA brown-black
+        walnut: "#635E4E", // Treatments: ARTHA olive-taupe
       },
       fontFamily: {
         serif: ["var(--font-serif)", "Georgia", "serif"],

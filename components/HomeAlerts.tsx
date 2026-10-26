@@ -15,7 +15,7 @@ import { TrialCancelSheet } from "./TrialCard";
 // (trial choices, membership details) live on the Account tab.
 
 function Row({ icon: Icon, tone, children, action }: { icon: typeof Info; tone: "dark" | "sage" | "soft"; children: React.ReactNode; action?: React.ReactNode }) {
-  const tones = { dark: "bg-ink text-shell", sage: "bg-sage text-shell", soft: "bg-moss-soft text-ink" };
+  const tones = { dark: "bg-ink text-shell", sage: "bg-sage text-ink", soft: "bg-moss-soft text-ink" };
   return (
     <div className={`flex items-center gap-2.5 rounded-2xl px-3 py-2 text-xs ${tones[tone]}`}>
       <Icon size={15} className="shrink-0 opacity-80" />

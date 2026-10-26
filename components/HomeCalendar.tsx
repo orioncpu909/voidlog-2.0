@@ -57,7 +57,7 @@ export function HomeCalendar() {
                 <span
                   className={clsx(
                     "absolute -bottom-0.5 h-1 w-1 rounded-full",
-                    upcomingDays.has(key) ? (isToday ? "bg-shell" : "bg-sage") : "bg-muted/50",
+                    upcomingDays.has(key) ? (isToday ? "bg-shell" : "bg-sage-deep") : "bg-muted/50",
                   )}
                 />
               )}

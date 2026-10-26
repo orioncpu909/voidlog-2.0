@@ -50,7 +50,7 @@ export function MembershipCard({ statusOnly = false }: { statusOnly?: boolean })
             {member.memberSince && `Member since ${shortDate(dateKey(new Date(member.memberSince)))} · `}Renews {shortDate(dateKey(renews))}
           </p>
           {refundWindowOpen && member.memberSince && (
-            <p className="mt-2 text-sage">
+            <p className="mt-2 text-sage-deep">
               You&apos;re in your first {REFUND_WINDOW_DAYS} days. Cancel before {momentLabel(refundWindowEnds(member.memberSince))} for a full refund.
             </p>
           )}

@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Flame, Footprints, Heart, Timer, Trophy } from "lucide-react";
+import { Flame, Heart, Timer, Trophy } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { computeStats } from "@/lib/stats";
-import { useSteps } from "./StepsCard";
 
 // Compact stats for the Account tab: the headline numbers and top services, with a link to the
 // full dashboard.
@@ -45,7 +44,6 @@ export function StatsOverview() {
           </div>
         ))}
       </div>
-      <StepsLine />
       <ul className="mt-4 space-y-2">
         {top.map((x) => (
           <li key={x.serviceId} className="text-sm">
@@ -63,23 +61,5 @@ export function StatsOverview() {
         See all stats and visit history →
       </Link>
     </section>
-  );
-}
-
-function StepsLine() {
-  const steps = useSteps();
-  return (
-    <p className="mt-3 flex items-center gap-1.5 text-xs text-muted">
-      <Footprints size={13} className="text-moss" />
-      {steps ? (
-        <>
-          <span className="font-medium text-ink">{steps.today.toLocaleString("en-US")}</span> steps today · {steps.average.toLocaleString("en-US")} daily avg · {steps.source.name}
-        </>
-      ) : (
-        <a href="#connected-apps" className="text-moss underline-offset-2 hover:underline">
-          Connect an app to track steps
-        </a>
-      )}
-    </p>
   );
 }

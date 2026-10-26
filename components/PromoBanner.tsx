@@ -37,9 +37,9 @@ export function PromoBanner() {
 
   return (
     <div className="relative">
-    <Link href="/book" className="relative block overflow-hidden rounded-3xl bg-sage p-5 pr-12 text-shell shadow-sm">
+    <Link href="/book" className="relative block overflow-hidden rounded-3xl bg-sage p-5 pr-12 text-ink shadow-sm">
       <Sparkles size={110} strokeWidth={1} className="pointer-events-none absolute -right-4 -top-4 opacity-15" aria-hidden />
-      <p className="relative inline-flex items-center rounded-full bg-shell/20 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-widest">
+      <p className="relative inline-flex items-center rounded-full bg-ink/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-widest">
         Wellness Account specials
       </p>
       <div className="relative mt-3 flex flex-wrap gap-x-7 gap-y-3">
@@ -59,7 +59,7 @@ export function PromoBanner() {
     <button
       onClick={() => dismissPromos(promos.map((p) => p.id))}
       aria-label="Hide specials"
-      className="absolute right-3 top-3 rounded-full bg-shell/20 p-1.5 text-shell hover:bg-shell/30"
+      className="absolute right-3 top-3 rounded-full bg-ink/10 p-1.5 text-ink hover:bg-ink/20"
     >
       <X size={16} />
     </button>
