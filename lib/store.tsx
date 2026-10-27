@@ -4,7 +4,7 @@
 // No real payments; charges are a ledger of what the card on file would be billed.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { EVENT_TICKET_PRICE, LocationId, Quote, ServiceId, TIERS, TierId, priceFor } from "./data";
+import { EVENT_TICKET_PRICE, LocationId, Quote, ServiceId, TIERS, TierId, bookableAt, priceFor } from "./data";
 import { Session, dateKey, eventSessions, sessionStart, slotsFor } from "./schedule";
 import { EVENTS } from "./events";
 import { CancelTerms, canUseCredit, cancelTerms } from "./policy";
@@ -26,7 +26,7 @@ export interface Member {
   trialBecomes?: TierId; // membership the trial turns into; Classic when not chosen
   notice?: string; // one-time message shown on Home (e.g. trial ended)
   dismissedPromos?: string[]; // specials whose Home banner this account closed
-  firstVisitUsed?: boolean; // the 50%-off first appointment has been used
+  firstVisitUsed?: boolean; // the first-visit price has been used
   memberSince?: string; // ISO start of the current paid membership
   membershipEndsAt?: string; // set when a paid membership is cancelled after the refund window
 }
@@ -408,8 +408,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const book: Store["book"] = (session, useCredit) => {
       const start = sessionStart(session.date, session.time);
       if (start.getTime() <= Date.now()) return { ok: false, error: "This time has already started. Please pick a later time." };
-      if (tier.lockedToHome && session.location !== member.home) {
-        return { ok: false, error: "Your membership works only at the location where you joined." };
+      if (!bookableAt(tier, session.serviceId, session.location, member.home)) {
+        return { ok: false, error: "With a membership, therapies and treatments are at your home location. Classes work at both." };
       }
       if (myBookingFor(session.id)) return { ok: false, error: "You're already booked for this time." };
       if (spotsLeft(session) <= 0) return { ok: false, error: "This time just filled up. Please pick another." };
@@ -432,7 +432,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ...s,
         members: credit || firstVisit ? patchMember(s, { ...(credit && { credits: member.credits - 1 }), ...(firstVisit && { firstVisitUsed: true }) }) : s.members,
         bookings: [...s.bookings, booking],
-        charges: price > 0 ? [...s.charges, charge(`${session.title} · ${session.date} ${session.time}${firstVisit ? " (first visit 50% off)" : ""}`, price)] : s.charges,
+        charges: price > 0 ? [...s.charges, charge(`${session.title} · ${session.date} ${session.time}${firstVisit ? " (first visit price)" : ""}`, price)] : s.charges,
       }));
       return { ok: true, booking };
     };

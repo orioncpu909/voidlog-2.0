@@ -45,16 +45,16 @@ export function PromoBanner() {
       <div className="relative mt-3 flex flex-wrap gap-x-7 gap-y-3">
         {items.map(({ label, quote, ends }) => (
           <div key={label}>
-            <p className="text-xs opacity-80">{label}</p>
+            <p className="text-xs">{label}</p>
             <p className="flex items-baseline gap-1.5">
               <span className="font-serif text-4xl leading-none">{money(quote.price)}</span>
-              <span className="text-sm line-through opacity-60">{money(quote.regular)}</span>
+              <span className="text-sm line-through">{money(quote.regular)}</span>
             </p>
-            <p className="mt-0.5 text-[11px] opacity-80">until {shortDate(ends)}</p>
+            <p className="mt-0.5 text-[11px]">until {shortDate(ends)}</p>
           </div>
         ))}
       </div>
-      <p className="relative mt-3 text-sm opacity-90">At West LA and Studio City · Book now →</p>
+      <p className="relative mt-3 text-sm font-medium">At West LA and Studio City · Book now →</p>
     </Link>
     <button
       onClick={() => dismissPromos(promos.map((p) => p.id))}

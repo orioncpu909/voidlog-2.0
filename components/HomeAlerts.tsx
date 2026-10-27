@@ -15,10 +15,10 @@ import { TrialCancelSheet } from "./TrialCard";
 // (trial choices, membership details) live on the Account tab.
 
 function Row({ icon: Icon, tone, children, action }: { icon: typeof Info; tone: "dark" | "sage" | "soft"; children: React.ReactNode; action?: React.ReactNode }) {
-  const tones = { dark: "bg-ink text-shell", sage: "bg-sage text-ink", soft: "bg-moss-soft text-ink" };
+  const tones = { dark: "bg-line text-shell", sage: "bg-sage text-ink", soft: "bg-moss-soft text-shell" };
   return (
     <div className={`flex items-center gap-2.5 rounded-2xl px-3 py-2 text-xs ${tones[tone]}`}>
-      <Icon size={15} className="shrink-0 opacity-80" />
+      <Icon size={15} className="shrink-0" />
       <div className="min-w-0 flex-1 leading-snug">{children}</div>
       {action}
     </div>
@@ -40,7 +40,7 @@ export function HomeAlerts() {
           icon={Info}
           tone="dark"
           action={
-            <button onClick={dismissNotice} aria-label="Dismiss" className="shrink-0 opacity-70">
+            <button onClick={dismissNotice} aria-label="Dismiss" className="shrink-0">
               <X size={14} />
             </button>
           }
@@ -59,7 +59,7 @@ export function HomeAlerts() {
                 Keep trial
               </button>
             ) : (
-              <button onClick={() => setCancelling(true)} className="shrink-0 rounded-full border border-clay/40 bg-shell px-2.5 py-1 font-medium text-clay">
+              <button onClick={() => setCancelling(true)} className="shrink-0 rounded-full border border-clay/40 bg-card px-2.5 py-1 font-medium text-clay">
                 Cancel
               </button>
             )
@@ -98,7 +98,7 @@ export function HomeAlerts() {
           icon={Sparkles}
           tone="sage"
           action={
-            <button onClick={() => dismissPromos(promos.map((p) => p.id))} aria-label="Hide specials" className="shrink-0 opacity-80">
+            <button onClick={() => dismissPromos(promos.map((p) => p.id))} aria-label="Hide specials" className="shrink-0">
               <X size={14} />
             </button>
           }

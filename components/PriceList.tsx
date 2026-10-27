@@ -18,7 +18,7 @@ const ROWS: { group: PriceGroup; label: string; sample: ServiceId }[] = [
 export function PriceList({ tier, location }: { tier: TierId; location: LocationId }) {
   const today = dateKey(new Date());
   return (
-    <div className="divide-y divide-line rounded-2xl border border-line bg-shell">
+    <div className="divide-y divide-line rounded-2xl border border-line bg-card">
       {ROWS.map((r) => (
         <div key={r.group} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
           <span>{r.label}</span>

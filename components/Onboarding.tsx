@@ -42,10 +42,10 @@ export function Onboarding() {
 
         {step === "welcome" && (
           <div className="space-y-4">
-            <div className="rounded-3xl bg-moss p-5 text-shell">
+            <div className="rounded-3xl border border-line bg-card p-5">
               <h1 className="font-serif text-4xl leading-tight">Welcome, {member.name.split(" ")[0]}</h1>
-              <p className="mt-2 text-sm opacity-85">Your wellness sanctuary in West LA and Studio City.</p>
-              <p className="mt-3 border-t border-shell/20 pt-3 text-xs italic opacity-75">
+              <p className="mt-2 text-sm text-muted">Your wellness sanctuary in West LA and Studio City.</p>
+              <p className="mt-3 border-t border-line pt-3 text-xs italic text-muted">
                 Artha is Sanskrit for &ldquo;the true meaning of life.&rdquo;
               </p>
             </div>
@@ -56,7 +56,7 @@ export function Onboarding() {
                 { icon: Flame, title: "Sweat", text: "Infrared sauna, red light" },
                 { icon: Snowflake, title: "Freeze", text: "Cryo, cold plunge" },
               ].map(({ icon: Icon, title, text }) => (
-                <div key={title} className="rounded-2xl border border-line bg-shell p-3">
+                <div key={title} className="rounded-2xl border border-line bg-card p-3">
                   <Icon size={18} className="text-moss" />
                   <p className="mt-1.5 font-serif text-lg leading-none">{title}</p>
                   <p className="mt-1 text-[11px] leading-snug text-muted">{text}</p>
@@ -65,7 +65,7 @@ export function Onboarding() {
             </div>
             <p className="text-center text-xs text-muted">Try the ritual: a class, then heat, then cold.</p>
 
-            <div className="rounded-2xl border border-line bg-shell p-4">
+            <div className="rounded-2xl border border-line bg-card p-4">
               <p className="text-xs uppercase tracking-widest text-muted">Booking takes three taps</p>
               <ol className="mt-3 space-y-2.5 text-sm">
                 {[
@@ -74,7 +74,7 @@ export function Onboarding() {
                   ["Confirm", "with the free-cancellation time shown up front"],
                 ].map(([title, text], n) => (
                   <li key={title} className="flex gap-3">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-moss text-xs text-shell">{n + 1}</span>
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sage text-xs text-ink">{n + 1}</span>
                     <p>
                       <span className="font-medium">{title}</span> <span className="text-muted">· {text}</span>
                     </p>
@@ -95,7 +95,7 @@ export function Onboarding() {
                   key={id}
                   onClick={() => setLocation(id)}
                   className={clsx(
-                    "flex w-full items-center gap-4 rounded-2xl border bg-shell p-4 text-left",
+                    "flex w-full items-center gap-4 rounded-2xl border bg-card p-4 text-left",
                     member.home === id ? "border-moss ring-1 ring-moss" : "border-line",
                   )}
                 >
@@ -117,25 +117,21 @@ export function Onboarding() {
               <h1 className="font-serif text-4xl leading-tight">{tier.isMember ? `Your ${tier.name} membership` : "Your free Wellness Account"}</h1>
               <p className="mt-3 text-muted">
                 {tier.isMember
-                  ? `Valid at ${LOCATIONS[member.home].short}. Here's what's included and what you pay.`
+                  ? `Classes at both locations. Therapies and treatments at ${LOCATIONS[member.home].short}, your home location. Here's what's included and what you pay.`
                   : "No monthly fee."}
               </p>
             </div>
 
-            {!member.firstVisitUsed && (
-              <p className="rounded-2xl bg-sage p-4 text-sm font-medium text-ink">Welcome offer: 50% off your first class or therapy, or $125 for your first treatment or HBOT.</p>
-            )}
-
             {promos.length > 0 && !tier.isMember && (
               <div className="rounded-2xl bg-sage p-4 text-sm text-ink">
                 <p className="font-medium">Specials right now, at both locations</p>
-                <ul className="mt-1 space-y-0.5 opacity-90">
+                <ul className="mt-1 space-y-0.5">
                   {promos.flatMap((p) =>
                     (Object.keys(p.prices) as PriceGroup[]).map((g) => {
                       const q = priceFor(member.tier, PROMO_LABELS[g].sample, member.home, today);
                       return (
                         <li key={g}>
-                          {PROMO_LABELS[g].label} {money(q.price)} <span className="line-through opacity-70">{money(q.regular)}</span> · until {shortDate(p.ends)}
+                          {PROMO_LABELS[g].label} {money(q.price)} <span className="line-through">{money(q.regular)}</span> · until {shortDate(p.ends)}
                         </li>
                       );
                     }),

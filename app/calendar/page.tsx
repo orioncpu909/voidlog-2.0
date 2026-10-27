@@ -58,13 +58,13 @@ function CalendarView() {
     <div className="space-y-5">
       <h1 className="font-serif text-3xl">Calendar</h1>
 
-      <section className="rounded-3xl border border-line bg-shell p-4">
+      <section className="rounded-3xl border border-line bg-card p-4">
         <div className="mb-3 flex items-center justify-between">
-          <button onClick={() => shiftMonth(-1)} aria-label="Previous month" className="rounded-full p-1.5 hover:bg-sand">
+          <button onClick={() => shiftMonth(-1)} aria-label="Previous month" className="rounded-full p-1.5 hover:bg-line">
             <ChevronLeft size={18} />
           </button>
           <p className="font-serif text-xl">{month.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</p>
-          <button onClick={() => shiftMonth(1)} aria-label="Next month" className="rounded-full p-1.5 hover:bg-sand">
+          <button onClick={() => shiftMonth(1)} aria-label="Next month" className="rounded-full p-1.5 hover:bg-line">
             <ChevronRight size={18} />
           </button>
         </div>
@@ -85,12 +85,12 @@ function CalendarView() {
                 onClick={() => setSelected(isSel ? null : key)}
                 className={clsx(
                   "relative flex h-10 flex-col items-center justify-center rounded-xl text-sm",
-                  isSel ? "bg-moss text-shell" : key === today ? "ring-1 ring-moss" : "hover:bg-sand",
+                  isSel ? "bg-sage text-ink" : key === today ? "ring-1 ring-sage" : "hover:bg-line",
                   key < today && !isSel && "text-muted",
                 )}
               >
                 {day}
-                {has && <span className={clsx("absolute bottom-1 h-1.5 w-1.5 rounded-full", isSel ? "bg-shell" : "bg-sage-deep")} />}
+                {has && <span className={clsx("absolute bottom-1 h-1.5 w-1.5 rounded-full", isSel ? "bg-ink" : "bg-sage-deep")} />}
               </button>
             );
           })}
@@ -109,7 +109,7 @@ function CalendarView() {
       {list.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-muted">
           <p>{selected ? "Nothing booked this day." : "You have no upcoming appointments."}</p>
-          <Link href="/book" className="mt-3 inline-block rounded-full bg-moss px-5 py-2 text-shell">
+          <Link href="/book" className="mt-3 inline-block rounded-full bg-sage px-5 py-2 text-ink">
             Book now
           </Link>
         </div>
@@ -119,7 +119,7 @@ function CalendarView() {
             const t = termsForBooking(b);
             const isPast = start(b) <= now;
             return (
-              <div key={b.id} className="rounded-2xl border border-line bg-shell p-4">
+              <div key={b.id} className="rounded-2xl border border-line bg-card p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="font-serif text-xl leading-tight">{b.title}</p>
@@ -139,7 +139,7 @@ function CalendarView() {
                     ) : (
                       <span>{b.price === 0 ? "Included" : money(b.price)}</span>
                     )}
-                    {b.firstVisit && <p className="text-[11px] text-sage-deep">First visit 50% off</p>}
+                    {b.firstVisit && <p className="text-[11px] text-sage-deep">First visit price</p>}
                   </div>
                 </div>
                 {!isPast && (
@@ -168,7 +168,7 @@ function CalendarView() {
           </button>
           {showPast &&
             past.map((b) => (
-              <div key={b.id} className="flex items-center justify-between rounded-2xl border border-line bg-shell/60 px-4 py-3 text-sm">
+              <div key={b.id} className="flex items-center justify-between rounded-2xl border border-line bg-card/60 px-4 py-3 text-sm">
                 <div className="min-w-0">
                   <p className="truncate">{b.title}</p>
                   <p className="text-xs text-muted">

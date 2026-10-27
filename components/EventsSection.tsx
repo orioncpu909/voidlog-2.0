@@ -39,7 +39,7 @@ export function EventsSection() {
             <button
               key={e.id}
               onClick={() => setOpen(e)}
-              className="flex w-52 shrink-0 snap-start gap-2.5 rounded-2xl border border-line bg-shell p-3 text-left hover:border-muted"
+              className="flex w-52 shrink-0 snap-start gap-2.5 rounded-2xl border border-line bg-card p-3 text-left hover:border-muted"
             >
               <div className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-xl bg-moss-soft text-moss">
                 <span className="text-[9px] uppercase leading-none">{d.toLocaleDateString("en-US", { month: "short" })}</span>
@@ -126,7 +126,7 @@ function TicketPanel({ event }: { event: ArthaEvent }) {
           <Ticket size={16} /> You have a ticket
         </p>
         <p className="text-center text-xs text-muted">{policyLine(termsForBooking(mine), false)}</p>
-        <Link href="/calendar" className="block w-full rounded-full border border-line py-3 text-center text-sm hover:bg-sand">
+        <Link href="/calendar" className="block w-full rounded-full border border-line py-3 text-center text-sm hover:bg-line">
           See it in your Calendar
         </Link>
       </div>

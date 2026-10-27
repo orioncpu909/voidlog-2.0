@@ -26,7 +26,7 @@ export function HomeCalendar() {
   const next = upcoming[0];
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col rounded-3xl border border-line bg-shell px-4 pb-3 pt-3">
+    <section className="flex min-h-0 flex-1 flex-col rounded-3xl border border-line bg-card px-4 pb-3 pt-3">
       <div className="flex items-baseline justify-between">
         <h2 className="font-serif text-xl">{now.toLocaleDateString("en-US", { month: "long" })}</h2>
         <Link href="/calendar" className="text-xs text-moss underline-offset-2 hover:underline">
@@ -49,7 +49,7 @@ export function HomeCalendar() {
               href={`/calendar?day=${key}`}
               className={clsx(
                 "relative m-auto flex aspect-square h-[min(1.75rem,100%)] items-center justify-center rounded-full text-xs",
-                isToday ? "bg-moss text-shell" : key < today ? "text-muted" : "",
+                isToday ? "bg-sage text-ink" : key < today ? "text-muted" : "",
               )}
             >
               {day}
@@ -57,7 +57,7 @@ export function HomeCalendar() {
                 <span
                   className={clsx(
                     "absolute -bottom-0.5 h-1 w-1 rounded-full",
-                    upcomingDays.has(key) ? (isToday ? "bg-shell" : "bg-sage-deep") : "bg-muted/50",
+                    upcomingDays.has(key) ? (isToday ? "bg-ink" : "bg-sage-deep") : "bg-muted/50",
                   )}
                 />
               )}

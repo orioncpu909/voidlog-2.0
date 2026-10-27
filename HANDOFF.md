@@ -58,13 +58,14 @@ Open a Claude Code session in `/Users/miguelgarcia/Cursor/artha-app` and start w
 
 ```
 app/
-  page.tsx              Home: streak, month calendar, events (fits one screen)
-  book/page.tsx         Booking flow: category → service → time → review → confirm sheet → done
+  page.tsx              Home: streak, events, month calendar (fits one screen)
+  book/page.tsx         Booking, modeled on the Open app: Classes / Therapies / Treatments
+                        tabs, date strip, day-grouped list → full-screen page → Reserve → confirm sheet
   calendar/page.tsx     Month calendar + bookings, cancel, add to phone calendar (?day=YYYY-MM-DD)
   stats/page.tsx        Full stats dashboard + visit history
   membership/page.tsx   "Account" tab: plan, trial/membership cards, stats panel,
                         prices, change plan, policies, contact, charges, demo controls
-components/             UI pieces (HomeAlerts, StreakCard, HomeCalendar, CategoryTiles, TrialCard,
+components/             UI pieces (HomeAlerts, StreakCard, HomeCalendar, TrialCard,
                         MembershipCard, StatsOverview, EventsSection, …)
 lib/
   data.ts         Locations, services, tiers, prices, promos, first-visit rules, priceFor()
@@ -76,7 +77,7 @@ lib/
   stats.ts        Streaks and stats from completed visits
   events.ts       Events (free RSVP or $10 ticketed)
   therapists.ts   Christian, Tiffany, Victor (bios are placeholders)
-  images.ts       Photos behind the Book tiles (Unsplash, swappable)
+  images.ts       Photos for Book's therapies and treatments (Unsplash, swappable; classes have none)
   ics.ts          "Add to phone calendar" .ics file
 docs/artha-public-info.md   Everything collected from artha.la, with sources
 docs/artha-brand-palette.md ARTHA's colors from artha.la and how the app uses them
@@ -102,7 +103,7 @@ README.md                   Rules and where to change them
 - **Gold:** 1 treatment credit a month. Credits cover treatments and HBOT.
 - **Restore:** 1 massage credit a month (per artha.la). Its included class, cryo and sauna are **not modeled yet**.
 - **Welcome credits:** members get 4.
-- **Location:** members can only book at their own location. Wellness accounts can book at both.
+- **Location:** members take classes and events at both locations; their therapies and treatments are at their home location only (`bookableAt` in `lib/data.ts`, enforced in `book()`). Wellness accounts can book everything at both.
 
 ### Specials (promos)
 
@@ -115,11 +116,12 @@ README.md                   Rules and where to change them
 
 - **Discount:** classes and therapies are **50% off**. HBOT and treatments drop to **$125** instead.
 - **Doesn't apply:** never on special prices or event tickets.
-- **On Home:** not advertised. People see it once they're booking.
+- **Shown only at booking:** not advertised on Home or in onboarding, and never as "50%". Booking shows the special price, the regular price crossed out, and a "First visit price" tag.
 - **Cancelling:** a free cancel gives the offer back; a late cancel uses it up.
 
 ### Booking and cancelling
 
+- **Flow (like the Open app):** pick a tab, scroll the days (or tap a date), tap a class or time to open its page, then Reserve.
 - **Confirm step:** every booking ends with a confirm sheet. It shows the price and the policy as one sentence, e.g. "To avoid a no-show charge of $9, cancel by tomorrow at 7:30 AM."
 - **Free-cancel window:** 3 hours before classes and therapies, 12 hours before treatments and contrast.
 - **No-show charge = what the service costs right now:**
@@ -208,6 +210,7 @@ Every account is named "Karan". Switch between them in **Account → Demo · vie
 
 ## 8. Gotchas (learned the hard way)
 
+- **One light theme everywhere:** cream pages, white cards, black text, gold buttons and selected items, earthy-brown accents. Token names are roles, not colors: `sand` is the cream page background, `card` the white card color, `shell` the black main text. On gold, use `text-ink`.
 - **Colors:** the app uses ARTHA's brand palette (see `docs/artha-brand-palette.md`). Token names like `moss` and `sage` are app roles, not the actual colors anymore; the comments in `tailwind.config.ts` say which brand color each one holds.
 - **New Tailwind colors:** after adding a color to `tailwind.config.ts`, **restart the dev server**, or the class won't apply.
 - **`next build` while the dev server runs:** it breaks the dev server's `.next` folder. Stop dev, run `rm -rf .next`, then restart.

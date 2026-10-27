@@ -27,16 +27,16 @@ export function StreakCard() {
           : "Visit today to start a new streak.";
 
   return (
-    <Link href="/stats" className="block shrink-0 rounded-3xl bg-moss p-4 text-shell">
+    <Link href="/stats" className="block shrink-0 rounded-3xl border border-line bg-card p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="flex items-center gap-1.5 font-serif text-3xl leading-none">
-            <Flame size={22} className="text-copper" />
+          <p className="stat-num flex items-center gap-1.5 text-[28px] leading-none">
+            <Flame size={22} className="text-sage-light" />
             {s.currentStreak}-day streak
           </p>
-          <p className="mt-1 text-xs opacity-80">{hint}</p>
+          <p className="mt-1 text-xs text-muted">{hint}</p>
         </div>
-        <span className="shrink-0 text-xs opacity-80">Your stats →</span>
+        <span className="shrink-0 text-xs text-moss">Your stats →</span>
       </div>
 
       <div className="mt-3 flex items-center justify-between gap-2">
@@ -46,7 +46,7 @@ export function StreakCard() {
               <span
                 className={clsx(
                   "flex h-[22px] w-[22px] items-center justify-center rounded-full text-[10px]",
-                  visited.has(d) ? "bg-shell text-moss" : "border border-shell/30 text-shell/70",
+                  visited.has(d) ? "bg-sage text-ink" : "border border-muted text-muted",
                 )}
               >
                 {sessionStart(d, "12:00").toLocaleDateString("en-US", { weekday: "narrow" })}
@@ -61,8 +61,8 @@ export function StreakCard() {
             { label: "Total", value: s.visits },
           ].map((x) => (
             <div key={x.label}>
-              <p className="font-serif text-lg leading-none">{x.value}</p>
-              <p className="text-[9px] uppercase tracking-wider opacity-70">{x.label}</p>
+              <p className="stat-num text-lg leading-none">{x.value}</p>
+              <p className="text-[9px] uppercase tracking-wider text-muted">{x.label}</p>
             </div>
           ))}
         </div>

@@ -23,8 +23,9 @@ The full trial and membership cards are on Account. Booking is in the Book tab.
 
 ## Design rules
 - **One price, always the one you pay.** Prices never sit in class titles. During a promo the regular price is crossed out next to the special rate, with the promo name and end date. With no promo, Wellness Accounts see the regular price.
-- **One booking flow for everything.** Book → Classes / Therapies / Treatments → time → review → confirm. Every screen shows the location, and the back arrow always works.
-- **No surprises at confirm.** The review screen shows "You pay today", whether a treatment credit is applied (on by default), and the exact free-cancellation deadline ("until tomorrow at 6:00 AM") plus what happens after it.
+- **One booking flow for everything, modeled on the Open app.** Book has three tabs (Classes, Therapies, Treatments), a two-week date strip, and one scrolling list grouped by day. Tap a class or time to open its full page (photo, details, your price, location, cancellation policy), then **Reserve** at the bottom. The location and your price are always on screen.
+- **Where you can book.** Wellness Accounts book anything at both locations. Members take **classes (and events) at both locations**, but their **therapies and treatments are at their home location** only (`bookableAt` in `lib/data.ts`). In Book, members get a location switch on Classes; Therapies and Treatments show their home location with a lock. A link to a therapy at the other location shows "Only at your home location" instead of Reserve.
+- **No surprises at confirm.** The class page shows "You pay today", whether a treatment credit is applied (on by default), and the exact free-cancellation deadline ("until tomorrow at 6:00 AM") plus what happens after it.
 - **First visit walkthrough.** New accounts see three screens: how booking works, which location, and "your prices", including the current promo.
 
 ## Account types (lib/data.ts)
@@ -42,9 +43,9 @@ The full trial and membership cards are on Account. Booking is in the Book tab.
   - $9 classes until Nov 1, per artha.la.
   - $10 cryo, which has no published end date. It's set to Dec 31 and marked CONFIRM.
 
-## First appointment 50% off (lib/data.ts)
+## First-visit price (lib/data.ts)
 - Every new account's first paid appointment is discounted. Classes and therapies are half off (`FIRST_VISIT_DISCOUNT`). HBOT and treatments drop to $125 instead (`FIRST_VISIT_FIXED`); members already paying $125 get no extra discount there. It never applies to special (promo) prices or to $10 event tickets.
-- Home doesn't advertise it. It shows in onboarding and on prices once someone is booking, with the normal price crossed out.
+- It's never advertised and never described as a percentage: not on Home, not in onboarding. When a new account books, the price simply shows as the special price with the normal price crossed out and a "First visit price" tag.
 - If that booking is cancelled for free, the offer comes back. A late cancel uses it up.
 
 ## Calendar (app/calendar)
@@ -71,7 +72,7 @@ The full trial and membership cards are on Account. Booking is in the Book tab.
 - Works the same for Wellness accounts and members. Every account also gets a **Visit history** list: date, service, location, therapist or instructor, and what was paid. Wellness accounts see what they've saved with specials and offers, and their total spent; members see what they've saved with their membership.
 
 ## Therapists (lib/therapists.ts)
-- Treatments → **Meet your therapists**: Christian, Tiffany and Victor, with specialties and a short bio. Each has "Book … with {name}" buttons that open only that therapist's times. Bios are placeholders to replace.
+- Treatments → **Meet your therapists**: Christian, Tiffany and Victor appear as avatars under the treatment. Tapping one shows their specialties and bio, with "See {name}'s times" to show only their times. Bios are placeholders to replace.
 - Treatment times are assigned to the therapists who do that treatment.
 
 ## Events (lib/events.ts)
@@ -98,7 +99,8 @@ The full trial and membership cards are on Account. Booking is in the Book tab.
 - Every booking goes through a final **Confirm your booking** sheet. It shows the price and the policy as one sentence, e.g. "To avoid a no-show charge of $9, cancel by tomorrow at 7:30 AM." The Calendar and the success screen use the same sentence.
 
 ## Photos
-- The Book tiles (Classes, Therapies, Treatments) show a photo of the service behind a color tint. They're free Unsplash photos set in `lib/images.ts`. Replace them with ARTHA's own photos by adding files to `/public/images` and pointing those entries at `/images/<file>`.
+- Classes show without photos: time on the left, then the class, teacher, price and spots. Each therapy and treatment has a photo. They're free Unsplash photos set in `lib/images.ts`. Replace them with ARTHA's own photos by adding files to `/public/images` and pointing those entries at `/images/<file>`.
+- Cryo starts every 5 minutes, so its list groups times by hour; tap an hour to pick the exact time.
 
 ## Where to change things
 - `lib/data.ts`: services, account types, prices and promos. Lines marked CONFIRM are assumptions.

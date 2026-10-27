@@ -25,7 +25,7 @@ export default function StatsPage() {
         <Header />
         <div className="rounded-3xl border border-dashed border-line p-8 text-center text-sm text-muted">
           <p>Your stats will show up here after your first visit.</p>
-          <Link href="/book" className="mt-3 inline-block rounded-full bg-moss px-5 py-2 text-shell">
+          <Link href="/book" className="mt-3 inline-block rounded-full bg-sage px-5 py-2 text-ink">
             Book a visit
           </Link>
         </div>
@@ -46,16 +46,16 @@ export default function StatsPage() {
 
       <section className="grid grid-cols-2 gap-2">
         {tiles.map(({ icon: Icon, label, value }) => (
-          <div key={label} className="rounded-2xl border border-line bg-shell p-4">
+          <div key={label} className="rounded-2xl border border-line bg-card p-4">
             <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-muted">
               <Icon size={13} className="text-moss" /> {label}
             </p>
-            <p className="mt-1.5 font-serif text-3xl leading-none">{value}</p>
+            <p className="stat-num mt-1.5 text-3xl leading-none">{value}</p>
           </div>
         ))}
       </section>
 
-      <section className="rounded-3xl border border-line bg-shell p-5">
+      <section className="rounded-3xl border border-line bg-card p-5">
         <div className="flex items-baseline justify-between">
           <h2 className="font-serif text-xl">Visits per week</h2>
           <p className="text-xs text-muted">{s.thisMonth} this month</p>
@@ -89,14 +89,14 @@ export default function StatsPage() {
         </div>
       </section>
 
-      <section className="rounded-3xl border border-line bg-shell p-5">
+      <section className="rounded-3xl border border-line bg-card p-5">
         <h2 className="font-serif text-xl">By service</h2>
         <ul className="mt-3 space-y-2.5">
           {s.byService.map((x) => (
             <li key={x.serviceId} className="text-sm">
               <div className="flex justify-between">
                 <span>{x.label}</span>
-                <span className="font-medium">{x.count}</span>
+                <span className="stat-num">{x.count}</span>
               </div>
               <div className="mt-1 h-2 rounded-full bg-sand">
                 <div className="h-2 rounded-full bg-moss" style={{ width: `${(x.count / maxService) * 100}%` }} />
@@ -129,7 +129,7 @@ export default function StatsPage() {
         {!TIERS[member.tier].isMember && <Favorite icon={Receipt} label="Spent on visits" value={money(s.spent)} detail={`${s.visits} visits`} />}
       </section>
 
-      <section className="rounded-3xl border border-line bg-shell p-5">
+      <section className="rounded-3xl border border-line bg-card p-5">
         <div className="flex items-baseline justify-between">
           <h2 className="font-serif text-xl">Visit history</h2>
           <p className="text-xs text-muted">{s.history.length} total</p>
@@ -173,7 +173,7 @@ function plural(n: number, one: string, many: string): string {
 function Header() {
   return (
     <div className="flex items-center gap-2">
-      <Link href="/" aria-label="Back to Home" className="-ml-2 rounded-full p-2 hover:bg-shell">
+      <Link href="/" aria-label="Back to Home" className="-ml-2 rounded-full p-2 hover:bg-card">
         <ArrowLeft size={20} />
       </Link>
       <h1 className="font-serif text-3xl">Your stats</h1>
@@ -183,7 +183,7 @@ function Header() {
 
 function Favorite({ icon: Icon, label, value, detail }: { icon: typeof Heart; label: string; value: string; detail: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-line bg-shell p-4">
+    <div className="flex items-center gap-3 rounded-2xl border border-line bg-card p-4">
       <Icon size={18} className="shrink-0 text-moss" />
       <div className="min-w-0 flex-1">
         <p className="text-[11px] uppercase tracking-widest text-muted">{label}</p>

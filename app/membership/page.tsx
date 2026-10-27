@@ -25,17 +25,17 @@ export default function AccountPage() {
     <div className="space-y-6">
       <h1 className="font-serif text-3xl">Account</h1>
 
-      <section className="rounded-3xl bg-moss p-5 text-shell">
-        <p className="text-xs uppercase tracking-widest opacity-70">{member.name}</p>
+      <section className="rounded-3xl border border-line bg-card p-5">
+        <p className="text-xs uppercase tracking-widest text-muted">{member.name}</p>
         <p className="mt-1 font-serif text-3xl">{tier.name}</p>
-        <p className="text-sm opacity-80">
+        <p className="text-sm text-muted">
           {tier.monthly ? `${money(tier.monthly)}/month · billed on the 1st` : tier.joinFee ? `${money(tier.joinFee)} for 7 days` : "Free · pay per visit"}
         </p>
-        <p className="mt-3 text-sm opacity-80">{tier.lockedToHome ? `Valid at ${location.name} only` : "Book at West LA or Studio City"}</p>
+        <p className="mt-3 text-sm text-muted">{tier.lockedToHome ? `Classes at both locations · therapies and treatments at ${location.short}` : "Book anything at West LA or Studio City"}</p>
         {tier.isMember && (
           <p className="mt-3 flex items-center gap-2 text-sm">
             <Ticket size={16} /> {member.credits} treatment credits
-            {tier.monthlyCredits > 0 && <span className="opacity-70">· +{tier.monthlyCredits} every month</span>}
+            {tier.monthlyCredits > 0 && <span className="text-muted">· +{tier.monthlyCredits} every month</span>}
           </p>
         )}
       </section>
@@ -60,7 +60,7 @@ export default function AccountPage() {
           {options.map((id) => {
             const t = TIERS[id];
             return (
-              <button key={id} onClick={() => setJoining(id)} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-line bg-shell px-4 py-3 text-left hover:border-muted">
+              <button key={id} onClick={() => setJoining(id)} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-line bg-card px-4 py-3 text-left hover:border-muted">
                 <div>
                   <p className="font-serif text-xl">{t.name}</p>
                   <p className="text-xs text-muted">{t.summary}</p>
@@ -74,15 +74,15 @@ export default function AccountPage() {
 
       <section className="space-y-2">
         <h2 className="font-serif text-2xl">Cancellation policy</h2>
-        <ul className="space-y-2 rounded-2xl border border-line bg-shell p-4 text-sm text-muted">
+        <ul className="space-y-2 rounded-2xl border border-line bg-card p-4 text-sm text-muted">
           <li>
-            <span className="text-ink">Classes and therapies:</span> free to cancel until 3 hours before.
+            <span className="text-shell">Classes and therapies:</span> free to cancel until 3 hours before.
           </li>
           <li>
-            <span className="text-ink">Treatments and contrast:</span> free to cancel until 12 hours before.
+            <span className="text-shell">Treatments and contrast:</span> free to cancel until 12 hours before.
           </li>
           <li>
-            <span className="text-ink">Late cancel or no-show:</span>{" "}
+            <span className="text-shell">Late cancel or no-show:</span>{" "}
             {tier.id === "trial" ? "no charge during your trial." : "you're charged what the service costs right now. A credit-paid booking uses up the credit."}
           </li>
           <li>Please arrive 5 minutes early. No phone calls, inside voices.</li>
@@ -91,7 +91,7 @@ export default function AccountPage() {
 
       <section className="space-y-2">
         <h2 className="font-serif text-2xl">Contact us</h2>
-        <div className="divide-y divide-line rounded-2xl border border-line bg-shell text-sm">
+        <div className="divide-y divide-line rounded-2xl border border-line bg-card text-sm">
           {Object.values(LOCATIONS).map((l) => (
             <div key={l.id} className="px-4 py-3">
               <p className="font-medium">{l.name}</p>
@@ -120,7 +120,7 @@ export default function AccountPage() {
         {charges.length === 0 ? (
           <p className="text-sm text-muted">No charges yet.</p>
         ) : (
-          <div className="divide-y divide-line rounded-2xl border border-line bg-shell">
+          <div className="divide-y divide-line rounded-2xl border border-line bg-card">
             {[...charges].reverse().map((c) => (
               <div key={c.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
                 <span className="min-w-0 truncate">{c.label}</span>
@@ -139,7 +139,7 @@ export default function AccountPage() {
             <button
               key={m.id}
               onClick={() => switchMember(m.id)}
-              className={clsx("rounded-full border px-3 py-1 text-xs", m.id === member.id ? "border-moss bg-moss text-shell" : "border-line bg-shell")}
+              className={clsx("rounded-full border px-3 py-1 text-xs", m.id === member.id ? "border-sage bg-sage text-ink" : "border-line bg-card")}
             >
               {m.onboarded ? `${m.name.split(" ")[0]} · ${TIERS[m.tier].name}` : "New user (first visit)"}
             </button>
@@ -155,7 +155,7 @@ export default function AccountPage() {
             Jump to the end of this month (demo)
           </button>
         )}
-        <button onClick={reset} className="mt-2 flex items-center gap-1 text-xs text-muted hover:text-ink">
+        <button onClick={reset} className="mt-2 flex items-center gap-1 text-xs text-muted hover:text-shell">
           <RotateCcw size={12} /> Reset demo data
         </button>
       </section>

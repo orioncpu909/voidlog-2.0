@@ -20,10 +20,10 @@ export function MembershipCard({ statusOnly = false }: { statusOnly?: boolean })
   if (member.membershipEndsAt) {
     const ends = new Date(member.membershipEndsAt);
     return (
-      <section className="rounded-3xl border border-line bg-shell p-5">
+      <section className="rounded-3xl border border-line bg-card p-5">
         <p className="text-xs uppercase tracking-widest text-muted">Membership cancelled</p>
         <p className="mt-1 font-serif text-2xl leading-tight">Active until {shortDate(dateKey(ends))}</p>
-        <p className="mt-1 text-sm text-ink/80">
+        <p className="mt-1 text-sm text-shell">
           You won&apos;t be charged again. You keep full {tier.name} access, prices and your calendar until then. After that you&apos;ll be on a free Wellness Account.
         </p>
         <button onClick={keepMembership} className="mt-3 text-sm text-moss underline-offset-2 hover:underline">
@@ -39,7 +39,7 @@ export function MembershipCard({ statusOnly = false }: { statusOnly?: boolean })
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
   return (
-    <section className="rounded-3xl border border-line bg-shell p-5">
+    <section className="rounded-3xl border border-line bg-card p-5">
       <div className="flex items-start gap-3">
         <CalendarCheck size={20} className="mt-1 shrink-0 text-moss" />
         <div className="text-sm">
@@ -58,7 +58,7 @@ export function MembershipCard({ statusOnly = false }: { statusOnly?: boolean })
       </div>
       <button
         onClick={() => setConfirming(true)}
-        className="mt-4 w-full rounded-full border border-clay/40 bg-shell py-2.5 text-sm font-medium text-clay hover:bg-clay-soft"
+        className="mt-4 w-full rounded-full border border-clay/40 bg-card py-2.5 text-sm font-medium text-clay hover:bg-clay-soft"
       >
         Cancel membership
       </button>

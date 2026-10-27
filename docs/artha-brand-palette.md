@@ -36,17 +36,25 @@ Headlines are a bold, condensed, all-caps sans serif (a custom font uploaded to 
 
 ## Applied in the app (tailwind.config.ts)
 
-| App role | Token | Color | Brand source |
-|---|---|---|---|
-| Page background | `sand` | `#EEEAE0` | Light tint of sand `#C6BC9B` (easier to read than full sand) |
-| Cards | `shell` | `#FAF8F3` | Warm off-white |
-| Text | `ink` | `#2F2E2E` | Charcoal |
-| Primary: buttons, active tab, streak card, Classes tile | `moss` | `#5C4733` | Mid-brown, lighter than ARTHA's near-black `#261F1B` so it stands out from dark photos and tiles (white text 8.7:1) |
-| Therapies tile | `ocean` | `#322F27` | Brown-black |
-| Treatments tile | `walnut` | `#635E4E` | Olive-taupe |
-| Specials background | `sage` | `#C9A44C` | Gold, with charcoal text on it (5.7:1). White text on gold fails, so never use it there |
-| Special prices and badges on light backgrounds | `sage-deep` | `#7A5C12` | Deep gold (5.9:1 on cards) |
-| Accents on dark (streak flame, Studio City dot) | `copper` | `#D68D51` | Copper, used as-is (2.7:1 with white text, so never behind text) |
-| Warnings and credits | `clay` | `#9F2747` | Burgundy |
+A light theme built on ARTHA's three main colors: **black** text and headings, **gold** buttons and selected items, and **earthy brown** links and accents, on cream pages with white cards. The layout follows the Open app.
 
-Specials are gold: first copper, then gold at Miguel's request. They're never burgundy, because Miguel asked that specials not be red, so burgundy took the warning role. The primary brown was lightened at his request for better contrast.
+| App role | Token | Color | Notes |
+|---|---|---|---|
+| Page background, header, tab bar | `sand` | `#F6F1E7` | Cream |
+| Cards and sheets | `card` | `#FFFFFF` | White |
+| Borders and dividers | `line` | `#DCCDB6` | Tan |
+| Main text and headings | `shell` | `#141210` | Black, 18.7:1 on cards (the token name is historical) |
+| Text on gold | `ink` | `#141210` | Black, 9:1 on gold |
+| Buttons, selected day, tab underline, account badge, specials | `sage` | `#D9AE4F` | Gold |
+| Special prices, gold text | `sage-deep` | `#7A5C12` | Deep gold, 6.2:1 on cards |
+| Streak flame | `sage-light` | `#B8862B` | |
+| Secondary text | `muted` | `#5F5346` | Warm gray-brown, 7.5:1 on cards |
+| Links, icons, chart bars, credits, "Booked" | `moss` | `#7A4E2D` | Earthy brown, 7.1:1 on cards. Soft tint `#F1E6D8` |
+| Warnings, late cancels, Cancel buttons | `clay` | `#9F2747` | ARTHA burgundy, 7.4:1 on cards. Soft tint `#F8E4E8` |
+| Studio City dot | `copper` | `#D68D51` | Never behind text |
+
+History: specials went copper, then gold at Miguel's request, and are never red, so the warning role took the burgundy family. On Oct 26 the browns were warmed to sienna; then the Book tab was rebuilt like the Open app in dark colors, and at Miguel's request the rest of the app (Home, Calendar, Account) moved to the same dark palette. He then asked for more contrast: pure black pages, white text, brighter accents and borders, and no faded (semi-transparent) text. Then he asked to keep black, gold and earthy brown as the main colors (brown cards, gold buttons). That read as too dark, so the app moved to a light cream theme that keeps the same three colors: black text, gold buttons and selections, brown accents.
+
+## Fonts in the app
+- Headings: Cormorant Garamond (serif).
+- Everything else, including all numbers: the phone's own app font (SF Pro on iPhone and Mac, Roboto on Android). Stat numbers use the `stat-num` class in `app/globals.css`: semibold with even-width digits.

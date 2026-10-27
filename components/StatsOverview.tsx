@@ -15,7 +15,7 @@ export function StatsOverview() {
 
   if (s.visits === 0) {
     return (
-      <section className="rounded-3xl border border-line bg-shell p-5 text-sm">
+      <section className="rounded-3xl border border-line bg-card p-5 text-sm">
         <h2 className="font-serif text-2xl">Your stats</h2>
         <p className="mt-1 text-muted">Your streaks, visits and favorites show up here after your first visit.</p>
       </section>
@@ -30,7 +30,7 @@ export function StatsOverview() {
   ];
 
   return (
-    <section className="rounded-3xl border border-line bg-shell p-5">
+    <section className="rounded-3xl border border-line bg-card p-5">
       <div className="flex items-baseline justify-between">
         <h2 className="font-serif text-2xl">Your stats</h2>
         <span className="text-xs text-muted">{s.thisMonth} visits this month</span>
@@ -39,7 +39,7 @@ export function StatsOverview() {
         {tiles.map(({ icon: Icon, label, value }) => (
           <div key={label} className="rounded-2xl bg-sand/70 px-2 py-3 text-center">
             <Icon size={14} className="mx-auto text-moss" />
-            <p className="mt-1 font-serif text-2xl leading-none">{value}</p>
+            <p className="stat-num mt-1 text-2xl leading-none">{value}</p>
             <p className="mt-1 text-[10px] uppercase tracking-wider text-muted">{label}</p>
           </div>
         ))}

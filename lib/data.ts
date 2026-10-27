@@ -118,20 +118,6 @@ export const SERVICES: Record<ServiceId, Service> = {
 // Every ticketed event costs the same for every account, Wellness included.
 export const EVENT_TICKET_PRICE = 10;
 
-export const CATEGORY_LABEL: Record<Category, string> = {
-  class: "Classes",
-  therapy: "Therapies",
-  treatment: "Treatments",
-  event: "Events",
-};
-
-export const CATEGORY_BLURB: Record<Category, string> = {
-  class: "Yoga, Mat Pilates, HIIT, Sound Bath",
-  therapy: "Sweat & freeze: cryo, sauna, red light, contrast, float, HBOT",
-  treatment: "Massage and body treatments",
-  event: "Special classes and workshops",
-};
-
 export const POLICY = {
   standard: { windowHours: 3 },
   full: { windowHours: 12 },
@@ -152,7 +138,7 @@ export interface Tier {
   prices: Record<PriceGroup, number>;
   welcomeCredits: number;
   monthlyCredits: number;
-  lockedToHome: boolean;
+  lockedToHome: boolean; // therapies and treatments only at the home location (see bookableAt)
 }
 
 // Wellness account = free non-member account. These are the regular prices.
@@ -303,6 +289,14 @@ function activePromo(group: PriceGroup, date: string): Promo | undefined {
 }
 
 // The one price a person sees and pays. Every screen uses this.
+// Members take classes (and events) at either location, but their therapies and treatments are
+// at their home location. Wellness Accounts can book anything at both.
+export function bookableAt(tier: Tier, serviceId: ServiceId, location: LocationId, home: LocationId): boolean {
+  const service = SERVICES[serviceId];
+  if (!service.locations.includes(location)) return false;
+  return !tier.lockedToHome || service.category === "class" || service.category === "event" || location === home;
+}
+
 export function priceFor(tierId: TierId, serviceId: ServiceId, location: LocationId, date: string, firstVisit = false): Quote {
   const base = basePrice(tierId, serviceId, location, date);
   const group = SERVICES[serviceId].group;
@@ -311,7 +305,7 @@ export function priceFor(tierId: TierId, serviceId: ServiceId, location: Locatio
   const fixed = FIRST_VISIT_FIXED[group];
   const price = fixed !== undefined ? Math.min(base.price, fixed) : Math.round(base.price * (1 - FIRST_VISIT_DISCOUNT) * 100) / 100;
   if (price >= base.price) return base; // already at or below the first-visit price
-  return { ...base, price, regular: base.price, kind: "firstVisit", label: "Welcome offer for new accounts", promo: undefined };
+  return { ...base, price, regular: base.price, kind: "firstVisit", promo: undefined };
 }
 
 function basePrice(tierId: TierId, serviceId: ServiceId, location: LocationId, date: string): Quote {
@@ -331,11 +325,4 @@ function basePrice(tierId: TierId, serviceId: ServiceId, location: LocationId, d
   const price = tier.prices[group];
   if (price === 0) return { price: 0, regular, kind: "included", label: `Included with ${tier.name}`, creditEligible };
   return { price, regular, kind: "member", label: `${tier.name} member price`, creditEligible };
-}
-
-export function lowestPriceIn(tierId: TierId, category: Category, location: LocationId, date: string, firstVisit = false): Quote | undefined {
-  return Object.values(SERVICES)
-    .filter((s) => s.category === category && s.locations.includes(location))
-    .map((s) => priceFor(tierId, s.id, location, date, firstVisit))
-    .sort((a, b) => a.price - b.price)[0];
 }
