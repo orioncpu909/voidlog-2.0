@@ -139,7 +139,12 @@ export interface Tier {
   welcomeCredits: number;
   monthlyCredits: number;
   lockedToHome: boolean; // therapies and treatments only at the home location (see bookableAt)
+  monthlyPerks?: Partial<Record<ServiceId, number>>; // free each calendar month, used before any discount
+  memberDiscountPct?: number; // shown as "{name} · N% off" wherever its prices appear
 }
+
+// What a monthly perk is called in "this month's included …".
+export const PERK_LABEL: Partial<Record<ServiceId, string>> = { class: "class", "ir-sauna": "sauna", cryo: "cryo", massage: "massage" };
 
 // Wellness account = free non-member account. These are the regular prices.
 const REGULAR: Record<PriceGroup, number> = {
@@ -201,12 +206,15 @@ export const TIERS: Record<TierId, Tier> = {
     joinFee: 0,
     // From artha.la/memberships: 1 massage, 1 sauna, 1 cryo and 1 class per month (unused massage
     // rolls over), extra massage $125, 25% off regular prices for everything else.
-    // Only the massage is modeled as a monthly credit so far.
+    // The four perks are free each month; after one is used, that service is 25% off.
+    // CONFIRM: the unused-massage rollover isn't modeled.
     summary: "1 massage, 1 sauna, 1 cryo and 1 class each month. 25% off everything else.",
     prices: { ...percentOff(REGULAR, 25), treatment: 125 },
     welcomeCredits: 4,
-    monthlyCredits: 1,
+    monthlyCredits: 0,
     lockedToHome: true,
+    monthlyPerks: { class: 1, "ir-sauna": 1, cryo: 1, massage: 1 },
+    memberDiscountPct: 25,
   },
   classic: {
     id: "classic",
@@ -263,7 +271,8 @@ export const PROMOS: Promo[] = [
   },
 ];
 
-export type QuoteKind = "included" | "member" | "promo" | "regular" | "firstVisit";
+// "perk": free as a monthly membership perk. "memberOff": a member's percentage discount (Restore).
+export type QuoteKind = "included" | "perk" | "member" | "memberOff" | "promo" | "regular" | "firstVisit";
 
 // A new account's very first paid appointment is discounted: classes and therapies are half off,
 // HBOT and treatments drop to $125. Doesn't apply to special (promo) prices or event tickets.
@@ -278,6 +287,7 @@ export interface Quote {
   label: string;
   promo?: Promo;
   creditEligible: boolean;
+  tag?: string; // short note shown beside the price, e.g. "Restore · 25% off"
 }
 
 export function currentPromos(date: string): Promo[] {
@@ -324,5 +334,9 @@ function basePrice(tierId: TierId, serviceId: ServiceId, location: LocationId, d
   }
   const price = tier.prices[group];
   if (price === 0) return { price: 0, regular, kind: "included", label: `Included with ${tier.name}`, creditEligible };
+  const pct = tier.memberDiscountPct;
+  if (pct && price === percentOff(REGULAR, pct)[group]) {
+    return { price, regular, kind: "memberOff", label: `${tier.name} member price`, tag: `${tier.name} · ${pct}% off`, creditEligible };
+  }
   return { price, regular, kind: "member", label: `${tier.name} member price`, creditEligible };
 }

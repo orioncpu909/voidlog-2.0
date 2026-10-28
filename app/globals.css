@@ -24,3 +24,66 @@ body {
 .no-scrollbar {
   scrollbar-width: none;
 }
+
+/* ARTHA tulip loader, after WHOOP's refresh logo (see TulipLogo): the circle comes in as an arc
+   with a gap and keeps spinning, while the tulip draws itself in, cup first, then the teardrop. */
+/* Each stroke starts just past the end of its dash (with a longer gap), so nothing shows before it
+   starts drawing, not even the dot of a round line end. */
+.tl-arc,
+.tl-draw-cup,
+.tl-draw-drop {
+  stroke-dasharray: 1 2;
+  stroke-dashoffset: 1.06;
+}
+.tl-draw-cup {
+  animation: tl-draw 0.3s ease-in-out 0.08s forwards;
+}
+.tl-draw-drop {
+  animation: tl-draw 0.22s ease-in-out 0.3s forwards;
+}
+.tl-arc {
+  animation: tl-arc 0.3s ease-out forwards;
+}
+@keyframes tl-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes tl-arc {
+  to {
+    stroke-dashoffset: 0.18; /* an 82% arc: the spinner's gap */
+  }
+}
+.tl-spin {
+  transform-box: view-box;
+  transform-origin: 50% 50%;
+  animation: tl-spin 0.9s linear infinite;
+}
+@keyframes tl-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* With Reduce Motion on, it still spins, just more slowly. */
+@media (prefers-reduced-motion: reduce) {
+  .tl-spin {
+    animation-duration: 1.8s;
+  }
+}
+
+/* Pull-to-refresh logo on the way out: fades as it rises a little. */
+.ptr-logo-out {
+  animation: ptr-logo-out 0.3s ease-in forwards; /* EXIT_MS in PullToRefresh */
+}
+@keyframes ptr-logo-out {
+  to {
+    transform: translateY(-8px) scale(0.9);
+    opacity: 0;
+  }
+}
+
+/* The app handles pull-to-refresh itself, so stop the browser's own version. */
+html,
+body {
+  overscroll-behavior-y: contain;
+}

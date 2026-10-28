@@ -4,13 +4,14 @@
 // No real payments; charges are a ledger of what the card on file would be billed.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { EVENT_TICKET_PRICE, LocationId, Quote, ServiceId, TIERS, TierId, bookableAt, priceFor } from "./data";
+import { EVENT_TICKET_PRICE, LocationId, PERK_LABEL, Quote, ServiceId, TIERS, TierId, bookableAt, priceFor } from "./data";
 import { Session, dateKey, eventSessions, sessionStart, slotsFor } from "./schedule";
 import { EVENTS } from "./events";
 import { CancelTerms, canUseCredit, cancelTerms } from "./policy";
 import { TRIAL_BECOMES, firstMonthCharge, trialEndsAt } from "./trial";
 import { endOfMonth, inRefundWindow } from "./membership";
 import { money } from "./format";
+import { TulipLogo } from "@/components/TulipLogo";
 
 export interface Member {
   id: string;
@@ -19,6 +20,10 @@ export interface Member {
   home: LocationId;
   credits: number;
   onboarded: boolean;
+  signedUp?: boolean; // false = just downloaded the app, sees the create-account screens first
+  email?: string;
+  phone?: string;
+  instagram?: string; // handle without the @, optional at sign-up
   rsvps?: string[]; // event ids
   trialUsed?: boolean; // set the moment a trial starts; an account never gets a second one
   trialEndsAt?: string; // ISO time, only while on a trial
@@ -50,6 +55,7 @@ export interface Booking {
   price: number;
   usedCredit: boolean;
   firstVisit?: boolean; // booked at the first-appointment discount
+  perk?: boolean; // free as a monthly membership perk (Restore)
   status: BookingStatus;
   createdAt: string;
 }
@@ -77,9 +83,12 @@ const uid = () => Math.random().toString(36).slice(2, 10);
 
 const daysAgo = (n: number) => new Date(Date.now() - n * 864e5).toISOString();
 
+// The brand-new download: no account yet, so the app opens on the create-account screens.
+const NEW_DOWNLOAD: Member = { id: "m-new", name: "Karan", tier: "wellness", home: "weho", credits: 0, onboarded: false, signedUp: false };
+
 function seedMembers(): Member[] {
   return [
-    { id: "m-new", name: "Karan", tier: "wellness", home: "weho", credits: 0, onboarded: false },
+    { ...NEW_DOWNLOAD },
     { id: "m-wellness", name: "Karan", tier: "wellness", home: "weho", credits: 0, onboarded: true, trialUsed: true, firstVisitUsed: true },
     { id: "m-classic", name: "Karan", tier: "classic", home: "weho", credits: 4, onboarded: true, firstVisitUsed: true, memberSince: daysAgo(20) },
     // Joined 2 days ago, so still inside the 5-day refund window.
@@ -141,7 +150,7 @@ const ACTIVITY: Record<string, Activity> = {
     mix: [["cryo", 4], ["ir-sauna", 2], ["contrast", 1], ["float", 1], ["red-light", 1]],
   },
   "m-restore": {
-    weeks: 8, perWeek: 2, streak: 3, recovery: 0.4, treatmentsPerMonth: 1, treatmentsWithCredit: true,
+    weeks: 8, perWeek: 2, streak: 3, recovery: 0.4, treatmentsPerMonth: 1,
     mix: [["ir-sauna", 2], ["cryo", 2], ["contrast", 1]],
   },
   "m-wellness": {
@@ -175,11 +184,16 @@ function pastBookings(member: Member): Booking[] {
     d.setDate(d.getDate() - back);
     return dateKey(d);
   };
+  // Monthly perks (Restore) cover the first matching visit each month.
+  const perksUsed = new Map<string, number>();
   const add = (serviceId: ServiceId, back: number, pick: (slots: Session[]) => Session | undefined, usedCredit = false) => {
     const session = pick(slotsFor(member.home, serviceId, dayKey(back)));
     if (!session) return;
-    const price = usedCredit ? 0 : priceFor(member.tier, serviceId, member.home, session.date).price;
-    out.push({ ...makeBooking(member, session, price, usedCredit), createdAt: sessionStart(session.date, "00:00").toISOString() });
+    const perkKey = `${serviceId}|${session.date.slice(0, 7)}`;
+    const perk = !usedCredit && (TIERS[member.tier].monthlyPerks?.[serviceId] ?? 0) > (perksUsed.get(perkKey) ?? 0);
+    if (perk) perksUsed.set(perkKey, (perksUsed.get(perkKey) ?? 0) + 1);
+    const price = usedCredit || perk ? 0 : priceFor(member.tier, serviceId, member.home, session.date).price;
+    out.push({ ...makeBooking(member, session, price, usedCredit), perk, createdAt: sessionStart(session.date, "00:00").toISOString() });
   };
   const morning = (slots: Session[]) => slots[Math.floor(rand() * Math.max(1, Math.ceil(slots.length / 2)))];
   const afternoon = (slots: Session[]) => slots[Math.floor(slots.length / 2 + rand() * Math.floor(slots.length / 2))];
@@ -331,6 +345,7 @@ interface Store {
   myBookingFor: (sessionId: string) => Booking | undefined;
   book: (session: Session, useCredit: boolean) => BookResult;
   quote: (serviceId: ServiceId, location: LocationId, date: string) => Quote;
+  perksLeft: (serviceId: ServiceId, date: string) => number; // monthly perks (Restore) still free that month
   firstVisitEligible: boolean;
   refundWindowOpen: boolean;
   cancelMembership: () => void;
@@ -350,6 +365,9 @@ interface Store {
   setLocation: (loc: LocationId) => void;
   toggleRsvp: (eventId: string) => void;
   finishOnboarding: () => void;
+  signUp: (details: { firstName: string; lastName: string; email: string; phone?: string; instagram?: string }) => void;
+  restartAsNewDownload: () => void; // demo: wipe the new-user account and open the app as a fresh download
+  refresh: () => void; // pull-to-refresh: reload saved data and apply anything due (ended trials, months)
   reset: () => void;
 }
 
@@ -403,7 +421,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return member.tier;
     };
     const firstVisitEligible = !member.firstVisitUsed;
-    const quote: Store["quote"] = (serviceId, location, date) => priceFor(tierOn(date), serviceId, location, date, firstVisitEligible);
+    // Monthly perks left for this service in the calendar month of `date`. A free cancel gives the
+    // perk back (cancelled bookings don't count); a late cancel uses it up.
+    const perksLeft = (serviceId: ServiceId, date: string) => {
+      const allowance = TIERS[tierOn(date)].monthlyPerks?.[serviceId] ?? 0;
+      if (!allowance) return 0;
+      const used = state.bookings.filter(
+        (b) => b.memberId === member.id && b.perk && b.serviceId === serviceId && b.status !== "cancelled" && b.date.slice(0, 7) === date.slice(0, 7),
+      ).length;
+      return allowance - used;
+    };
+    const quote: Store["quote"] = (serviceId, location, date) => {
+      if (perksLeft(serviceId, date) > 0) {
+        const regular = priceFor(tierOn(date), serviceId, location, date).regular;
+        const name = PERK_LABEL[serviceId] ?? serviceId;
+        return { price: 0, regular, kind: "perk", label: `This month's included ${name}`, tag: `${TIERS[tierOn(date)].name} monthly perk`, creditEligible: false };
+      }
+      return priceFor(tierOn(date), serviceId, location, date, firstVisitEligible);
+    };
 
     const book: Store["book"] = (session, useCredit) => {
       const start = sessionStart(session.date, session.time);
@@ -425,8 +460,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const credit = useCredit && member.credits > 0 && canUseCredit(session.serviceId);
       const q = quote(session.serviceId, session.location, session.date);
       const firstVisit = !credit && q.kind === "firstVisit";
+      const perk = !credit && q.kind === "perk";
       const price = credit ? 0 : q.price;
-      const booking = { ...makeBooking(member, session, price, credit), firstVisit };
+      const booking = { ...makeBooking(member, session, price, credit), firstVisit, perk };
 
       update((s) => ({
         ...s,
@@ -471,6 +507,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       myBookingFor,
       book,
       quote,
+      perksLeft,
       firstVisitEligible,
       refundWindowOpen: inRefundWindow(member.memberSince),
       cancelMembership: () =>
@@ -542,12 +579,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return { ...s, members: patchMember(s, { rsvps: rsvps.includes(eventId) ? rsvps.filter((id) => id !== eventId) : [...rsvps, eventId] }) };
         }),
       finishOnboarding: () => update((s) => ({ ...s, members: patchMember(s, { onboarded: true }) })),
+      // Demo sign-up: keeps the name, email and phone on this device. The password is never stored.
+      signUp: ({ firstName, lastName, email, phone, instagram }) =>
+        update((s) => ({ ...s, members: patchMember(s, { name: `${firstName} ${lastName}`.trim(), email, phone: phone || undefined, instagram, signedUp: true }) })),
+      restartAsNewDownload: () =>
+        update((s) => ({
+          ...s,
+          activeMemberId: NEW_DOWNLOAD.id,
+          members: s.members.map((m) => (m.id === NEW_DOWNLOAD.id ? { ...NEW_DOWNLOAD } : m)),
+          bookings: s.bookings.filter((b) => b.memberId !== NEW_DOWNLOAD.id),
+          charges: s.charges.filter((c) => c.memberId !== NEW_DOWNLOAD.id),
+        })),
+      refresh: () => setState(load()),
       reset: () => setState(seedState()),
     };
   }, [state, update]);
 
   if (!store) {
-    return <div className="flex min-h-screen items-center justify-center font-serif text-2xl tracking-[0.3em] text-muted">ARTHA</div>;
+    return (
+      <div className="flex min-h-screen items-center justify-center" role="status" aria-label="Loading">
+        <TulipLogo size={84} loading />
+      </div>
+    );
   }
   if (state?.goodbye) {
     return (
@@ -555,7 +608,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         <span className="font-serif text-xl tracking-[0.35em]">ARTHA</span>
         <h1 className="font-serif text-4xl">Goodbye, {state.goodbye}</h1>
         <p className="text-sm text-muted">Your trial has ended and your account has been deleted, as you asked. You weren&apos;t charged for a membership.</p>
-        <button onClick={() => update((s) => ({ ...s, goodbye: undefined }))} className="mt-4 rounded-full bg-moss px-6 py-3 text-sm text-shell">
+        <button onClick={() => update((s) => ({ ...s, goodbye: undefined }))} className="mt-4 rounded-full bg-sage px-6 py-3 text-sm font-medium text-ink">
           Back to the demo
         </button>
       </div>

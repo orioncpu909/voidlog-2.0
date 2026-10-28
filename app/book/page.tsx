@@ -15,6 +15,7 @@ import { addToPhoneCalendar } from "@/lib/ics";
 import { SERVICE_IMAGE } from "@/lib/images";
 import { PriceTag, PromoNote } from "@/components/PriceTag";
 import { Button, Sheet } from "@/components/Sheet";
+import { EmailStudioButton } from "@/components/EmailStudio";
 
 // Book works like the Open app's In Person screen: pick Classes, Therapies or Treatments, scroll
 // one list of upcoming days (the date strip jumps to a day), tap a class or time to open its page,
@@ -385,6 +386,7 @@ function ClassCard({ session, onOpen }: { session: Session; onOpen: () => void }
         {session.instructor && <p className="mt-0.5 text-sm text-muted">w/ {session.instructor}</p>}
         <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm">
           <PriceTag quote={q} />
+          {q.kind === "memberOff" && <PromoNote quote={q} />}
           <Status left={left} mine={mine} />
         </div>
       </div>
@@ -477,7 +479,7 @@ function SessionPage({ session, onClose }: { session: Session; onClose: () => vo
   const [useCredit, setUseCredit] = useState(creditAvailable);
   const credit = useCredit && creditAvailable;
   const total = credit ? 0 : q.price;
-  const terms = cancelTerms(tier, { ...session, price: total, usedCredit: credit });
+  const terms = cancelTerms(tier, { ...session, price: total, usedCredit: credit, perk: !credit && q.kind === "perk" });
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [justBooked, setJustBooked] = useState<Booking | null>(null);
@@ -615,6 +617,9 @@ function SessionPage({ session, onClose }: { session: Session; onClose: () => vo
               <br />
               {location.address}
             </a>
+            <div>
+              <EmailStudioButton location={session.location} className="mt-3" />
+            </div>
           </Section>
 
           {!booking && (

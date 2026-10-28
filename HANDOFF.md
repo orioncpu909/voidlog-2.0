@@ -64,7 +64,7 @@ app/
   calendar/page.tsx     Month calendar + bookings, cancel, add to phone calendar (?day=YYYY-MM-DD)
   stats/page.tsx        Full stats dashboard + visit history
   membership/page.tsx   "Account" tab: plan, trial/membership cards, stats panel,
-                        prices, change plan, policies, contact, charges, demo controls
+                        prices, change plan, policies, contact, demo controls (no charges list)
 components/             UI pieces (HomeAlerts, StreakCard, HomeCalendar, TrialCard,
                         MembershipCard, StatsOverview, EventsSection, …)
 lib/
@@ -95,13 +95,13 @@ README.md                   Rules and where to change them
 | | Classes | Cryo | Sauna | Float / Contrast / Red Light | HBOT | Treatments |
 |---|---|---|---|---|---|---|
 | **Wellness** (free, non-member) | $29 | $29 | $49 | $69 | $200 | $200 |
-| **Restore** $125/mo | 25% off regular | 25% off | 25% off | 25% off | 25% off | $125 |
+| **Restore** $125/mo | 1 free/mo, then 25% off | 1 free/mo, then 25% off | 1 free/mo, then 25% off | 25% off | 25% off | 1 massage free/mo, then $125 |
 | **Classic** $199/mo | included | included | $5 | $19 | $125 | $125 |
 | **Gold** $299/mo | included | included | included | included | $125 | $125 |
 | **7-Day Trial** $29 | included | included | $5 | $5 float, $19 contrast, $69 red light | $200 | $125 |
 
 - **Gold:** 1 treatment credit a month. Credits cover treatments and HBOT.
-- **Restore:** 1 massage credit a month (per artha.la). Its included class, cryo and sauna are **not modeled yet**.
+- **Restore:** monthly perks (1 class, 1 sauna, 1 cryo, 1 massage) are free first (`monthlyPerks` in `lib/data.ts`, counted per member per calendar month in `lib/store.tsx`). After a perk is used, prices show "Restore · 25% off" with the regular price crossed out. Perks act like credits on cancel: free cancel returns it, late cancel uses it up.
 - **Welcome credits:** members get 4.
 - **Location:** members take classes and events at both locations; their therapies and treatments are at their home location only (`bookableAt` in `lib/data.ts`, enforced in `book()`). Wellness accounts can book everything at both.
 
@@ -139,6 +139,7 @@ README.md                   Rules and where to change them
 
 ### Cancelling a membership
 
+- **Switch to Wellness yourself:** Account → Change membership has a "Wellness Account · Free" option for every membership type and the trial, using the rules below.
 - **Within 5 days of joining:** full refund, and it ends now.
 - **After 5 days:** no refund, but full access until the end of the month. Then the account becomes Wellness.
 - **Calendar and bookings:** stay either way.
@@ -169,7 +170,7 @@ Every account is named "Karan". Switch between them in **Account → Demo · vie
 
 | Account | History |
 |---|---|
-| New user | none: shows onboarding and the first-visit offer |
+| New download | none: opens on the create-account screens, then onboarding; gets the first-visit price at booking. Account → "Open the app as a new download" replays it |
 | Wellness | intermediate: about 24 visits, 4-day streak, specials banner |
 | Classic | advanced: about 58 visits, 9-day streak, a booking tomorrow |
 | Gold | advanced: about 92 visits, 14-day streak; joined 2 days ago, so it's inside the refund window |
@@ -191,7 +192,7 @@ Every account is named "Karan". Switch between them in **Account → Demo · vie
 **Other assumptions to check:**
 - **Wellness late cancel:** set to no refund. Never confirmed.
 - **Member no-show charge:** set to "current price". The 2026 agreements say $25.
-- **Restore:** included class, cryo and sauna aren't modeled. During the $9 special, Restore's 25%-off class ($21.75) costs more than a Wellness class. Needs a decision.
+- **Restore:** the unused-massage rollover isn't modeled. During the $9 special, Restore's 25%-off class ($21.75) still costs more than a Wellness class. Needs a decision.
 - **Refund window:** 5 calendar days. The agreements say 5 business days.
 - **Opening hours:** 7 AM–9 PM assumed. They aren't published.
 - **Photos:** Unsplash stock images. Swap in ARTHA's own in `lib/images.ts`.
@@ -202,7 +203,9 @@ Every account is named "Karan". Switch between them in **Account → Demo · vie
 ## 7. Known limits
 
 - **No backend:** each browser has its own data, nothing syncs, and there's no real sign-in.
-- **No payments:** the charges list is a ledger only.
+- **Tulip logo:** `components/TulipLogo.tsx` shows `public/images/artha-tulip.png`, the black tulip mark cropped from ARTHA's logo file (without the wordmark). While loading it draws itself in like WHOOP's refresh logo: a spinning gapped arc for the circle and the tulip drawn stroke by stroke (the image is revealed along traced centerlines in `TulipLogo`); a refresh lasts about 1 second in total, like WHOOP's and slides into the header during pull-to-refresh, capped at the bottom of the ARTHA wordmark. A vector (SVG) version would be sharper on large screens.
+- **Email a studio:** the in-app pop-up can't send yet (no server). It hands the message to the phone's email app via a prefilled mailto: link.
+- **No payments:** charges are recorded in the demo state but no longer shown (the Account activity list was removed at Miguel's request).
 - **"Add to phone calendar"** downloads an .ics file. Fully automatic syncing needs the native app or a server feed.
 - **Screen size:** Home is sized for iPhone 12–15 (812px tall). On much shorter screens it scrolls a little.
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { LocationId, PriceGroup, ServiceId, TierId, priceFor } from "@/lib/data";
+import { LocationId, PriceGroup, ServiceId, TIERS, TierId, priceFor } from "@/lib/data";
 import { dateKey } from "@/lib/schedule";
 import { PriceTag } from "./PriceTag";
 
@@ -21,7 +21,10 @@ export function PriceList({ tier, location }: { tier: TierId; location: Location
     <div className="divide-y divide-line rounded-2xl border border-line bg-card">
       {ROWS.map((r) => (
         <div key={r.group} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
-          <span>{r.label}</span>
+          <span>
+            {r.label}
+            {TIERS[tier].monthlyPerks?.[r.sample] && <span className="block text-xs text-moss">1 included each month, then</span>}
+          </span>
           <PriceTag quote={priceFor(tier, r.sample, location, today)} />
         </div>
       ))}

@@ -4,17 +4,20 @@ import { useState } from "react";
 import Link from "next/link";
 import clsx from "clsx";
 import { RotateCcw, Ticket } from "lucide-react";
-import { LOCATIONS, MEMBERSHIP_ORDER, TIERS, TierId } from "@/lib/data";
+import { LOCATIONS, MEMBERSHIP_ORDER, PERK_LABEL, ServiceId, TIERS, TierId } from "@/lib/data";
+import { dateKey } from "@/lib/schedule";
 import { useStore } from "@/lib/store";
 import { money } from "@/lib/format";
 import { PriceList } from "@/components/PriceList";
 import { NoticeBanner, TrialCard } from "@/components/TrialCard";
 import { MembershipCard } from "@/components/MembershipCard";
 import { StatsOverview } from "@/components/StatsOverview";
+import { SwitchToWellness } from "@/components/SwitchToWellness";
+import { EmailStudioButton } from "@/components/EmailStudio";
 import { Button, Sheet } from "@/components/Sheet";
 
 export default function AccountPage() {
-  const { member, members, charges, spentThisMonth, switchMember, changeTier, canStartTrial, endTrialNow, endMembershipNow, reset } = useStore();
+  const { member, members, spentThisMonth, switchMember, changeTier, canStartTrial, endTrialNow, endMembershipNow, restartAsNewDownload, reset } = useStore();
   const [joining, setJoining] = useState<TierId | null>(null);
   const tier = TIERS[member.tier];
   const location = LOCATIONS[member.home];
@@ -27,6 +30,12 @@ export default function AccountPage() {
 
       <section className="rounded-3xl border border-line bg-card p-5">
         <p className="text-xs uppercase tracking-widest text-muted">{member.name}</p>
+        {member.email && <p className="text-xs text-muted">{member.email}</p>}
+        {member.instagram && (
+          <a href={`https://instagram.com/${member.instagram}`} target="_blank" rel="noreferrer" className="text-xs text-moss underline-offset-2 hover:underline">
+            @{member.instagram}
+          </a>
+        )}
         <p className="mt-1 font-serif text-3xl">{tier.name}</p>
         <p className="text-sm text-muted">
           {tier.monthly ? `${money(tier.monthly)}/month · billed on the 1st` : tier.joinFee ? `${money(tier.joinFee)} for 7 days` : "Free · pay per visit"}
@@ -38,6 +47,7 @@ export default function AccountPage() {
             {tier.monthlyCredits > 0 && <span className="text-muted">· +{tier.monthlyCredits} every month</span>}
           </p>
         )}
+        {tier.monthlyPerks && <MonthlyPerks />}
       </section>
 
       <NoticeBanner />
@@ -47,7 +57,9 @@ export default function AccountPage() {
       <StatsOverview />
 
       <section className="space-y-2">
-        <h2 className="font-serif text-2xl">Your prices at {location.short}</h2>
+        <h2 className="font-serif text-2xl">
+          What&apos;s included with your {tier.isMember && tier.id !== "trial" ? `${tier.name} membership` : tier.name}
+        </h2>
         <PriceList tier={member.tier} location={member.home} />
         <p className="text-xs text-muted">This is exactly what you pay. You&apos;ll see the same price before you confirm any booking.</p>
       </section>
@@ -69,6 +81,7 @@ export default function AccountPage() {
               </button>
             );
           })}
+          <SwitchToWellness />
         </div>
       </section>
 
@@ -104,6 +117,7 @@ export default function AccountPage() {
                   {l.email}
                 </a>
               </p>
+              <EmailStudioButton location={l.id} className="mt-2.5" />
             </div>
           ))}
         </div>
@@ -115,23 +129,6 @@ export default function AccountPage() {
         </p>
       </section>
 
-      <section className="space-y-2">
-        <h2 className="font-serif text-2xl">Account activity</h2>
-        {charges.length === 0 ? (
-          <p className="text-sm text-muted">No charges yet.</p>
-        ) : (
-          <div className="divide-y divide-line rounded-2xl border border-line bg-card">
-            {[...charges].reverse().map((c) => (
-              <div key={c.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
-                <span className="min-w-0 truncate">{c.label}</span>
-                <span className={clsx("shrink-0", c.amount < 0 && "text-moss")}>{c.amount < 0 ? `−${money(-c.amount)}` : money(c.amount)}</span>
-              </div>
-            ))}
-          </div>
-        )}
-        <p className="text-xs text-muted">Demo only: no card is charged.</p>
-      </section>
-
       <section className="space-y-2 rounded-2xl border border-dashed border-line p-4">
         <p className="text-xs uppercase tracking-widest text-muted">Demo · view as</p>
         <div className="flex flex-wrap gap-2">
@@ -141,7 +138,7 @@ export default function AccountPage() {
               onClick={() => switchMember(m.id)}
               className={clsx("rounded-full border px-3 py-1 text-xs", m.id === member.id ? "border-sage bg-sage text-ink" : "border-line bg-card")}
             >
-              {m.onboarded ? `${m.name.split(" ")[0]} · ${TIERS[m.tier].name}` : "New user (first visit)"}
+              {m.signedUp === false ? "New download" : m.onboarded ? `${m.name.split(" ")[0]} · ${TIERS[m.tier].name}` : "New user (first visit)"}
             </button>
           ))}
         </div>
@@ -155,6 +152,9 @@ export default function AccountPage() {
             Jump to the end of this month (demo)
           </button>
         )}
+        <button onClick={restartAsNewDownload} className="mt-2 block text-xs text-moss underline-offset-2 hover:underline">
+          Open the app as a new download (sign-up)
+        </button>
         <button onClick={reset} className="mt-2 flex items-center gap-1 text-xs text-muted hover:text-shell">
           <RotateCcw size={12} /> Reset demo data
         </button>
@@ -184,6 +184,37 @@ export default function AccountPage() {
           </div>
         )}
       </Sheet>
+    </div>
+  );
+}
+
+// Restore: which of this month's free perks are left. Once one is used, that service is 25% off.
+function MonthlyPerks() {
+  const { member, perksLeft } = useStore();
+  const tier = TIERS[member.tier];
+  const today = dateKey(new Date());
+  const perks = Object.keys(tier.monthlyPerks ?? {}) as ServiceId[];
+  return (
+    <div className="mt-4 border-t border-line pt-3">
+      <p className="text-xs uppercase tracking-widest text-muted">This month&apos;s perks</p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {perks.map((id) => {
+          const left = perksLeft(id, today) > 0;
+          return (
+            <span
+              key={id}
+              className={clsx("rounded-full px-2.5 py-1 text-xs", left ? "bg-sage text-ink" : "border border-line text-muted line-through")}
+            >
+              {PERK_LABEL[id]} {left ? "· free" : "· used"}
+            </span>
+          );
+        })}
+      </div>
+      {tier.memberDiscountPct && (
+        <p className="mt-2 text-xs text-muted">
+          After a perk is used, that service is {tier.memberDiscountPct}% off until next month (extra massages are {money(tier.prices.treatment)}).
+        </p>
+      )}
     </div>
   );
 }
