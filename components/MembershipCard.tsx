@@ -5,7 +5,7 @@ import { CalendarCheck } from "lucide-react";
 import { TIERS } from "@/lib/data";
 import { useStore } from "@/lib/store";
 import { REFUND_WINDOW_DAYS, refundWindowEnds } from "@/lib/membership";
-import { momentLabel, money, shortDate } from "@/lib/format";
+import { momentLabel, shortDate } from "@/lib/format";
 import { dateKey } from "@/lib/schedule";
 import { Button, Sheet } from "./Sheet";
 
@@ -20,7 +20,7 @@ export function MembershipCard({ statusOnly = false }: { statusOnly?: boolean })
   if (member.membershipEndsAt) {
     const ends = new Date(member.membershipEndsAt);
     return (
-      <section className="rounded-3xl border border-line bg-card p-5">
+      <section className="rounded-3xl border border-line bg-card p-4">
         <p className="text-xs uppercase tracking-widest text-muted">Membership cancelled</p>
         <p className="mt-1 font-serif text-2xl leading-tight">Active until {shortDate(dateKey(ends))}</p>
         <p className="mt-1 text-sm text-shell">
@@ -39,13 +39,11 @@ export function MembershipCard({ statusOnly = false }: { statusOnly?: boolean })
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
   return (
-    <section className="rounded-3xl border border-line bg-card p-5">
+    <section className="rounded-3xl border border-line bg-card p-4">
       <div className="flex items-start gap-3">
-        <CalendarCheck size={20} className="mt-1 shrink-0 text-moss" />
+        <CalendarCheck size={18} className="mt-0.5 shrink-0 text-moss" />
         <div className="text-sm">
-          <p className="font-medium">
-            {tier.name} · {money(tier.monthly!)}/month
-          </p>
+          {/* The plan and price are on the Account card just above, so this card is only the dates. */}
           <p className="text-muted">
             {member.memberSince && `Member since ${shortDate(dateKey(new Date(member.memberSince)))} · `}Renews {shortDate(dateKey(renews))}
           </p>
@@ -58,7 +56,7 @@ export function MembershipCard({ statusOnly = false }: { statusOnly?: boolean })
       </div>
       <button
         onClick={() => setConfirming(true)}
-        className="mt-4 w-full rounded-full border border-clay/40 bg-card py-2.5 text-sm font-medium text-clay hover:bg-clay-soft"
+        className="mt-3 w-full rounded-full border border-clay/40 bg-card py-2 text-sm font-medium text-clay hover:bg-clay-soft"
       >
         Cancel membership
       </button>

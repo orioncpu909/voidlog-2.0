@@ -86,10 +86,11 @@ export function computeStats(bookings: Booking[], now = new Date()): Stats {
     }))
     .sort((a, b) => b.count - a.count);
 
-  // Rolling 7-day weeks; the last one ends today.
+  // Monday-to-Sunday weeks; the last one is this week.
+  const thisMonday = shift(today, -((sessionStart(today, "12:00").getDay() + 6) % 7));
   const weekly = Array.from({ length: 8 }, (_, i) => {
-    const weekEnd = shift(today, -(7 - i) * 7);
-    const from = shift(weekEnd, -6);
+    const from = shift(thisMonday, -(7 - i) * 7);
+    const weekEnd = shift(from, 6);
     return {
       label: sessionStart(from, "12:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }),
       count: done.filter((b) => b.date >= from && b.date <= weekEnd).length,

@@ -20,7 +20,7 @@ export const THERAPISTS: Therapist[] = [
     name: "Tiffany",
     specialties: ["Body sculpting", "Skin treatments"],
     bio: "Tiffany leads ARTHA's body and skin treatments, from EM BodySculpting to cryo-facials, tailoring every session to your goals.",
-    services: ["em-sculpt", "thermal-shock", "cryo-facial", "massage"],
+    services: ["em-sculpt", "cryo-facial", "thermal-shock", "endermologie", "massage"],
   },
   {
     name: "Victor",

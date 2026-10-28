@@ -14,6 +14,8 @@ import { MembershipCard } from "@/components/MembershipCard";
 import { StatsOverview } from "@/components/StatsOverview";
 import { SwitchToWellness } from "@/components/SwitchToWellness";
 import { EmailStudioButton } from "@/components/EmailStudio";
+import { Disclosure } from "@/components/Disclosure";
+import { CreditsInfoButton } from "@/components/CreditsInfo";
 import { Button, Sheet } from "@/components/Sheet";
 
 export default function AccountPage() {
@@ -25,27 +27,37 @@ export default function AccountPage() {
   const options = MEMBERSHIP_ORDER.filter((id) => id !== member.tier && (id !== "trial" || canStartTrial));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <h1 className="font-serif text-3xl">Account</h1>
 
-      <section className="rounded-3xl border border-line bg-card p-5">
-        <p className="text-xs uppercase tracking-widest text-muted">{member.name}</p>
-        {member.email && <p className="text-xs text-muted">{member.email}</p>}
-        {member.instagram && (
-          <a href={`https://instagram.com/${member.instagram}`} target="_blank" rel="noreferrer" className="text-xs text-moss underline-offset-2 hover:underline">
-            @{member.instagram}
-          </a>
-        )}
-        <p className="mt-1 font-serif text-3xl">{tier.name}</p>
-        <p className="text-sm text-muted">
-          {tier.monthly ? `${money(tier.monthly)}/month · billed on the 1st` : tier.joinFee ? `${money(tier.joinFee)} for 7 days` : "Free · pay per visit"}
+      <section className="rounded-3xl border border-line bg-card p-4">
+        <p className="truncate text-xs text-muted">
+          <span className="uppercase tracking-widest">{member.name}</span>
+          {member.email && ` · ${member.email}`}
         </p>
-        <p className="mt-3 text-sm text-muted">{tier.lockedToHome ? `Classes at both locations · therapies and treatments at ${location.short}` : "Book anything at West LA or Studio City"}</p>
-        {tier.isMember && (
-          <p className="mt-3 flex items-center gap-2 text-sm">
-            <Ticket size={16} /> {member.credits} treatment credits
-            {tier.monthlyCredits > 0 && <span className="text-muted">· +{tier.monthlyCredits} every month</span>}
+        <div className="mt-1 flex items-baseline justify-between gap-3">
+          <p className="font-serif text-3xl leading-tight">{tier.name}</p>
+          <p className="shrink-0 text-sm text-muted">
+            {tier.monthly ? `${money(tier.monthly)}/mo · billed the 1st` : tier.joinFee ? `${money(tier.joinFee)} for 7 days` : "Free · pay per visit"}
           </p>
+        </div>
+        <p className="mt-1 text-xs text-muted">
+          {tier.lockedToHome ? `Classes at both locations · therapies and treatments at ${location.short}` : "Book anything at West LA or Studio City"}
+          {member.instagram && (
+            <>
+              {" · "}
+              <a href={`https://instagram.com/${member.instagram}`} target="_blank" rel="noreferrer" className="text-moss underline-offset-2 hover:underline">
+                @{member.instagram}
+              </a>
+            </>
+          )}
+        </p>
+        {tier.isMember && (
+          <div className="mt-2 flex flex-wrap items-center gap-x-1.5 text-sm">
+            <Ticket size={15} /> {member.credits} treatment credits
+            {tier.monthlyCredits > 0 && <span className="text-muted">· +{tier.monthlyCredits}/month</span>}
+            <CreditsInfoButton className="ml-auto text-xs" />
+          </div>
         )}
         {tier.monthlyPerks && <MonthlyPerks />}
       </section>
@@ -57,25 +69,25 @@ export default function AccountPage() {
       <StatsOverview />
 
       <section className="space-y-2">
-        <h2 className="font-serif text-2xl">
-          What&apos;s included with your {tier.isMember && tier.id !== "trial" ? `${tier.name} membership` : tier.name}
+        <h2 className="font-serif text-xl">
+          {tier.isMember ? <>What&apos;s included with your {tier.id === "trial" ? tier.name : `${tier.name} membership`}</> : tier.name}
         </h2>
         <PriceList tier={member.tier} location={member.home} />
-        <p className="text-xs text-muted">This is exactly what you pay. You&apos;ll see the same price before you confirm any booking.</p>
+        <p className="text-xs text-muted">Exactly what you pay; you&apos;ll see it again before you confirm.</p>
       </section>
 
       <section className="space-y-2">
-        <h2 className="font-serif text-2xl">{tier.isMember ? "Change membership" : "Become a member"}</h2>
+        <h2 className="font-serif text-xl">{tier.isMember ? "Change membership" : "Become a member"}</h2>
         {!tier.isMember && spentThisMonth > 0 && <p className="text-sm text-muted">You&apos;ve spent {money(spentThisMonth)} on visits this month.</p>}
         {!tier.isMember && member.trialUsed && <p className="text-xs text-muted">This account has already used its free 7-day trial.</p>}
         <div className="space-y-2">
           {options.map((id) => {
             const t = TIERS[id];
             return (
-              <button key={id} onClick={() => setJoining(id)} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-line bg-card px-4 py-3 text-left hover:border-muted">
-                <div>
-                  <p className="font-serif text-xl">{t.name}</p>
-                  <p className="text-xs text-muted">{t.summary}</p>
+              <button key={id} onClick={() => setJoining(id)} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-line bg-card px-4 py-2.5 text-left hover:border-muted">
+                <div className="min-w-0">
+                  <p className="font-serif text-lg leading-tight">{t.name}</p>
+                  <p className="line-clamp-2 text-xs text-muted">{t.summary}</p>
                 </div>
                 <p className="shrink-0 text-sm">{t.monthly ? `${money(t.monthly)}/mo` : money(t.joinFee)}</p>
               </button>
@@ -85,9 +97,8 @@ export default function AccountPage() {
         </div>
       </section>
 
-      <section className="space-y-2">
-        <h2 className="font-serif text-2xl">Cancellation policy</h2>
-        <ul className="space-y-2 rounded-2xl border border-line bg-card p-4 text-sm text-muted">
+      <Disclosure title="Cancellation policy">
+        <ul className="space-y-1.5 text-muted">
           <li>
             <span className="text-shell">Classes and therapies:</span> free to cancel until 3 hours before.
           </li>
@@ -100,38 +111,34 @@ export default function AccountPage() {
           </li>
           <li>Please arrive 5 minutes early. No phone calls, inside voices.</li>
         </ul>
-      </section>
+      </Disclosure>
 
-      <section className="space-y-2">
-        <h2 className="font-serif text-2xl">Contact us</h2>
-        <div className="divide-y divide-line rounded-2xl border border-line bg-card text-sm">
+      <Disclosure title="Contact us">
+        <div className="divide-y divide-line">
           {Object.values(LOCATIONS).map((l) => (
-            <div key={l.id} className="px-4 py-3">
+            <div key={l.id} className="py-2.5 first:pt-0">
               <p className="font-medium">{l.name}</p>
               <p className="text-xs text-muted">{l.address}</p>
-              <p className="mt-1 flex gap-3 text-xs">
+              <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs">
                 <a href={`tel:${l.phone.replace(/\./g, "")}`} className="text-moss underline-offset-2 hover:underline">
                   {l.phone}
                 </a>
-                <a href={`mailto:${l.email}`} className="text-moss underline-offset-2 hover:underline">
-                  {l.email}
-                </a>
-              </p>
-              <EmailStudioButton location={l.id} className="mt-2.5" />
+                <EmailStudioButton location={l.id} />
+              </div>
             </div>
           ))}
         </div>
-        <p className="text-xs text-muted">
+        <p className="pt-2 text-xs text-muted">
           Membership questions:{" "}
           <a href="mailto:membership@artha.la" className="text-moss underline-offset-2 hover:underline">
             membership@artha.la
           </a>
         </p>
-      </section>
+      </Disclosure>
 
-      <section className="space-y-2 rounded-2xl border border-dashed border-line p-4">
-        <p className="text-xs uppercase tracking-widest text-muted">Demo · view as</p>
-        <div className="flex flex-wrap gap-2">
+      <Disclosure title="Demo">
+        <p className="text-xs uppercase tracking-widest text-muted">View as</p>
+        <div className="mt-2 flex flex-wrap gap-2">
           {members.map((m) => (
             <button
               key={m.id}
@@ -158,7 +165,7 @@ export default function AccountPage() {
         <button onClick={reset} className="mt-2 flex items-center gap-1 text-xs text-muted hover:text-shell">
           <RotateCcw size={12} /> Reset demo data
         </button>
-      </section>
+      </Disclosure>
 
       <Sheet open={!!joining} onClose={() => setJoining(null)} title={joining ? `Switch to ${TIERS[joining].name}` : ""}>
         {joining && (
@@ -195,9 +202,9 @@ function MonthlyPerks() {
   const today = dateKey(new Date());
   const perks = Object.keys(tier.monthlyPerks ?? {}) as ServiceId[];
   return (
-    <div className="mt-4 border-t border-line pt-3">
+    <div className="mt-3 border-t border-line pt-2.5">
       <p className="text-xs uppercase tracking-widest text-muted">This month&apos;s perks</p>
-      <div className="mt-2 flex flex-wrap gap-1.5">
+      <div className="mt-1.5 flex flex-wrap gap-1.5">
         {perks.map((id) => {
           const left = perksLeft(id, today) > 0;
           return (
@@ -212,7 +219,7 @@ function MonthlyPerks() {
       </div>
       {tier.memberDiscountPct && (
         <p className="mt-2 text-xs text-muted">
-          After a perk is used, that service is {tier.memberDiscountPct}% off until next month (extra massages are {money(tier.prices.treatment)}).
+          Then {tier.memberDiscountPct}% off until next month (extra massages {money(tier.prices.treatment)}).
         </p>
       )}
     </div>

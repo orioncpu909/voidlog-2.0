@@ -42,5 +42,5 @@ Sources: artha.la (home, /thearthaexperience, /about, /memberships, /nonmemberap
 
 ## Not on the site
 - Opening hours.
-- Descriptions for massage, HBOT, EM sculpting, thermal shock and cryo-facial. The app's copy for these is written from the App Store listing.
+- Descriptions for massage, HBOT, EM sculpting, T-Shock Therapy, Cryo Facial and Endermologie (Studio City's treatments are Massage, Cryo Facial, T-Shock Therapy and Endermologie). The app's copy for these is general and marked CONFIRM; Endermologie's session length is assumed to be 50 minutes.
 - Start dates for the specials.

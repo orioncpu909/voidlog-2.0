@@ -7,7 +7,7 @@ import { dateKey, sessionStart } from "@/lib/schedule";
 import { useStore } from "@/lib/store";
 import { dayLabel, timeLabel } from "@/lib/format";
 
-const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
+const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"]; // weeks start on Monday
 
 // Home: this month at a glance. Sage dots are upcoming bookings, faint dots are past visits.
 // Tapping a day opens it in the Calendar.
@@ -17,7 +17,7 @@ export function HomeCalendar() {
   const today = dateKey(now);
   const first = new Date(now.getFullYear(), now.getMonth(), 1);
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const cells = [...Array(first.getDay()).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
+  const cells = [...Array((first.getDay() + 6) % 7).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
 
   const active = bookings.filter((b) => b.status === "booked");
   const upcoming = active.filter((b) => sessionStart(b.date, b.time) > now).sort((a, b) => sessionStart(a.date, a.time).getTime() - sessionStart(b.date, b.time).getTime());

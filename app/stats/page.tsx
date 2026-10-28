@@ -41,21 +41,21 @@ export default function StatsPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <Header />
 
       <section className="grid grid-cols-2 gap-2">
         {tiles.map(({ icon: Icon, label, value }) => (
-          <div key={label} className="rounded-2xl border border-line bg-card p-4">
+          <div key={label} className="rounded-2xl border border-line bg-card px-3 py-2.5">
             <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-muted">
               <Icon size={13} className="text-moss" /> {label}
             </p>
-            <p className="stat-num mt-1.5 text-3xl leading-none">{value}</p>
+            <p className="stat-num mt-1 text-2xl leading-none">{value}</p>
           </div>
         ))}
       </section>
 
-      <section className="rounded-3xl border border-line bg-card p-5">
+      <section className="rounded-3xl border border-line bg-card p-4">
         <div className="flex items-baseline justify-between">
           <h2 className="font-serif text-xl">Visits per week</h2>
           <p className="text-xs text-muted">{s.thisMonth} this month</p>
@@ -66,7 +66,7 @@ export default function StatsPage() {
             {s.weekly[shownWeek].count} visit{s.weekly[shownWeek].count === 1 ? "" : "s"}
           </span>
         </p>
-        <div className="mt-3 flex h-32 items-end gap-[2px] border-b border-line" onMouseLeave={() => setHover(null)}>
+        <div className="mt-2 flex h-24 items-end gap-[2px] border-b border-line" onMouseLeave={() => setHover(null)}>
           {s.weekly.map((w, i) => (
             <button
               key={w.label}
@@ -89,7 +89,7 @@ export default function StatsPage() {
         </div>
       </section>
 
-      <section className="rounded-3xl border border-line bg-card p-5">
+      <section className="rounded-3xl border border-line bg-card p-4">
         <h2 className="font-serif text-xl">By service</h2>
         <ul className="mt-3 space-y-2.5">
           {s.byService.map((x) => (
@@ -118,18 +118,10 @@ export default function StatsPage() {
         {s.favoriteInstructor && (
           <Favorite icon={UserRound} label="Most booked with" value={s.favoriteInstructor.name} detail={`${s.favoriteInstructor.count}×`} />
         )}
-        {s.saved > 0 && (
-          <Favorite
-            icon={Heart}
-            label={TIERS[member.tier].isMember ? "Saved with your membership" : "Saved with specials and offers"}
-            value={money(s.saved)}
-            detail="vs regular prices"
-          />
-        )}
         {!TIERS[member.tier].isMember && <Favorite icon={Receipt} label="Spent on visits" value={money(s.spent)} detail={`${s.visits} visits`} />}
       </section>
 
-      <section className="rounded-3xl border border-line bg-card p-5">
+      <section className="rounded-3xl border border-line bg-card p-4">
         <div className="flex items-baseline justify-between">
           <h2 className="font-serif text-xl">Visit history</h2>
           <p className="text-xs text-muted">{s.history.length} total</p>
@@ -164,7 +156,7 @@ export default function StatsPage() {
   );
 }
 
-const HISTORY_PREVIEW = 8;
+const HISTORY_PREVIEW = 5;
 
 function plural(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`;
@@ -183,7 +175,7 @@ function Header() {
 
 function Favorite({ icon: Icon, label, value, detail }: { icon: typeof Heart; label: string; value: string; detail: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-line bg-card p-4">
+    <div className="flex items-center gap-3 rounded-2xl border border-line bg-card px-4 py-2.5">
       <Icon size={18} className="shrink-0 text-moss" />
       <div className="min-w-0 flex-1">
         <p className="text-[11px] uppercase tracking-widest text-muted">{label}</p>

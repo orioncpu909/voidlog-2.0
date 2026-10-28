@@ -5,6 +5,7 @@ import { BadgeCheck, Ticket } from "lucide-react";
 import { TIERS } from "@/lib/data";
 import { useStore } from "@/lib/store";
 import { EventsSection } from "@/components/EventsSection";
+import { CreditsInfoButton } from "@/components/CreditsInfo";
 import { HomeAlerts } from "@/components/HomeAlerts";
 import { HomeCalendar } from "@/components/HomeCalendar";
 import { StreakCard } from "@/components/StreakCard";
@@ -36,9 +37,9 @@ export default function HomePage() {
             {tier.isMember && tier.id !== "trial" ? `${tier.name} Member` : tier.name}
           </Link>
           {member.credits > 0 && (
-            <span className="flex items-center gap-1 text-[11px] text-clay">
+            <CreditsInfoButton className="text-[11px] !text-clay">
               <Ticket size={11} /> {member.credits} credits
-            </span>
+            </CreditsInfoButton>
           )}
         </div>
       </div>

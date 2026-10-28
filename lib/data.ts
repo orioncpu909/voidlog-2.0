@@ -32,8 +32,9 @@ export type ServiceId =
   | "hbot"
   | "massage"
   | "em-sculpt"
-  | "thermal-shock"
   | "cryo-facial"
+  | "thermal-shock"
+  | "endermologie"
   | "event";
 
 export type Category = "class" | "therapy" | "treatment" | "event";
@@ -99,13 +100,20 @@ export const SERVICES: Record<ServiceId, Service> = {
     id: "em-sculpt", name: "EM BodySculpting", category: "treatment", group: "treatment", durationMin: 50, capacity: 1, policy: "full", locations: ["weho"],
     description: "Non-invasive electromagnetic treatment that contracts muscles to tone and sculpt target areas.",
   },
-  "thermal-shock": {
-    id: "thermal-shock", name: "Thermal Shock", category: "treatment", group: "treatment", durationMin: 50, capacity: 1, policy: "full", locations: ["scity"],
-    description: "Targeted hot-and-cold treatment to tone and firm the skin on specific areas.",
-  },
+  // Studio City's treatments: Massage, Cryo Facial, T-Shock Therapy and Endermologie.
+  // CONFIRM: artha.la doesn't describe these; the copy below is general, and Endermologie's length
+  // is assumed to match the other treatments.
   "cryo-facial": {
-    id: "cryo-facial", name: "Cryo-Facial", category: "treatment", group: "treatment", durationMin: 50, capacity: 1, policy: "full", locations: ["scity"],
+    id: "cryo-facial", name: "Cryo Facial", category: "treatment", group: "treatment", durationMin: 50, capacity: 1, policy: "full", locations: ["scity"],
     description: "A cold facial that tightens, brightens and calms the skin.",
+  },
+  "thermal-shock": {
+    id: "thermal-shock", name: "T-Shock Therapy", category: "treatment", group: "treatment", durationMin: 50, capacity: 1, policy: "full", locations: ["scity"],
+    description: "Alternates targeted heat and cold to tone and tighten the skin and smooth the look of cellulite on specific areas.",
+  },
+  endermologie: {
+    id: "endermologie", name: "Endermologie", category: "treatment", group: "treatment", durationMin: 50, capacity: 1, policy: "full", locations: ["scity"],
+    description: "A mechanical massage that gently lifts and rolls the skin to boost circulation and lymphatic flow and smooth the look of cellulite.",
   },
 
   // Ticketed events (special and private classes, workshops). Times and titles come from lib/events.ts.

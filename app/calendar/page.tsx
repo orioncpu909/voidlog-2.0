@@ -4,17 +4,18 @@ import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import clsx from "clsx";
-import { CalendarPlus, ChevronLeft, ChevronRight, Ticket } from "lucide-react";
-import { LOCATIONS } from "@/lib/data";
-import { dateKey, sessionStart } from "@/lib/schedule";
+import { CalendarPlus, ChevronLeft, ChevronRight, Clock, MapPin, Ticket, UserRound } from "lucide-react";
+import { LOCATIONS, SERVICES } from "@/lib/data";
+import { dateKey, sessionStart, slotsFor, upcomingDays } from "@/lib/schedule";
 import { Booking, useStore } from "@/lib/store";
 import { policyLine } from "@/lib/policy";
 import { addToPhoneCalendar } from "@/lib/ics";
-import { dayLabel, money, timeRange } from "@/lib/format";
+import { dayLabel, money, timeLabel, timeRange } from "@/lib/format";
 import { CancelSheet } from "@/components/CancelSheet";
+import { Sheet } from "@/components/Sheet";
 
 const PAST_LABEL = { booked: "Completed", cancelled: "Cancelled", "late-cancelled": "Late cancel" } as const;
-const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
+const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"]; // weeks start on Monday
 
 // Every booking lands here automatically. Stays available after a membership is cancelled.
 export default function CalendarPage() {
@@ -33,6 +34,7 @@ function CalendarView() {
   // Opened from a day on the Home calendar: start on that day.
   const [selected, setSelected] = useState<string | null>(dayParam && /^\d{4}-\d{2}-\d{2}$/.test(dayParam) ? dayParam : null);
   const [showPast, setShowPast] = useState(false);
+  const [viewing, setViewing] = useState<Booking | null>(null);
   const [month, setMonth] = useState(() => {
     const d = selected ? sessionStart(selected, "12:00") : new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1);
@@ -46,7 +48,7 @@ function CalendarView() {
   const bookedDays = useMemo(() => new Set(bookings.filter((b) => b.status === "booked").map((b) => b.date)), [bookings]);
   const list = selected ? bookings.filter((b) => b.date === selected && b.status === "booked").sort((a, b) => start(a) - start(b)) : upcoming;
 
-  const firstWeekday = month.getDay();
+  const firstWeekday = (month.getDay() + 6) % 7; // Monday = 0
   const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
   const cells = [...Array(firstWeekday).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
   const shiftMonth = (n: number) => {
@@ -164,24 +166,98 @@ function CalendarView() {
       {past.length > 0 && (
         <section className="space-y-2">
           <button onClick={() => setShowPast(!showPast)} className="text-sm text-muted underline-offset-2 hover:underline">
-            {showPast ? "Hide" : "Show"} past and cancelled ({past.length})
+            {showPast ? "Hide history" : `History (${past.length})`}
           </button>
+          {/* Tap a past visit to see who taught it, when, and where. */}
           {showPast &&
             past.map((b) => (
-              <div key={b.id} className="flex items-center justify-between rounded-2xl border border-line bg-card/60 px-4 py-3 text-sm">
-                <div className="min-w-0">
+              <button
+                key={b.id}
+                onClick={() => setViewing(b)}
+                className="flex w-full items-center gap-3 rounded-2xl border border-line bg-card/60 px-4 py-3 text-left text-sm hover:border-muted"
+              >
+                <div className="min-w-0 flex-1">
                   <p className="truncate">{b.title}</p>
-                  <p className="text-xs text-muted">
-                    {dayLabel(b.date)} · {LOCATIONS[b.location].short}
+                  <p className="truncate text-xs text-muted">
+                    {dayLabel(b.date)} · {timeLabel(b.time)} · {LOCATIONS[b.location].short}
                   </p>
                 </div>
-                <span className="shrink-0 text-xs text-muted">{PAST_LABEL[b.status]}</span>
-              </div>
+                <span className={clsx("shrink-0 text-xs", b.status === "booked" ? "text-muted" : "text-clay")}>{PAST_LABEL[b.status]}</span>
+                <ChevronRight size={16} className="shrink-0 text-muted" />
+              </button>
             ))}
         </section>
       )}
 
       <CancelSheet booking={cancelling} onClose={() => setCancelling(null)} />
+      <PastVisitSheet booking={viewing} onClose={() => setViewing(null)} />
     </div>
   );
+}
+
+// Details of a past visit from History: who taught it, when, where, and what was paid, with a
+// shortcut to book the same class (or service) again.
+function PastVisitSheet({ booking, onClose }: { booking: Booking | null; onClose: () => void }) {
+  if (!booking) return null;
+  const b = booking;
+  const service = SERVICES[b.serviceId];
+  const location = LOCATIONS[b.location];
+  const isClass = service.category === "class";
+  const again = nextSameSession(b);
+  const paid = b.usedCredit ? "Paid with 1 treatment credit" : b.perk ? "Monthly perk, included" : b.price > 0 ? `Paid ${money(b.price)}` : "Included, nothing charged";
+  return (
+    <Sheet open onClose={onClose} title={b.title}>
+      <div className="space-y-3 text-sm">
+        <p className={clsx("inline-block rounded-full px-2.5 py-0.5 text-xs", b.status === "booked" ? "bg-moss-soft text-moss" : "bg-clay-soft text-clay")}>
+          {PAST_LABEL[b.status]}
+        </p>
+        <ul className="space-y-2">
+          {b.instructor && (
+            <li className="flex items-center gap-2">
+              <UserRound size={16} className="shrink-0 text-muted" />
+              <span>
+                <span className="text-muted">{isClass ? "Instructor" : service.category === "treatment" ? "Therapist" : "Host"}:</span> {b.instructor}
+              </span>
+            </li>
+          )}
+          <li className="flex items-center gap-2">
+            <Clock size={16} className="shrink-0 text-muted" />
+            <span>
+              {dayLabel(b.date, "long")} · {timeRange(b.time, b.durationMin)}
+            </span>
+          </li>
+          <li className="flex items-start gap-2">
+            <MapPin size={16} className="mt-0.5 shrink-0 text-muted" />
+            <a href={`https://maps.google.com/?q=${encodeURIComponent(location.address)}`} target="_blank" rel="noreferrer" className="underline underline-offset-2">
+              {location.name}
+              <br />
+              {location.address}
+            </a>
+          </li>
+        </ul>
+        <p className="border-t border-line pt-3 text-muted">
+          {isClass ? "Class" : service.name} · {b.durationMin} min · {paid}
+          {b.firstVisit && " · first visit price"}
+        </p>
+        {again && (
+          <Link href={`/book?session=${encodeURIComponent(again.id)}`} className="block w-full rounded-full bg-sage px-5 py-3 text-center text-sm font-medium text-ink hover:bg-sage/90">
+            Book again · {dayLabel(again.date)} {timeLabel(again.time)}
+          </Link>
+        )}
+      </div>
+    </Sheet>
+  );
+}
+
+// The next upcoming session like this one at the same studio: for a class, the same class (with the
+// same instructor if possible); otherwise the same service, preferably at the same time of day.
+function nextSameSession(b: Booking) {
+  const now = Date.now();
+  const future = upcomingDays(14).flatMap((d) => slotsFor(b.location, b.serviceId, d)).filter((s) => sessionStart(s.date, s.time).getTime() > now);
+  if (SERVICES[b.serviceId].category === "event") return undefined;
+  if (b.serviceId === "class") {
+    const same = future.filter((s) => s.title === b.title);
+    return same.find((s) => s.instructor === b.instructor) ?? same[0];
+  }
+  return future.find((s) => s.time === b.time) ?? future[0];
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import clsx from "clsx";
 import { useStore } from "@/lib/store";
 import { TulipLogo } from "./TulipLogo";
@@ -25,8 +25,11 @@ const LOGO_STOP_TOP = 38 - LOGO_SIZE;
 // When it's done, the logo fades up out of view (see .ptr-logo-out).
 const EXIT_MS = 300;
 const REFRESH_MS = LOADING_MS - EXIT_MS; // how long the logo shows before it fades out
+// The page itself moves: it follows the pull, settles at HOLD while loading, then springs back.
+const HOLD = 44;
+const SETTLE_MS = 220;
 
-export function PullToRefresh() {
+export function PullToRefresh({ children }: { children: ReactNode }) {
   const { refresh } = useStore();
   const refreshRef = useRef(refresh);
   refreshRef.current = refresh;
@@ -112,7 +115,12 @@ export function PullToRefresh() {
     const onTouchMove = (e: TouchEvent) => move(e.touches[0].clientY, e, 0);
     let suppressClick = false;
     const onMouseUp = () => {
-      if (dragging) suppressClick = true;
+      if (dragging) {
+        // Swallow only the click this same release produces (it fires right after mouseup); if the
+        // release lands elsewhere there's no click, so don't let the flag eat the next real one.
+        suppressClick = true;
+        setTimeout(() => (suppressClick = false), 0);
+      }
       end();
     };
     const onMouseDown = (e: MouseEvent) => e.button === 0 && begin(e.clientY);
@@ -185,22 +193,39 @@ export function PullToRefresh() {
   }, [pulling]);
 
   const offset = refreshing ? TRIGGER : pull;
-  if (offset === 0) return null;
   const ready = pull >= TRIGGER;
+  const phase = leaving ? "out" : refreshing ? "loading" : pull > 0 ? "pull" : "idle";
+
+  // The page moves with you: it tracks the pull exactly, eases to HOLD while loading, then springs
+  // back up (a slight overshoot) when done. No transform at rest, so fixed pop-ups inside the page
+  // aren't affected.
+  const pageOffset = phase === "pull" ? pull : phase === "loading" ? HOLD : 0;
+  const pageTransition =
+    phase === "pull" ? "none" : phase === "loading" ? `transform ${SETTLE_MS}ms ease-out` : `transform ${EXIT_MS}ms cubic-bezier(0.34, 1.4, 0.64, 1)`;
+
   // From fully hidden above the screen to its stop in the header, reached at the refresh line.
   const top = -LOGO_SIZE + (LOGO_STOP_TOP + LOGO_SIZE) * Math.min(1, offset / TRIGGER);
-  // The logo only, no arrow: it fades in as you pull, draws itself in and spins while loading (like
-  // WHOOP's refresh logo), and fades up out of view when it's done.
-  const phase = leaving ? "out" : refreshing ? "loading" : "pull";
   return (
-    // Just the logo: no card, border or label on screen (the label is for screen readers).
-    <div className="pointer-events-none fixed inset-x-0 top-0 z-30 flex justify-center" role="status" aria-live="polite">
-      <div style={{ transform: `translateY(${top}px)`, transition: "transform 75ms linear" }}>
-        <div className={clsx(phase === "out" && "ptr-logo-out")} style={phase === "pull" ? { opacity: Math.min(1, pull / TRIGGER) } : undefined}>
-          <TulipLogo size={LOGO_SIZE} loading={refreshing} />
+    <>
+      {offset > 0 && (
+        // The logo only, no arrow: it fades in as you pull, draws itself in and spins while loading
+        // (like WHOOP's refresh logo), and fades up out of view when it's done. No card, border or
+        // label on screen (the label is for screen readers).
+        <div className="pointer-events-none fixed inset-x-0 top-0 z-30 flex justify-center" role="status" aria-live="polite">
+          <div style={{ transform: `translateY(${top}px)`, transition: "transform 75ms linear" }}>
+            <div className={clsx(phase === "out" && "ptr-logo-out")} style={phase === "pull" ? { opacity: Math.min(1, pull / TRIGGER) } : undefined}>
+              <TulipLogo size={LOGO_SIZE} loading={refreshing} />
+            </div>
+            <span className="sr-only">{refreshing ? "Refreshing" : ready ? "Release to refresh" : "Pull to refresh"}</span>
+          </div>
         </div>
-        <span className="sr-only">{refreshing ? "Refreshing" : ready ? "Release to refresh" : "Pull to refresh"}</span>
+      )}
+      <div
+        className="flex flex-1 flex-col"
+        style={{ transform: pageOffset || phase !== "idle" ? `translateY(${pageOffset}px)` : undefined, transition: phase === "idle" ? undefined : pageTransition }}
+      >
+        {children}
       </div>
-    </div>
+    </>
   );
 }

@@ -60,10 +60,10 @@ Open a Claude Code session in `/Users/miguelgarcia/Cursor/artha-app` and start w
 app/
   page.tsx              Home: streak, events, month calendar (fits one screen)
   book/page.tsx         Booking, modeled on the Open app: Classes / Therapies / Treatments
-                        tabs, date strip, day-grouped list → full-screen page → Reserve → confirm sheet
+                        tabs, date strip, day-grouped list → Book / time → confirm sheet (ConfirmBooking) → toast
   calendar/page.tsx     Month calendar + bookings, cancel, add to phone calendar (?day=YYYY-MM-DD)
   stats/page.tsx        Full stats dashboard + visit history
-  membership/page.tsx   "Account" tab: plan, trial/membership cards, stats panel,
+  membership/page.tsx   "Account" tab (condensed): plan card, trial/membership cards, one-row stats,
                         prices, change plan, policies, contact, demo controls (no charges list)
 components/             UI pieces (HomeAlerts, StreakCard, HomeCalendar, TrialCard,
                         MembershipCard, StatsOverview, EventsSection, …)
@@ -77,7 +77,7 @@ lib/
   stats.ts        Streaks and stats from completed visits
   events.ts       Events (free RSVP or $10 ticketed)
   therapists.ts   Christian, Tiffany, Victor (bios are placeholders)
-  images.ts       Photos for Book's therapies and treatments (Unsplash, swappable; classes have none)
+  images.ts       Service photos (Unsplash). Not shown in Book anymore; sign-up uses the event photo
   ics.ts          "Add to phone calendar" .ics file
 docs/artha-public-info.md   Everything collected from artha.la, with sources
 docs/artha-brand-palette.md ARTHA's colors from artha.la and how the app uses them
@@ -100,7 +100,8 @@ README.md                   Rules and where to change them
 | **Gold** $299/mo | included | included | included | included | $125 | $125 |
 | **7-Day Trial** $29 | included | included | $5 | $5 float, $19 contrast, $69 red light | $200 | $125 |
 
-- **Gold:** 1 treatment credit a month. Credits cover treatments and HBOT.
+- **Gold:** 1 treatment credit a month. Credits cover anything members pay $125 for (treatments and HBOT); the "What credits cover" sheet explains it.
+- **Treatments:** West LA: Massage, EM BodySculpting. Studio City: Massage, Cryo Facial, T-Shock Therapy, Endermologie (descriptions and Endermologie's length are CONFIRM).
 - **Restore:** monthly perks (1 class, 1 sauna, 1 cryo, 1 massage) are free first (`monthlyPerks` in `lib/data.ts`, counted per member per calendar month in `lib/store.tsx`). After a perk is used, prices show "Restore · 25% off" with the regular price crossed out. Perks act like credits on cancel: free cancel returns it, late cancel uses it up.
 - **Welcome credits:** members get 4.
 - **Location:** members take classes and events at both locations; their therapies and treatments are at their home location only (`bookableAt` in `lib/data.ts`, enforced in `book()`). Wellness accounts can book everything at both.
@@ -121,7 +122,7 @@ README.md                   Rules and where to change them
 
 ### Booking and cancelling
 
-- **Flow (like the Open app):** pick a tab, scroll the days (or tap a date), tap a class or time to open its page, then Reserve.
+- **Flow (like the Open app, fewer taps):** pick a tab, scroll the days (or tap a date), tap **Book** on a class or tap a therapy/treatment time, then confirm: two taps. After confirming, a "Booked" toast (with a Calendar link) shows and the list stays put. Tapping a class name opens its full page, whose Reserve uses the same `ConfirmBooking` sheet. Therapies and Treatments start on `ServiceMenu`: every service stacked on one screen (fits 375×812 with no scrolling), each with its next three open times as one-tap Book chips; tapping the name opens that service's two-week list (ServiceIntro, therapist picker for treatments) with a back link. Taken times are hidden in both. Cryo's list expands today's first open hour.
 - **Confirm step:** every booking ends with a confirm sheet. It shows the price and the policy as one sentence, e.g. "To avoid a no-show charge of $9, cancel by tomorrow at 7:30 AM."
 - **Free-cancel window:** 3 hours before classes and therapies, 12 hours before treatments and contrast.
 - **No-show charge = what the service costs right now:**
@@ -162,11 +163,11 @@ README.md                   Rules and where to change them
 ### Stats
 
 - **Streak:** consecutive days with a completed visit, ending today or yesterday.
-- **Stats page:** streaks, weekly visits, visits by service, favorites, savings, spend and visit history.
+- **Stats page:** streaks, weekly visits (Monday-to-Sunday weeks), visits by service, favorites, spend (Wellness) and visit history. No "saved" figure.
 
 ### Demo accounts
 
-Every account is named "Karan". Switch between them in **Account → Demo · view as**:
+Every account is named "Karan". Switch between them in **Account → Demo** (tap the row to open it):
 
 | Account | History |
 |---|---|
@@ -195,7 +196,7 @@ Every account is named "Karan". Switch between them in **Account → Demo · vie
 - **Restore:** the unused-massage rollover isn't modeled. During the $9 special, Restore's 25%-off class ($21.75) still costs more than a Wellness class. Needs a decision.
 - **Refund window:** 5 calendar days. The agreements say 5 business days.
 - **Opening hours:** 7 AM–9 PM assumed. They aren't published.
-- **Photos:** Unsplash stock images. Swap in ARTHA's own in `lib/images.ts`.
+- **Photos:** Book is text only (removed by request). The sign-up screen's photo is Unsplash stock; swap in ARTHA's own in `lib/images.ts`.
 - **Schedule:** one real week, repeated.
 
 ---

@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import clsx from "clsx";
-import { ArrowRight, CalendarPlus, Check, ChevronDown, Lock, MapPin, Share, Ticket, X } from "lucide-react";
+import { ArrowRight, CalendarPlus, Check, ChevronDown, ChevronLeft, ChevronRight, Info, Lock, MapPin, Share, Ticket, X } from "lucide-react";
 import { Category, LOCATIONS, LocationId, SERVICES, ServiceId, TIERS, bookableAt } from "@/lib/data";
 import { Session, dateKey, findSession, sessionStart, slotsFor, upcomingDays } from "@/lib/schedule";
 import { Booking, useStore } from "@/lib/store";
@@ -12,14 +12,14 @@ import { canUseCredit, cancelTerms, policyLine } from "@/lib/policy";
 import { dayLabel, money, timeLabel, timeRange } from "@/lib/format";
 import { Therapist, therapistsFor } from "@/lib/therapists";
 import { addToPhoneCalendar } from "@/lib/ics";
-import { SERVICE_IMAGE } from "@/lib/images";
 import { PriceTag, PromoNote } from "@/components/PriceTag";
 import { Button, Sheet } from "@/components/Sheet";
 import { EmailStudioButton } from "@/components/EmailStudio";
+import { CreditsInfoButton } from "@/components/CreditsInfo";
 
 // Book works like the Open app's In Person screen: pick Classes, Therapies or Treatments, scroll
-// one list of upcoming days (the date strip jumps to a day), tap a class or time to open its page,
-// and Reserve from there. Reserve always asks for one confirmation before booking.
+// one list of upcoming days (the date strip jumps to a day), and tap Book or a time. Every booking
+// asks for one confirmation; tapping a class name opens its full page instead.
 
 type Tab = Exclude<Category, "event">;
 const TABS: { id: Tab; label: string }[] = [
@@ -54,7 +54,18 @@ function BookScreen() {
     linked && linked.serviceId !== "class" ? { [SERVICES[linked.serviceId].category]: linked.serviceId } : {},
   );
   const [therapist, setTherapist] = useState<string | null>(null);
+  // Therapies and Treatments open on a menu of every service with its next open times; tapping one
+  // shows its full schedule.
+  const [menu, setMenu] = useState(!(linked && linked.serviceId !== "class"));
   const [open, setOpen] = useState<Session | null>(linked ?? null);
+  // Tapping Book or a time goes straight to the confirm sheet; the class page is only for details.
+  const [quickBook, setQuickBook] = useState<Session | null>(null);
+  const [toast, setToast] = useState<Booking | null>(null);
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3500);
+    return () => clearTimeout(t);
+  }, [toast]);
   const days = useMemo(() => upcomingDays(DAYS_AHEAD), []);
 
   // Wellness Accounts switch their location for everything. Members switch only for classes:
@@ -67,8 +78,9 @@ function BookScreen() {
 
   const services = Object.values(SERVICES).filter((s) => s.category === tab && s.locations.includes(location));
   // The picked service may not exist at a newly chosen location; fall back to the first one there.
+  const preferred = picked[tab];
   const serviceId: ServiceId =
-    tab === "class" ? "class" : picked[tab] && SERVICES[picked[tab]!].locations.includes(location) ? picked[tab]! : services[0].id;
+    tab === "class" ? "class" : preferred && SERVICES[preferred].locations.includes(location) ? preferred : services[0].id;
   const shownTherapist = therapist && therapistsFor(serviceId).some((t) => t.name === therapist) ? therapist : null;
 
   // Date strip: jump to a day, and follow along as the list scrolls.
@@ -103,25 +115,33 @@ function BookScreen() {
   useEffect(() => {
     window.scrollTo({ top: 0 });
     setActiveDay(days[0]);
-  }, [tab, serviceId, location, days]);
+  }, [tab, serviceId, location, days, menu]);
+  const showMenu = tab !== "class" && menu;
 
   return (
     <div className="space-y-5">
       <div ref={stickyRef} className="sticky top-[53px] z-10 -mx-4 -mt-3 border-b border-line bg-sand px-4">
-        <div className="grid grid-cols-3" role="tablist">
+        {/* A segmented switch: the chosen tab is solid black, the others stay readable. */}
+        <div className="mt-2 grid grid-cols-3 gap-1 rounded-full border border-line bg-card p-1" role="tablist">
           {TABS.map((t) => (
             <button
               key={t.id}
               role="tab"
               aria-selected={tab === t.id}
-              onClick={() => setTab(t.id)}
-              className={clsx("border-b-2 py-3 text-sm", tab === t.id ? "border-sage text-shell" : "border-transparent text-muted")}
+              onClick={() => {
+                setTab(t.id);
+                if (t.id !== "class") setMenu(true);
+              }}
+              className={clsx(
+                "rounded-full py-2 text-sm font-semibold transition-colors",
+                tab === t.id ? "bg-shell text-sand" : "text-shell hover:bg-sand",
+              )}
             >
               {t.label}
             </button>
           ))}
         </div>
-        <div ref={stripRef} className="no-scrollbar -mx-4 flex overflow-x-auto px-2 py-2.5">
+        <div ref={stripRef} className={clsx("no-scrollbar -mx-4 flex overflow-x-auto px-2 py-2.5", showMenu && "hidden")}>
           {days.map((d) => {
             const date = sessionStart(d, "12:00");
             const active = d === activeDay;
@@ -137,7 +157,7 @@ function BookScreen() {
         </div>
       </div>
 
-      <LocationRow serviceId={serviceId} location={location} locked={lockedHere} onPick={pickLocation} />
+      <LocationRow serviceId={showMenu ? null : serviceId} location={location} locked={lockedHere} onPick={pickLocation} />
       {tier.lockedToHome && (
         <p className="-mt-3 text-xs text-muted">
           {tab === "class"
@@ -146,28 +166,144 @@ function BookScreen() {
         </p>
       )}
 
-      {tab !== "class" && (
-        <ServiceIntro
+      {showMenu ? (
+        <ServiceMenu
           services={services.map((s) => s.id)}
-          serviceId={serviceId}
-          onPick={(id) => setPicked((p) => ({ ...p, [tab]: id }))}
-          therapist={shownTherapist}
-          onTherapist={setTherapist}
+          location={location}
+          days={days}
+          onBook={setQuickBook}
+          onAll={(id) => {
+            setPicked((p) => ({ ...p, [tab]: id }));
+            setMenu(false);
+          }}
         />
+      ) : (
+        <>
+          {tab !== "class" && (
+            <>
+              <button onClick={() => setMenu(true)} className="-mb-2 flex items-center gap-0.5 text-sm font-medium text-moss">
+                <ChevronLeft size={16} /> All {tab === "therapy" ? "therapies" : "treatments"}
+              </button>
+              <ServiceIntro serviceId={serviceId} therapist={shownTherapist} onTherapist={setTherapist} />
+            </>
+          )}
+
+          <div className="space-y-6">
+            {days.map((d) => (
+              <section key={d} id={`day-${d}`} aria-label={dayLabel(d, "long")}>
+                <DayHeader date={d} />
+                <DayList date={d} serviceId={serviceId} location={location} therapist={shownTherapist} onOpen={setOpen} onBook={setQuickBook} first={d === days[0]} />
+              </section>
+            ))}
+          </div>
+          <p className="pb-4 text-center text-xs text-muted">That&apos;s the next two weeks. New times open every day.</p>
+        </>
       )}
 
-      <div className="space-y-8">
-        {days.map((d) => (
-          <section key={d} id={`day-${d}`} aria-label={dayLabel(d, "long")}>
-            <h2 className="mb-3 text-3xl font-medium tracking-tight">{dayLabel(d, "long")}</h2>
-            <DayList date={d} serviceId={serviceId} location={location} therapist={shownTherapist} onOpen={setOpen} />
-          </section>
-        ))}
-      </div>
-      <p className="pb-4 text-center text-xs text-muted">That&apos;s the next two weeks. New times open every day.</p>
-
       {open && <SessionPage key={open.id} session={open} onClose={() => setOpen(null)} />}
+      {quickBook && (
+        <ConfirmBooking
+          key={quickBook.id}
+          session={quickBook}
+          onClose={() => setQuickBook(null)}
+          onBooked={(b) => {
+            setQuickBook(null);
+            setToast(b);
+          }}
+        />
+      )}
+      {toast && (
+        <div role="status" className="fixed inset-x-4 bottom-24 z-[70] mx-auto flex max-w-md items-center gap-3 rounded-2xl bg-shell px-4 py-3 text-sm text-sand shadow-lg">
+          <Check size={18} className="shrink-0 text-sage" />
+          <p className="min-w-0 flex-1 leading-tight">
+            <span className="font-medium">Booked</span> · {toast.title}, {dayLabel(toast.date, "short")} {timeLabel(toast.time)}
+          </p>
+          <Link href="/calendar" className="shrink-0 font-medium text-sage">
+            Calendar
+          </Link>
+        </div>
+      )}
     </div>
+  );
+}
+
+// Every therapy (or treatment) on one screen, stacked: name, length and your price, then the next three open times
+// (tap one to go straight to the confirm sheet). Tapping the therapy's name shows all its times.
+function ServiceMenu({
+  services,
+  location,
+  days,
+  onBook,
+  onAll,
+}: {
+  services: ServiceId[];
+  location: LocationId;
+  days: string[];
+  onBook: (s: Session) => void;
+  onAll: (id: ServiceId) => void;
+}) {
+  const { spotsLeft, myBookingFor, quote } = useStore();
+  // The first day that still has an open time, and its next three.
+  const nextOpen = (id: ServiceId) => {
+    for (const d of days) {
+      const open = upcoming(d, id, location, null).filter((s) => spotsLeft(s) > 0 && !myBookingFor(s.id));
+      if (open.length) return { date: d, times: open.slice(0, 3) };
+    }
+    return null;
+  };
+  return (
+    <div className="divide-y divide-line border-y border-line">
+      {services.map((id) => {
+        const service = SERVICES[id];
+        const next = nextOpen(id);
+        return (
+          <div key={id} className="py-2.5">
+            <button onClick={() => onAll(id)} className="flex w-full items-center gap-2 text-left">
+              <span className="min-w-0 flex-1 truncate">
+                <span className="font-medium">{service.name}</span> <span className="text-xs text-muted">· {service.durationMin} min</span>
+              </span>
+              <PriceTag quote={quote(id, location, dateKey(new Date()))} pill />
+              <ChevronRight size={16} className="shrink-0 text-muted" />
+            </button>
+            {next ? (
+              <div className="mt-1.5 flex items-center gap-2">
+                <span className="w-[58px] shrink-0 text-xs leading-tight text-muted">{dayLabel(next.date)}</span>
+                {next.times.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => onBook(s)}
+                    aria-label={`Book ${service.name} ${dayLabel(s.date)} at ${timeLabel(s.time)}`}
+                    className="flex-1 whitespace-nowrap rounded-lg border border-line bg-card py-1.5 text-[13px] font-medium active:bg-sage"
+                  >
+                    {timeLabel(s.time)}
+                  </button>
+                ))}
+                {Array.from({ length: 3 - next.times.length }, (_, i) => (
+                  <span key={i} className="flex-1" />
+                ))}
+              </div>
+            ) : (
+              <p className="mt-1 text-xs text-muted">No open times in the next two weeks.</p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// A solid band at the top of each day, so where one day ends and the next begins is unmistakable.
+function DayHeader({ date }: { date: string }) {
+  const d = sessionStart(date, "12:00");
+  const label = dayLabel(date);
+  const relative = label === "Today" || label === "Tomorrow";
+  const weekday = d.toLocaleDateString("en-US", { weekday: "long" });
+  const monthDay = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return (
+    <h2 className="-mx-4 flex items-baseline justify-between bg-shell px-4 py-2.5 text-sand">
+      <span className="text-lg font-semibold tracking-tight">{relative ? label : weekday}</span>
+      <span className="text-sm text-sage">{relative ? `${weekday}, ${monthDay}` : monthDay}</span>
+    </h2>
   );
 }
 
@@ -179,13 +315,13 @@ function LocationRow({
   locked,
   onPick,
 }: {
-  serviceId: ServiceId;
+  serviceId: ServiceId | null; // null: no single price to show (the therapy menu prices each row)
   location: LocationId;
   locked: boolean;
   onPick: (id: LocationId) => void;
 }) {
   const { quote } = useStore();
-  const q = quote(serviceId, location, dateKey(new Date()));
+  const q = serviceId && quote(serviceId, location, dateKey(new Date()));
   return (
     <div className="flex items-center justify-between gap-3">
       {locked ? (
@@ -209,25 +345,23 @@ function LocationRow({
           ))}
         </div>
       )}
-      <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-line px-3 py-1.5 text-xs">
-        <span className="text-muted">Your price</span>
-        <PriceTag quote={q} />
-      </span>
+      {q && (
+        <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-line px-3 py-1.5 text-xs">
+          <span className="text-muted">Your price</span>
+          <PriceTag quote={q} />
+        </span>
+      )}
     </div>
   );
 }
 
-// Therapies and Treatments: pick the service (pills, like Open's filters), then see its photo and details.
+// One therapy's or treatment's details above its full schedule (reached from the menu).
 function ServiceIntro({
-  services,
   serviceId,
-  onPick,
   therapist,
   onTherapist,
 }: {
-  services: ServiceId[];
   serviceId: ServiceId;
-  onPick: (id: ServiceId) => void;
   therapist: string | null;
   onTherapist: (name: string | null) => void;
 }) {
@@ -239,20 +373,6 @@ function ServiceIntro({
 
   return (
     <div className="space-y-4">
-      <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
-        {services.map((id) => (
-          <button
-            key={id}
-            onClick={() => onPick(id)}
-            className={clsx("shrink-0 rounded-full px-4 py-2 text-sm", id === serviceId ? "bg-sage text-ink" : "bg-card text-shell")}
-          >
-            {SHORT_NAME[id] ?? SERVICES[id].name}
-          </button>
-        ))}
-      </div>
-
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={SERVICE_IMAGE[serviceId]} alt="" className="aspect-[2/1] w-full rounded-xl object-cover" />
       <div>
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="text-2xl font-medium tracking-tight">{service.name}</h2>
@@ -266,9 +386,9 @@ function ServiceIntro({
         <div className="mt-2 flex flex-wrap gap-1.5">
           <PromoNote quote={q} />
           {member.credits > 0 && canUseCredit(serviceId) && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-card px-2 py-0.5 text-[11px] text-moss">
-              <Ticket size={11} /> A credit can cover this ({member.credits} left)
-            </span>
+            <CreditsInfoButton className="rounded-full bg-card px-2 py-0.5 text-[11px]">
+              <Ticket size={11} /> A credit can cover this ({member.credits} left) · <Info size={11} />
+            </CreditsInfoButton>
           )}
         </div>
       </div>
@@ -316,14 +436,6 @@ function ServiceIntro({
   );
 }
 
-const SHORT_NAME: Partial<Record<ServiceId, string>> = {
-  "ir-sauna": "Sauna",
-  "red-light": "Red Light",
-  contrast: "Contrast",
-  hbot: "HBOT",
-  "em-sculpt": "EM Sculpt",
-};
-
 function upcoming(date: string, serviceId: ServiceId, location: LocationId, therapist: string | null): Session[] {
   return slotsFor(location, serviceId, date).filter(
     (s) => sessionStart(s.date, s.time).getTime() > Date.now() && (!therapist || s.instructor === therapist),
@@ -336,32 +448,45 @@ function DayList({
   location,
   therapist,
   onOpen,
+  onBook,
+  first,
 }: {
   date: string;
   serviceId: ServiceId;
   location: LocationId;
   therapist: string | null;
   onOpen: (s: Session) => void;
+  onBook: (s: Session) => void;
+  first: boolean;
 }) {
-  const sessions = upcoming(date, serviceId, location, therapist);
+  const { spotsLeft, myBookingFor } = useStore();
+  const all = upcoming(date, serviceId, location, therapist);
+  // Therapies and treatments list only times you can still book (plus your own); taken times are left out.
+  const isService = serviceId !== "class";
+  const sessions = isService ? all.filter((s) => spotsLeft(s) > 0 || !!myBookingFor(s.id)) : all;
   if (sessions.length === 0) {
-    return <p className="text-sm text-muted">{date === dateKey(new Date()) ? "Nothing left today." : "Nothing this day."}</p>;
+    const today = date === dateKey(new Date());
+    return (
+      <p className="py-2 text-sm text-muted">
+        {all.length > 0 ? (today ? "No open times left today." : "Fully booked this day.") : today ? "Nothing left today." : "Nothing this day."}
+      </p>
+    );
   }
   if (serviceId === "class") {
     return (
       <div className="divide-y divide-line border-y border-line">
         {sessions.map((s) => (
-          <ClassCard key={s.id} session={s} onOpen={() => onOpen(s)} />
+          <ClassCard key={s.id} session={s} onOpen={() => onOpen(s)} onBook={() => onBook(s)} />
         ))}
       </div>
     );
   }
   // Cryo starts every 5 minutes, which is too many rows: group by hour, open an hour to pick a time.
-  if (sessions.length > HOUR_GROUP_THRESHOLD) return <HourGroups sessions={sessions} onOpen={onOpen} />;
+  if (all.length > HOUR_GROUP_THRESHOLD) return <HourGroups sessions={sessions} onOpen={onOpen} onBook={onBook} expandFirst={first} />;
   return (
     <div className="divide-y divide-line border-y border-line">
       {sessions.map((s) => (
-        <SlotRow key={s.id} session={s} onOpen={() => onOpen(s)} />
+        <SlotRow key={s.id} session={s} onOpen={() => onOpen(s)} onBook={() => onBook(s)} showPrice={isService} />
       ))}
     </div>
   );
@@ -370,56 +495,122 @@ function DayList({
 const HOUR_GROUP_THRESHOLD = 24;
 
 // Time on the left, then the class, teacher and price, like Open's schedule (without photos).
-function ClassCard({ session, onOpen }: { session: Session; onOpen: () => void }) {
-  const { spotsLeft, myBookingFor, quote } = useStore();
+// Book on the right goes straight to the confirm sheet; the rest of the row opens the class page.
+function ClassCard({ session, onOpen, onBook }: { session: Session; onOpen: () => void; onBook: () => void }) {
+  const { member, spotsLeft, myBookingFor, quote } = useStore();
   const left = spotsLeft(session);
   const mine = !!myBookingFor(session.id);
+  const full = left === 0 && !mine;
   const q = quote(session.serviceId, session.location, session.date);
+  // HBOT: a credit can pay instead, and the confirm sheet uses one by default.
+  const orCredit = canUseCredit(session.serviceId) && member.credits > 0 && q.price > 0;
   return (
-    <button onClick={onOpen} className={clsx("flex w-full items-start gap-3 py-4 text-left", left === 0 && !mine && "opacity-50")}>
-      <div className="w-[76px] shrink-0">
-        <p className="stat-num text-base leading-tight">{timeLabel(session.time)}</p>
-        <p className="text-xs text-muted">{session.durationMin} min</p>
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-base font-medium leading-tight">{session.title}</p>
-        {session.instructor && <p className="mt-0.5 text-sm text-muted">w/ {session.instructor}</p>}
-        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm">
-          <PriceTag quote={q} />
-          {q.kind === "memberOff" && <PromoNote quote={q} />}
-          <Status left={left} mine={mine} />
+    <div className={clsx("flex items-center gap-3 py-3", full && "opacity-50")}>
+      <button onClick={onOpen} className="flex min-w-0 flex-1 items-start gap-3 text-left">
+        <div className="w-[72px] shrink-0">
+          <p className="stat-num whitespace-nowrap text-[15px] leading-tight">{timeLabel(session.time)}</p>
+          <p className="text-xs text-muted">{session.durationMin} min</p>
         </div>
-      </div>
-      {session.instructor && <Avatar name={session.instructor} size="lg" />}
+        <div className="min-w-0 flex-1">
+          <p className="text-base font-medium leading-tight">{session.title}</p>
+          {session.instructor && <p className="mt-0.5 text-sm text-muted">w/ {session.instructor}</p>}
+          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm">
+            <PriceTag quote={q} pill />
+            {q.kind === "memberOff" && <PromoNote quote={q} />}
+            {!mine && !full && <Status left={left} mine={false} />}
+          </div>
+        </div>
+      </button>
+      <BookPill mine={mine} full={full} onBook={onBook} onOpen={onOpen} label={`${session.title} at ${timeLabel(session.time)}`} />
+    </div>
+  );
+}
+
+// The row's action: Book (to the confirm sheet), Booked (to its page, to cancel or add to a calendar) or Full.
+function BookPill({ mine, full, onBook, onOpen, label }: { mine: boolean; full: boolean; onBook: () => void; onOpen: () => void; label: string }) {
+  if (full) return <span className="w-[80px] shrink-0 rounded-full bg-line py-2 text-center text-sm text-shell">Full</span>;
+  return (
+    <button
+      onClick={mine ? onOpen : onBook}
+      aria-label={`${mine ? "Booked" : "Book"} ${label}`}
+      className={clsx(
+        "flex w-[80px] shrink-0 items-center justify-center gap-1 rounded-full py-2 text-sm font-semibold",
+        mine ? "bg-moss text-sand" : "bg-sage text-ink active:bg-sage-light",
+      )}
+    >
+      {mine ? (
+        <>
+          <Check size={14} /> Booked
+        </>
+      ) : (
+        "Book"
+      )}
     </button>
   );
 }
 
-// One time on its own row, like Open's Hot + Cold list.
-function SlotRow({ session, onOpen }: { session: Session; onOpen: () => void }) {
-  const { spotsLeft, myBookingFor } = useStore();
+// One time on its own row, like Open's Hot + Cold list. The whole row books: it opens the confirm
+// sheet (the service is already described above the list). A booked time opens its page instead.
+// Therapy and treatment times show their price bubble, the way classes show "Included".
+function SlotRow({ session, onOpen, onBook, showPrice }: { session: Session; onOpen: () => void; onBook: () => void; showPrice: boolean }) {
+  const { member, spotsLeft, myBookingFor, quote } = useStore();
   const left = spotsLeft(session);
   const mine = !!myBookingFor(session.id);
   const full = left === 0 && !mine;
+  const q = quote(session.serviceId, session.location, session.date);
+  // HBOT: a credit can pay instead, and the confirm sheet uses one by default.
+  const orCredit = canUseCredit(session.serviceId) && member.credits > 0 && q.price > 0;
   return (
-    <button onClick={onOpen} className={clsx("flex w-full items-center gap-3 py-3 text-left", full && "opacity-50")}>
+    <button
+      onClick={mine ? onOpen : onBook}
+      disabled={full}
+      className={clsx("flex w-full items-center gap-3 py-2.5 text-left", full && "opacity-50")}
+    >
       <div className="min-w-0 flex-1">
         <p className="text-base">{session.durationMin >= 15 ? timeRange(session.time, session.durationMin) : timeLabel(session.time)}</p>
         <p className={clsx("text-sm", mine ? "text-moss" : session.capacity > 3 && left > 0 && left <= 2 ? "text-clay" : "text-muted")}>
           {session.instructor ? `with ${session.instructor} · ` : ""}
           {mine ? "Booked" : full ? "Full" : session.capacity === 1 ? "Available" : `${left} ${left === 1 ? "spot" : "spots"} left`}
         </p>
+        {showPrice && (
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <PriceTag quote={q} pill />
+            <PromoNote quote={q} />
+            {orCredit && (
+              <span className="inline-flex items-center gap-1 text-xs text-moss">
+                <Ticket size={12} /> or 1 credit
+              </span>
+            )}
+          </div>
+        )}
       </div>
-      {mine ? <Check size={18} className="text-moss" /> : <ArrowRight size={18} className="text-muted" />}
+      {mine ? (
+        <Check size={18} className="text-moss" />
+      ) : (
+        !full && <span className="rounded-full bg-sage px-3.5 py-1.5 text-sm font-semibold text-ink">Book</span>
+      )}
     </button>
   );
 }
 
-function HourGroups({ sessions, onOpen }: { sessions: Session[]; onOpen: (s: Session) => void }) {
-  const { spotsLeft, myBookingFor } = useStore();
-  const [openHour, setOpenHour] = useState<string | null>(null);
+function HourGroups({
+  sessions,
+  onOpen,
+  onBook,
+  expandFirst,
+}: {
+  sessions: Session[];
+  onOpen: (s: Session) => void;
+  onBook: (s: Session) => void;
+  expandFirst: boolean;
+}) {
+  const { spotsLeft, myBookingFor, quote } = useStore();
   const byHour = new Map<string, Session[]>();
   for (const s of sessions) byHour.set(s.time.slice(0, 2), [...(byHour.get(s.time.slice(0, 2)) ?? []), s]);
+  // Today's soonest hour with an open time starts expanded, so the next times are one tap away.
+  const [openHour, setOpenHour] = useState<string | null>(() =>
+    expandFirst ? ([...byHour.entries()].find(([, list]) => list.some((s) => spotsLeft(s) > 0))?.[0] ?? null) : null,
+  );
   return (
     <div className="divide-y divide-line border-y border-line">
       {[...byHour.entries()].map(([hour, list]) => {
@@ -430,13 +621,17 @@ function HourGroups({ sessions, onOpen }: { sessions: Session[]; onOpen: (s: Ses
             <button
               onClick={() => setOpenHour(expanded ? null : hour)}
               aria-expanded={expanded}
-              className={clsx("flex w-full items-center gap-3 py-3 text-left", free === 0 && "opacity-50")}
+              className={clsx("flex w-full items-center gap-3 py-2.5 text-left", free === 0 && "opacity-50")}
             >
               <div className="flex-1">
                 <p className="text-base">{timeLabel(`${hour}:00`).replace(":00", "")}</p>
                 <p className="text-sm text-muted">
                   {free} {free === 1 ? "time" : "times"} open · every 5 min
                 </p>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <PriceTag quote={quote(list[0].serviceId, list[0].location, list[0].date)} pill />
+                  <PromoNote quote={quote(list[0].serviceId, list[0].location, list[0].date)} />
+                </div>
               </div>
               <ChevronDown size={18} className={clsx("text-muted transition", expanded && "rotate-180")} />
             </button>
@@ -448,7 +643,7 @@ function HourGroups({ sessions, onOpen }: { sessions: Session[]; onOpen: (s: Ses
                   return (
                     <button
                       key={s.id}
-                      onClick={() => onOpen(s)}
+                      onClick={() => (mine ? onOpen(s) : onBook(s))}
                       disabled={full}
                       className={clsx(
                         "rounded-lg py-2 text-sm",
@@ -475,13 +670,11 @@ function SessionPage({ session, onClose }: { session: Session; onClose: () => vo
   const service = SERVICES[session.serviceId];
   const location = LOCATIONS[session.location];
   const q = quote(session.serviceId, session.location, session.date);
-  const creditAvailable = canUseCredit(session.serviceId) && member.credits > 0 && q.price > 0;
-  const [useCredit, setUseCredit] = useState(creditAvailable);
-  const credit = useCredit && creditAvailable;
+  // A credit is used by default when one can cover this; the confirm sheet lets you switch it off.
+  const credit = canUseCredit(session.serviceId) && member.credits > 0 && q.price > 0;
   const total = credit ? 0 : q.price;
   const terms = cancelTerms(tier, { ...session, price: total, usedCredit: credit, perk: !credit && q.kind === "perk" });
   const [confirming, setConfirming] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [justBooked, setJustBooked] = useState<Booking | null>(null);
   const existing = myBookingFor(session.id);
   const booking = justBooked ?? existing;
@@ -512,8 +705,6 @@ function SessionPage({ session, onClose }: { session: Session; onClose: () => vo
     }
   };
 
-  // Classes have no photo; therapies and treatments open with theirs.
-  const image = session.serviceId === "class" ? undefined : SERVICE_IMAGE[session.serviceId];
   const close = (
     <button onClick={onClose} aria-label="Close" className="rounded-full bg-sand/70 p-2 backdrop-blur">
       <X size={20} />
@@ -521,20 +712,11 @@ function SessionPage({ session, onClose }: { session: Session; onClose: () => vo
   );
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-sand text-shell" role="dialog" aria-modal="true" aria-label={session.title}>
+    <div className="fixed inset-0 z-50 !mt-0 overflow-y-auto bg-sand text-shell" role="dialog" aria-modal="true" aria-label={session.title}>
       <div className="mx-auto max-w-md pb-40">
-        {image ? (
-          <div className="relative">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={image} alt="" className="h-64 w-full object-cover" />
-            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-sand" aria-hidden />
-            <div className="absolute right-3 top-3">{close}</div>
-          </div>
-        ) : (
-          <div className="flex justify-end px-3 pb-2 pt-3">{close}</div>
-        )}
+        <div className="flex justify-end px-3 pb-2 pt-3">{close}</div>
 
-        <div className="space-y-5 px-4">
+        <div className="space-y-4 px-4">
           <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
               <h2 className="text-2xl font-medium leading-tight tracking-tight">{session.title}</h2>
@@ -587,22 +769,11 @@ function SessionPage({ session, onClose }: { session: Session; onClose: () => vo
                 </div>
                 <PriceTag quote={q} size="lg" />
               </div>
-              {creditAvailable && (
-                <label className="mt-3 flex cursor-pointer items-center gap-3 rounded-xl bg-card p-3 text-moss">
-                  <input type="checkbox" checked={useCredit} onChange={(e) => setUseCredit(e.target.checked)} className="h-4 w-4 accent-moss" />
-                  <Ticket size={16} />
-                  <span>
-                    Use 1 treatment credit <span className="text-muted">({member.credits} left)</span>
-                  </span>
-                </label>
+              {credit && (
+                <p className="mt-2 flex items-center gap-1.5 text-moss">
+                  <Ticket size={15} /> 1 of your {member.credits} credits covers this, so you pay $0.
+                </p>
               )}
-              <div className="mt-3 flex items-baseline justify-between border-t border-line pt-3">
-                <span>You pay today</span>
-                <span className="stat-num text-2xl">{money(total)}</span>
-              </div>
-              <p className="mt-0.5 text-xs text-muted">
-                {total > 0 ? "Charged to your card on file when you confirm." : credit ? "Covered by your credit." : "Nothing is charged."}
-              </p>
             </Section>
           )}
 
@@ -660,42 +831,87 @@ function SessionPage({ session, onClose }: { session: Session; onClose: () => vo
         </div>
       </div>
 
-      <Sheet open={confirming} onClose={() => setConfirming(false)} title="Confirm your booking">
-        <div className="space-y-4 text-sm">
-          <div className="rounded-2xl border border-line p-4">
-            <p className="text-lg leading-tight">{session.title}</p>
-            <p className="mt-1 text-muted">
-              {dayLabel(session.date, "long")} · {timeRange(session.time, session.durationMin)}
-            </p>
-            <p className="text-muted">{location.name}</p>
-            <div className="mt-3 flex items-baseline justify-between border-t border-line pt-3">
-              <span>You pay today</span>
-              <span className="stat-num text-2xl">{money(total)}</span>
+      {confirming && (
+        <ConfirmBooking
+          session={session}
+          onClose={() => setConfirming(false)}
+          onBooked={(b) => {
+            setJustBooked(b);
+            setConfirming(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// The one confirm step every booking goes through, from a class page's Reserve or straight from a
+// Book button in the list: what, when, where, the price (with the credit switch when a credit can
+// cover it), and the cancellation line.
+function ConfirmBooking({ session, onClose, onBooked }: { session: Session; onClose: () => void; onBooked: (b: Booking) => void }) {
+  const { member, book, quote } = useStore();
+  const tier = TIERS[member.tier];
+  const location = LOCATIONS[session.location];
+  const q = quote(session.serviceId, session.location, session.date);
+  const creditAvailable = canUseCredit(session.serviceId) && member.credits > 0 && q.price > 0;
+  const [useCredit, setUseCredit] = useState(creditAvailable);
+  const credit = useCredit && creditAvailable;
+  const total = credit ? 0 : q.price;
+  const terms = cancelTerms(tier, { ...session, price: total, usedCredit: credit, perk: !credit && q.kind === "perk" });
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <Sheet open onClose={onClose} title="Confirm your booking">
+      <div className="space-y-3 text-sm">
+        <div className="rounded-2xl border border-line p-4">
+          <p className="text-lg leading-tight">{session.title}</p>
+          <p className="mt-1 text-muted">
+            {dayLabel(session.date, "long")} · {timeRange(session.time, session.durationMin)}
+          </p>
+          <p className="text-muted">
+            {location.name}
+            {session.instructor ? ` · ${session.serviceId === "class" ? "w/" : "with"} ${session.instructor}` : ""}
+          </p>
+          {/* A plain price already shows as "You pay today"; tags like Included or First visit add something. */}
+          {q.kind !== "member" && q.kind !== "regular" && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <PriceTag quote={q} />
+              <PromoNote quote={q} />
             </div>
-            {credit && <p className="text-xs text-moss">Covered by 1 treatment credit.</p>}
-          </div>
-          <p className={clsx("rounded-2xl bg-sand p-4 font-medium", terms.late ? "text-clay" : "text-shell")}>{policyLine(terms, credit)}</p>
-          {error && <p className="rounded-2xl bg-sand p-4 text-clay">{error}</p>}
-          <div className="space-y-2">
-            <Button
-              variant="primary"
-              onClick={() => {
-                const r = book(session, credit);
-                if (r.ok) {
-                  setJustBooked(r.booking);
-                  setConfirming(false);
-                } else setError(r.error);
-              }}
-            >
-              {total > 0 ? `Confirm and pay ${money(total)}` : "Confirm booking"}
-            </Button>
-            <Button variant="secondary" onClick={() => setConfirming(false)}>
-              Go back
-            </Button>
+          )}
+          {creditAvailable && (
+            <label className="mt-3 flex cursor-pointer items-center gap-3 rounded-xl bg-moss-soft p-3 text-moss">
+              <input type="checkbox" checked={useCredit} onChange={(e) => setUseCredit(e.target.checked)} className="h-4 w-4 accent-moss" />
+              <Ticket size={16} />
+              <span>
+                Use 1 treatment credit <span className="text-muted">({member.credits} left)</span>
+              </span>
+            </label>
+          )}
+          <div className="mt-3 flex items-baseline justify-between border-t border-line pt-3">
+            <span>You pay today</span>
+            <span className="stat-num text-2xl">{money(total)}</span>
           </div>
         </div>
-      </Sheet>
-    </div>
+        <p className={clsx("rounded-2xl bg-sand p-3 font-medium", terms.late ? "text-clay" : "text-shell")}>{policyLine(terms, credit)}</p>
+        {error && <p className="rounded-2xl bg-sand p-3 text-clay">{error}</p>}
+        <div className="space-y-2">
+          <Button
+            variant="primary"
+            onClick={() => {
+              const r = book(session, credit);
+              if (r.ok) onBooked(r.booking);
+              else setError(r.error);
+            }}
+          >
+            {total > 0 ? `Confirm and pay ${money(total)}` : "Confirm booking"}
+          </Button>
+          <Button variant="secondary" onClick={onClose}>
+            Go back
+          </Button>
+        </div>
+      </div>
+    </Sheet>
   );
 }
 
@@ -717,13 +933,13 @@ function IconButton({ label, onClick, children }: { label: string; onClick: () =
 }
 
 // Instructors and therapists show as their initial. Real photos can replace these later.
-function Avatar({ name, size, ring = false }: { name: string; size: "lg" | "xl"; ring?: boolean }) {
+function Avatar({ name, size, ring = false }: { name: string; size: "md" | "lg" | "xl"; ring?: boolean }) {
   return (
     <span
       aria-hidden
       className={clsx(
         "flex shrink-0 items-center justify-center rounded-full border border-line bg-card font-serif text-shell",
-        size === "xl" ? "h-16 w-16 text-2xl" : "h-12 w-12 text-xl",
+        size === "xl" ? "h-16 w-16 text-2xl" : size === "lg" ? "h-12 w-12 text-xl" : "h-10 w-10 text-lg",
         ring && "ring-2 ring-sage ring-offset-2 ring-offset-sand",
       )}
     >
