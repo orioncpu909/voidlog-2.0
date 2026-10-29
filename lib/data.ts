@@ -123,8 +123,10 @@ export const SERVICES: Record<ServiceId, Service> = {
   },
 };
 
-// Every ticketed event costs the same for every account, Wellness included.
+// A ticket to a public ticketed event (special classes, workshops), the same for every account.
 export const EVENT_TICKET_PRICE = 10;
+// A ticket to a private class, unless the event sets its own price.
+export const PRIVATE_CLASS_PRICE = 19;
 
 export const POLICY = {
   standard: { windowHours: 3 },

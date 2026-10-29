@@ -231,7 +231,7 @@ export function eventSessions(location: LocationId, date: string): Session[] {
       title: e.title,
       instructor: e.venue.startsWith("ARTHA") ? undefined : e.venue, // shown only for off-site venues
       capacity: e.ticket!.capacity,
-      bookedByOthers: othersBooked(id, e.ticket!.capacity),
+      bookedByOthers: Math.min(e.ticket!.capacity, e.ticket!.taken ?? othersBooked(id, e.ticket!.capacity)),
     };
   });
 }

@@ -86,7 +86,8 @@ export function PastVisitSheet({ booking, onClose }: { booking: Booking | null; 
   const location = LOCATIONS[b.location];
   const isClass = service.category === "class";
   const again = nextSameSession(b);
-  const paid = b.usedCredit ? "Paid with 1 treatment credit" : b.perk ? "Monthly perk, included" : b.price > 0 ? `Paid ${money(b.price)}` : "Included, nothing charged";
+  // Only what was paid or used; an included visit just shows the class and length.
+  const paid = b.usedCredit ? "Paid with 1 treatment credit" : b.perk ? "Monthly perk" : b.price > 0 ? `Paid ${money(b.price)}` : null;
   return (
     <Sheet open onClose={onClose} title={b.title}>
       <div className="space-y-3 text-sm">
@@ -118,7 +119,7 @@ export function PastVisitSheet({ booking, onClose }: { booking: Booking | null; 
           </li>
         </ul>
         <p className="border-t border-line pt-3 text-muted">
-          {isClass ? "Class" : service.name} · {b.durationMin} min · {paid}
+          {isClass ? "Class" : service.name} · {b.durationMin} min{paid ? ` · ${paid}` : ""}
           {b.firstVisit && " · first visit price"}
         </p>
         {again && (

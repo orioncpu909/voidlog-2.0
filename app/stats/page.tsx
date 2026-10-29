@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import clsx from "clsx";
 import { ArrowLeft, Flame, Heart, Receipt, Sparkles, Timer, Trophy, UserRound } from "lucide-react";
 import { LOCATIONS, SERVICES, TIERS } from "@/lib/data";
@@ -9,7 +10,16 @@ import { useStore } from "@/lib/store";
 import { computeStats } from "@/lib/stats";
 import { money, shortDate } from "@/lib/format";
 
+// Suspense: the back arrow reads ?from= to return to the page that opened Stats.
 export default function StatsPage() {
+  return (
+    <Suspense>
+      <StatsScreen />
+    </Suspense>
+  );
+}
+
+function StatsScreen() {
   const { member, bookings } = useStore();
   const s = computeStats(bookings);
   const [hover, setHover] = useState<number | null>(null);
@@ -162,10 +172,17 @@ function plural(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`;
 }
 
+// Where the back arrow goes: the page that opened Stats (Profile or Account), otherwise Home.
+const BACK: Record<string, { href: string; label: string }> = {
+  profile: { href: "/profile", label: "Back to Profile" },
+  account: { href: "/membership", label: "Back to Account" },
+};
+
 function Header() {
+  const back = BACK[useSearchParams().get("from") ?? ""] ?? { href: "/", label: "Back to Home" };
   return (
     <div className="flex items-center gap-2">
-      <Link href="/" aria-label="Back to Home" className="-ml-2 rounded-full p-2 hover:bg-card">
+      <Link href={back.href} aria-label={back.label} className="-ml-2 rounded-full p-2 hover:bg-card">
         <ArrowLeft size={20} />
       </Link>
       <h1 className="font-serif text-3xl">Your stats</h1>

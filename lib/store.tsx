@@ -4,9 +4,9 @@
 // No real payments; charges are a ledger of what the card on file would be billed.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { EVENT_TICKET_PRICE, LocationId, PERK_LABEL, Quote, ServiceId, TIERS, TierId, bookableAt, priceFor } from "./data";
+import { LocationId, PERK_LABEL, Quote, ServiceId, TIERS, TierId, bookableAt, priceFor } from "./data";
 import { Session, dateKey, eventSessions, sessionStart, slotsFor } from "./schedule";
-import { EVENTS } from "./events";
+import { EVENTS, eventAt, eventTicketPrice, eventVisibleTo } from "./events";
 import { CancelTerms, canUseCredit, cancelTerms } from "./policy";
 import { TRIAL_BECOMES, firstMonthCharge, trialEndsAt } from "./trial";
 import { endOfMonth, inRefundWindow } from "./membership";
@@ -231,9 +231,9 @@ function pastBookings(member: Member): Booking[] {
   if (a.events) {
     const today = dateKey(new Date());
     for (const e of EVENTS) {
-      if (!e.ticket || e.host !== member.home || e.date >= today) continue;
+      if (!e.ticket || e.host !== member.home || e.date >= today || !eventVisibleTo(e, TIERS[member.tier].isMember)) continue;
       const session = eventSessions(member.home, e.date).find((x) => x.time === e.time);
-      if (session) out.push(makeBooking(member, session, EVENT_TICKET_PRICE, false));
+      if (session) out.push(makeBooking(member, session, eventTicketPrice(e, TIERS[member.tier].isMember), false));
     }
   }
   return out;
@@ -469,6 +469,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!bookableAt(tier, session.serviceId, session.location, member.home)) {
         return { ok: false, error: "With a membership, therapies and treatments are at your home location. Classes work at both." };
       }
+      const event = session.serviceId === "event" ? eventAt(session.location, session.date, session.time) : undefined;
+      if (event && !eventVisibleTo(event, tier.isMember)) return { ok: false, error: "This event is for members only." };
       if (myBookingFor(session.id)) return { ok: false, error: "You're already booked for this time." };
       if (spotsLeft(session) <= 0) return { ok: false, error: "This time just filled up. Please pick another." };
 
@@ -484,7 +486,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const q = quote(session.serviceId, session.location, session.date);
       const firstVisit = !credit && q.kind === "firstVisit";
       const perk = !credit && q.kind === "perk";
-      const price = credit ? 0 : q.price;
+      const price = credit ? 0 : event ? eventTicketPrice(event, tier.isMember) : q.price;
       const booking = { ...makeBooking(member, session, price, credit), firstVisit, perk };
 
       update((s) => ({

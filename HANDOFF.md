@@ -63,7 +63,8 @@ app/
                         tabs, date strip, day-grouped list → Book / time → confirm sheet (ConfirmBooking) → toast
   calendar/page.tsx     Calendar tab (off: SHOW_CALENDAR_TAB in lib/flags.ts; redirects to /?day=…)
   stats/page.tsx        Full stats dashboard + visit history
-  membership/page.tsx   "Account" tab (condensed): plan card, trial/membership cards, one-row stats,
+  profile/page.tsx      Profile (header avatar on every tab): basic stats for Wellness; level, achievements, data highlights for members
+  membership/page.tsx   "Account" tab (condensed): History button top right (BookingHistory), plan card, trial/membership cards, one-row stats,
                         prices, change plan, policies, contact, demo controls (no charges list)
 components/             UI pieces (HomeAlerts, StreakCard, HomeCalendar, BookingDetails, TrialCard,
                         MembershipCard, StatsOverview, EventsSection, …)
@@ -75,6 +76,7 @@ lib/
   trial.ts        7-day trial rules
   membership.ts   Membership cancel / 5-day refund rule
   stats.ts        Streaks and stats from completed visits
+  profile.ts      Profile numbers: visit levels, achievements, 1M/3M/All-time highlights and activity by service
   events.ts       Events (free RSVP or $10 ticketed)
   therapists.ts   Christian, Tiffany, Victor (bios are placeholders)
   images.ts       Service photos (Unsplash). Not shown in Book anymore; sign-up uses the event photo
@@ -122,7 +124,8 @@ README.md                   Rules and where to change them
 
 ### Booking and cancelling
 
-- **Flow (like the Open app, fewer taps):** pick a tab, scroll the days (or tap a date), tap **Book** on a class or tap a therapy/treatment time, then confirm: two taps. After confirming, a "Booked" toast (with a View link to that day on the Home calendar, via `calendarHref`) shows and the list stays put. Tapping a class name opens its full page, whose Reserve uses the same `ConfirmBooking` sheet. Therapies and Treatments start on `ServiceMenu`: every service stacked on one screen (fits 375×812 with no scrolling), each with its next three open times as one-tap Book chips; tapping the name opens that service's two-week list (ServiceIntro, therapist picker for treatments) with a back link. Taken times are hidden in both. Cryo's list expands today's first open hour.
+- **Front page:** `BookFront` shows Classes, Therapies and Treatments as stacked boxes (summary, next open time, price). The open section is the `category` URL param (none = the boxes).
+- **Flow (like the Open app, fewer taps):** pick a section, scroll the days (or tap a date), tap **Book** on a class or tap a therapy/treatment time, then confirm: two taps. After confirming, a "Booked" toast (with a View link to that day on the Home calendar, via `calendarHref`) shows and the list stays put. Tapping a class name opens its full page, whose Reserve uses the same `ConfirmBooking` sheet. Therapies and Treatments start on `ServiceMenu`: every service stacked on one screen (fits 375×812 with no scrolling), each with its next three open times as one-tap Book chips; tapping the name opens that service's two-week list (ServiceIntro, therapist picker for treatments) with a back link. Taken times are hidden in both. Cryo's list expands today's first open hour.
 - **Confirm step:** every booking ends with a confirm sheet. It shows the price and the policy as one sentence, e.g. "To avoid a no-show charge of $9, cancel by tomorrow at 7:30 AM."
 - **Free-cancel window:** 3 hours before classes and therapies, 12 hours before treatments and contrast.
 - **No-show charge = what the service costs right now:**
@@ -157,13 +160,18 @@ README.md                   Rules and where to change them
 
 ### Events
 
-- **Ticketed** (special or private classes, workshops): a flat $10 for every account.
+- **Access levels:**
+  - **Public** events are open to everyone: a free RSVP, or a $10 ticket for special classes and workshops.
+  - **Private classes** are free for members and always cost Wellness Accounts a ticket: $19 by default (`PRIVATE_CLASS_PRICE`). `ticket.membersFree: false` charges members too.
+  - **Members-only** events (industry nights, runs: L2N Run, Industry Night) are hidden from Wellness Accounts and free for members.
+- **Test events:** four events with ids starting `test-` in `lib/events.ts` cover a last-spot private class, a sold-out private class, a free RSVP and a public $10 ticket. `ticket.taken` fakes how many tickets others hold. Remove them before launch.
 - **Free:** RSVP. Each event is tagged with its host location.
 
 ### Stats
 
 - **Streak:** consecutive days with a completed visit, ending today or yesterday.
 - **Stats page:** streaks, weekly visits (Monday-to-Sunday weeks), visits by service, favorites, spend (Wellness) and visit history. No "saved" figure.
+- **Profile:** opened from the initial at the top right of every tab. Wellness accounts get basic stats: visits, hours, streak and an activity summary. Members (Trial, Restore, Classic, Gold) also get a visit level, perks/trial days/credits, achievements and data highlights (rings, streaks, records), each for 1M, 3M or All time.
 
 ### Demo accounts
 
@@ -185,6 +193,9 @@ Every account is named "Karan". Switch between them in **Account → Demo** (tap
 ## 6. What's open and needs real info from ARTHA
 
 **Marked `CONFIRM` in code:**
+- **Class descriptions** (`lib/classInfo.ts`): written from the class names for the demo, not from artha.la. Replace with ARTHA's own copy.
+- **L2N Run and Industry Night** (`lib/events.ts`): dates, times, and which studio hosts Industry Night (assumed West LA).
+- **Profile levels, achievements and Bring a friend** (`lib/profile.ts`, `app/profile/page.tsx`): demo milestones and badge names, not an ARTHA program. Bring a friend only shares artha.la; add the real referral reward if ARTHA has one.
 - Therapist bios and specialties (`lib/therapists.ts`)
 - The cryo special's end date, and both specials' start dates (`lib/data.ts`)
 - Room and therapist capacity per slot (`lib/data.ts`)

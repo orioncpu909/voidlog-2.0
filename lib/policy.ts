@@ -1,6 +1,7 @@
 import { CREDIT_GROUPS, LocationId, PERK_LABEL, POLICY, SERVICES, ServiceId, Tier, priceFor } from "./data";
 import { hoursUntil, momentLabel, money } from "./format";
 import { sessionStart } from "./schedule";
+import { eventAt, eventTicketPrice } from "./events";
 
 export interface CancelTerms {
   deadline: Date; // last moment to cancel for free
@@ -30,13 +31,15 @@ export function canUseCredit(serviceId: ServiceId): boolean {
 }
 
 // The no-show charge is what the service costs right now: the price paid if it was paid for,
-// or its current listed price (specials included) if it came free with a membership.
+// or its current listed price (specials included) if it came free with a membership. For a free
+// member ticket to an event, that's the event's ticket price.
 export function cancelTerms(tier: Tier, b: BookingLike, now = new Date()): CancelTerms {
   const windowHours = POLICY[SERVICES[b.serviceId].policy].windowHours;
   const start = sessionStart(b.date, b.time);
   const deadline = new Date(start.getTime() - windowHours * 36e5);
   const late = hoursUntil(start, now) < windowHours;
-  const listed = priceFor("wellness", b.serviceId, b.location, b.date).price;
+  const event = b.serviceId === "event" ? eventAt(b.location, b.date, b.time) : undefined;
+  const listed = event ? eventTicketPrice(event, false) : priceFor("wellness", b.serviceId, b.location, b.date).price;
 
   let noShowCharge = 0;
   let fee = 0;

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import clsx from "clsx";
-import { RotateCcw, Ticket } from "lucide-react";
+import { ChevronRight, RotateCcw, Ticket } from "lucide-react";
 import { LOCATIONS, MEMBERSHIP_ORDER, PERK_LABEL, ServiceId, TIERS, TierId } from "@/lib/data";
 import { dateKey } from "@/lib/schedule";
 import { useStore } from "@/lib/store";
@@ -16,6 +16,7 @@ import { SwitchToWellness } from "@/components/SwitchToWellness";
 import { EmailStudioButton } from "@/components/EmailStudio";
 import { Disclosure } from "@/components/Disclosure";
 import { CreditsInfoButton } from "@/components/CreditsInfo";
+import { HistoryButton } from "@/components/BookingHistory";
 import { Button, Sheet } from "@/components/Sheet";
 
 export default function AccountPage() {
@@ -28,13 +29,21 @@ export default function AccountPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="font-serif text-3xl">Account</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="font-serif text-3xl">Account</h1>
+        <HistoryButton />
+      </div>
 
       <section className="rounded-3xl border border-line bg-card p-4">
-        <p className="truncate text-xs text-muted">
-          <span className="uppercase tracking-widest">{member.name}</span>
-          {member.email && ` · ${member.email}`}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="min-w-0 flex-1 truncate text-xs text-muted">
+            <span className="uppercase tracking-widest">{member.name}</span>
+            {member.email && ` · ${member.email}`}
+          </p>
+          <Link href="/profile" className="flex shrink-0 items-center text-xs text-moss">
+            Profile <ChevronRight size={14} />
+          </Link>
+        </div>
         <div className="mt-1 flex items-baseline justify-between gap-3">
           <p className="font-serif text-3xl leading-tight">{tier.name}</p>
           <p className="shrink-0 text-sm text-muted">

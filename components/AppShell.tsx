@@ -28,9 +28,20 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col bg-sand text-shell">
-      <header className="sticky top-0 z-20 border-b border-line bg-sand/95 px-4 py-3 backdrop-blur">
+      <header className="sticky top-0 z-20 flex items-center justify-between border-b border-line bg-sand/95 px-4 py-3 backdrop-blur">
         <Link href="/" className="font-serif text-xl tracking-[0.35em]">
           ARTHA
+        </Link>
+        {/* Your profile, from every tab. */}
+        <Link
+          href="/profile"
+          aria-label="Your profile"
+          className={clsx(
+            "-my-1 flex h-8 w-8 items-center justify-center rounded-full bg-shell font-serif text-base text-sage",
+            path === "/profile" && "ring-2 ring-sage ring-offset-2 ring-offset-sand",
+          )}
+        >
+          {member.name.slice(0, 1).toUpperCase()}
         </Link>
       </header>
       <PullToRefresh>

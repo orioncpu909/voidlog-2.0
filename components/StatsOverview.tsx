@@ -25,7 +25,7 @@ export function StatsOverview() {
   ];
 
   return (
-    <Link href="/stats" className="flex items-center gap-3 rounded-2xl border border-line bg-card px-4 py-3 hover:border-muted">
+    <Link href="/stats?from=account" className="flex items-center gap-3 rounded-2xl border border-line bg-card px-4 py-3 hover:border-muted">
       <span className="font-serif text-xl">Stats</span>
       <span className="flex flex-1 justify-around text-center">
         {numbers.map((n) => (

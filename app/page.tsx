@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { BadgeCheck, Ticket } from "lucide-react";
 import { TIERS } from "@/lib/data";
@@ -16,6 +16,8 @@ import { StreakCard } from "@/components/StreakCard";
 // membership, notices, specials) show as slim rows only when they apply. Booking lives in the Book tab.
 export default function HomePage() {
   const { member } = useStore();
+  // The day picked in the streak card or the calendar; both show it.
+  const [day, setDay] = useState<string | null>(null);
   const tier = TIERS[member.tier];
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
@@ -45,11 +47,11 @@ export default function HomePage() {
         </div>
       </div>
       <HomeAlerts />
-      <StreakCard />
+      <StreakCard picked={day} onPick={setDay} />
       <EventsSection />
       {/* Suspense: the calendar reads ?day= links from elsewhere in the app. */}
       <Suspense>
-        <HomeCalendar />
+        <HomeCalendar selected={day} onSelect={setDay} />
       </Suspense>
     </div>
   );

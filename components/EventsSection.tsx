@@ -3,8 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { CalendarDays, Check, MapPin, Ticket, Users } from "lucide-react";
-import { EVENT_TICKET_PRICE, LOCATIONS, LocationId, TIERS } from "@/lib/data";
-import { ArthaEvent, EVENTS } from "@/lib/events";
+import { LOCATIONS, LocationId, TIERS } from "@/lib/data";
+import { ArthaEvent, EVENTS, eventTicketPrice, eventVisibleTo, membersGetFree } from "@/lib/events";
 import { eventSessions, sessionStart } from "@/lib/schedule";
 import { useStore } from "@/lib/store";
 import { cancelTerms, policyLine } from "@/lib/policy";
@@ -17,11 +17,13 @@ function sessionFor(e: ArthaEvent) {
 }
 
 export function EventsSection() {
-  const { member, toggleRsvp, myBookingFor } = useStore();
+  const { member, toggleRsvp, myBookingFor, spotsLeft } = useStore();
   const [open, setOpen] = useState<ArthaEvent | null>(null);
   const rsvps = member.rsvps ?? [];
   const now = Date.now();
-  const upcoming = EVENTS.filter((e) => sessionStart(e.date, e.time).getTime() + e.durationMin * 60000 > now).sort(
+  const isMember = TIERS[member.tier].isMember;
+  // Members-only events (industry nights, runs) don't show for Wellness Accounts.
+  const upcoming = EVENTS.filter((e) => eventVisibleTo(e, isMember) && sessionStart(e.date, e.time).getTime() + e.durationMin * 60000 > now).sort(
     (a, b) => sessionStart(a.date, a.time).getTime() - sessionStart(b.date, b.time).getTime(),
   );
 
@@ -40,7 +42,7 @@ export function EventsSection() {
             <button
               key={e.id}
               onClick={() => setOpen(e)}
-              className="flex w-52 shrink-0 snap-start gap-2.5 rounded-2xl border border-line bg-card p-3 text-left hover:border-muted"
+              className="flex w-56 shrink-0 snap-start gap-2.5 rounded-2xl border border-line bg-card p-3 text-left hover:border-muted"
             >
               <div className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-xl bg-moss-soft text-moss">
                 <span className="text-[9px] uppercase leading-none">{d.toLocaleDateString("en-US", { month: "short" })}</span>
@@ -55,9 +57,11 @@ export function EventsSection() {
                 <div className="mt-1.5 flex items-center gap-1.5">
                   <HostTag host={e.host} />
                   {going ? (
-                    <span className="text-[11px] text-moss">✓ {e.ticket ? "Ticket" : "Going"}</span>
+                    <span className="whitespace-nowrap text-[11px] text-moss">✓ {e.ticket ? "Ticket" : "Going"}</span>
+                  ) : session && spotsLeft(session) === 0 ? (
+                    <span className="whitespace-nowrap text-[11px] text-muted">Sold out</span>
                   ) : (
-                    <span className="text-[11px] font-medium">{e.ticket ? money(EVENT_TICKET_PRICE) : "Free"}</span>
+                    <span className="whitespace-nowrap text-[11px] font-medium">{ticketLabel(e, isMember)}</span>
                   )}
                 </div>
               </div>
@@ -107,8 +111,17 @@ export function EventsSection() {
   );
 }
 
-// Buying a ticket for a special or private class: same $10 for every account, then a confirm
-// step with the no-show sentence, like any other booking.
+// The price on an event card: Free (RSVP), Free ticket (a member's free ticket), or what this
+// account pays ($10 public, $19 private class). The ticket sheet says when members get in free.
+function ticketLabel(e: ArthaEvent, isMember: boolean): string {
+  if (!e.ticket) return "Free";
+  const price = eventTicketPrice(e, isMember);
+  return price === 0 ? "Free ticket" : money(price);
+}
+
+// Buying a ticket: $10 for a public special class or workshop, $19 for a private class. Private
+// classes and members-only events are free for members; Wellness Accounts always pay. Then a confirm step with the
+// no-show sentence, like any other booking.
 function TicketPanel({ event, onLeave }: { event: ArthaEvent; onLeave: () => void }) {
   const { member, book, spotsLeft, myBookingFor, termsForBooking } = useStore();
   const [stage, setStage] = useState<"details" | "confirm">("details");
@@ -116,9 +129,23 @@ function TicketPanel({ event, onLeave }: { event: ArthaEvent; onLeave: () => voi
   const session = sessionFor(event);
   if (!session) return null;
 
+  const tier = TIERS[member.tier];
+  const price = eventTicketPrice(event, tier.isMember);
   const mine = myBookingFor(session.id);
   const left = spotsLeft(session);
-  const terms = cancelTerms(TIERS[member.tier], { ...session, price: EVENT_TICKET_PRICE, usedCredit: false });
+  const terms = cancelTerms(tier, { ...session, price, usedCredit: false });
+  const access = event.access ?? "public";
+  const note = membersGetFree(event)
+    ? tier.isMember
+      ? `Free with your ${tier.id === "trial" ? "trial" : "membership"}`
+      : access === "private"
+        ? "Private class · free for members"
+        : "Free for members"
+    : access === "private"
+      ? "Private class · per ticket"
+      : access === "members"
+        ? "Members only"
+        : "Same price for every account";
 
   if (mine) {
     return (
@@ -140,7 +167,7 @@ function TicketPanel({ event, onLeave }: { event: ArthaEvent; onLeave: () => voi
         <p className="font-serif text-xl">Confirm your ticket</p>
         <div className="flex items-baseline justify-between rounded-2xl border border-line p-4">
           <span className="font-medium">You pay today</span>
-          <span className="font-serif text-2xl">{money(EVENT_TICKET_PRICE)}</span>
+          <span className="font-serif text-2xl">{money(price)}</span>
         </div>
         <p className="rounded-2xl bg-moss-soft p-4 font-medium text-moss">{policyLine(terms, false)}</p>
         {error && <p className="rounded-2xl bg-clay-soft px-4 py-3 text-clay">{error}</p>}
@@ -150,7 +177,7 @@ function TicketPanel({ event, onLeave }: { event: ArthaEvent; onLeave: () => voi
             if (!r.ok) setError(r.error);
           }}
         >
-          Confirm and pay {money(EVENT_TICKET_PRICE)}
+          {price > 0 ? `Confirm and pay ${money(price)}` : "Confirm free ticket"}
         </Button>
         <Button variant="secondary" onClick={() => setStage("details")}>
           Go back
@@ -164,15 +191,15 @@ function TicketPanel({ event, onLeave }: { event: ArthaEvent; onLeave: () => voi
       <div className="flex items-center justify-between rounded-2xl border border-line p-4">
         <div>
           <p className="text-sm font-medium">Ticket</p>
-          <p className="text-xs text-muted">Same price for every account</p>
+          <p className="text-xs text-muted">{note}</p>
         </div>
-        <span className="font-serif text-3xl">{money(EVENT_TICKET_PRICE)}</span>
+        <span className="font-serif text-3xl">{price > 0 ? money(price) : "Free"}</span>
       </div>
       <p className="flex items-center gap-1.5 text-xs text-muted">
         <Users size={13} /> {left > 0 ? `${left} of ${session.capacity} spots left` : "Sold out"}
       </p>
       <Button disabled={left === 0} onClick={() => setStage("confirm")}>
-        {left === 0 ? "Sold out" : `Get a ticket · ${money(EVENT_TICKET_PRICE)}`}
+        {left === 0 ? "Sold out" : price > 0 ? `Get a ticket · ${money(price)}` : "Get a free ticket"}
       </Button>
     </div>
   );
@@ -186,7 +213,7 @@ const HOST_STYLE: Record<LocationId, string> = {
 
 function HostTag({ host }: { host: LocationId }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-line bg-sand px-2 py-0.5 text-[11px] font-medium">
+    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-line bg-sand px-2 py-0.5 text-[11px] font-medium">
       <span className={`h-1.5 w-1.5 rounded-full ${HOST_STYLE[host]}`} />
       {LOCATIONS[host].short}
     </span>

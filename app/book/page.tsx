@@ -2,9 +2,9 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import clsx from "clsx";
-import { ArrowRight, CalendarPlus, Check, ChevronDown, ChevronLeft, ChevronRight, Info, Lock, MapPin, Share, Ticket, X } from "lucide-react";
+import { ArrowRight, CalendarPlus, Check, ChevronDown, ChevronLeft, ChevronRight, Dumbbell, HandHeart, Info, Lock, MapPin, Share, Snowflake, Ticket, X } from "lucide-react";
 import { Category, LOCATIONS, LocationId, SERVICES, ServiceId, TIERS, bookableAt } from "@/lib/data";
 import { Session, dateKey, findSession, sessionStart, slotsFor, upcomingDays } from "@/lib/schedule";
 import { Booking, useStore } from "@/lib/store";
@@ -17,10 +17,12 @@ import { Button, Sheet } from "@/components/Sheet";
 import { EmailStudioButton } from "@/components/EmailStudio";
 import { CreditsInfoButton } from "@/components/CreditsInfo";
 import { SHOW_CALENDAR_TAB, calendarHref } from "@/lib/flags";
+import { classDescription } from "@/lib/classInfo";
 
-// Book works like the Open app's In Person screen: pick Classes, Therapies or Treatments, scroll
-// one list of upcoming days (the date strip jumps to a day), and tap Book or a time. Every booking
-// asks for one confirmation; tapping a class name opens its full page instead.
+// Book opens on three stacked boxes: Classes, Therapies, Treatments, each with what's in it and the
+// next open time. Tapping one opens that section (/book?category=…): classes as one list of upcoming
+// days (the date strip jumps to a day), therapies and treatments as a menu of services with their next
+// times. Tap Book or a time; every booking asks for one confirmation. "‹ Book" goes back.
 
 type Tab = Exclude<Category, "event">;
 const TABS: { id: Tab; label: string }[] = [
@@ -40,6 +42,7 @@ export default function BookPage() {
 
 function BookScreen() {
   const params = useSearchParams();
+  const router = useRouter();
   const { member, setLocation } = useStore();
   const tier = TIERS[member.tier];
   // A link can open one session's page directly (/book?session=…) or a tab (/book?category=therapy).
@@ -47,10 +50,11 @@ function BookScreen() {
     const id = params.get("session");
     return id ? findSession(id) : undefined;
   }, [params]);
-  const [tab, setTab] = useState<Tab>(() => {
-    const c = linked ? SERVICES[linked.serviceId].category : params.get("category");
-    return c === "therapy" || c === "treatment" ? c : "class";
-  });
+  // The open section lives in the URL, so the Book tab and the back button return to the boxes.
+  const category = linked ? SERVICES[linked.serviceId].category : params.get("category");
+  const section: Tab | null = category === "class" || category === "therapy" || category === "treatment" ? category : null;
+  const tab: Tab = section ?? "class";
+  const openSection = (id: Tab | null) => router.push(id ? `/book?category=${id}` : "/book");
   const [picked, setPicked] = useState<Partial<Record<Tab, ServiceId>>>(() =>
     linked && linked.serviceId !== "class" ? { [SERVICES[linked.serviceId].category]: linked.serviceId } : {},
   );
@@ -58,6 +62,9 @@ function BookScreen() {
   // Therapies and Treatments open on a menu of every service with its next open times; tapping one
   // shows its full schedule.
   const [menu, setMenu] = useState(!(linked && linked.serviceId !== "class"));
+  useEffect(() => {
+    if (!linked) setMenu(true);
+  }, [section, linked]);
   const [open, setOpen] = useState<Session | null>(linked ?? null);
   // Tapping Book or a time goes straight to the confirm sheet; the class page is only for details.
   const [quickBook, setQuickBook] = useState<Session | null>(null);
@@ -119,28 +126,21 @@ function BookScreen() {
   }, [tab, serviceId, location, days, menu]);
   const showMenu = tab !== "class" && menu;
 
+  if (!section) return <BookFront onOpen={openSection} />;
+
   return (
     <div className="space-y-5">
-      <div ref={stickyRef} className="sticky top-[53px] z-10 -mx-4 -mt-3 border-b border-line bg-sand px-4">
-        {/* A segmented switch: the chosen tab is solid black, the others stay readable. */}
-        <div className="mt-2 grid grid-cols-3 gap-1 rounded-full border border-line bg-card p-1" role="tablist">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              role="tab"
-              aria-selected={tab === t.id}
-              onClick={() => {
-                setTab(t.id);
-                if (t.id !== "class") setMenu(true);
-              }}
-              className={clsx(
-                "rounded-full py-2 text-sm font-semibold transition-colors",
-                tab === t.id ? "bg-shell text-sand" : "text-shell hover:bg-sand",
-              )}
-            >
-              {t.label}
-            </button>
-          ))}
+      {/* Pinned while you scroll: back to the boxes and the section's name, the location (and your
+          price), then the date strip. */}
+      <div ref={stickyRef} className={clsx("sticky top-[53px] z-10 -mx-4 -mt-3 border-b border-line bg-sand px-4", showMenu && "pb-2.5")}>
+        <div className="flex items-center gap-1 pt-2">
+          <button onClick={() => openSection(null)} aria-label="Back to all services" className="-ml-1.5 rounded-full p-1 hover:bg-line">
+            <ChevronLeft size={22} />
+          </button>
+          <h1 className="font-serif text-2xl">{TABS.find((t) => t.id === tab)!.label}</h1>
+        </div>
+        <div className="pt-1.5">
+          <LocationRow serviceId={showMenu ? null : serviceId} location={location} locked={lockedHere} onPick={pickLocation} />
         </div>
         <div ref={stripRef} className={clsx("no-scrollbar -mx-4 flex overflow-x-auto px-2 py-2.5", showMenu && "hidden")}>
           {days.map((d) => {
@@ -158,9 +158,8 @@ function BookScreen() {
         </div>
       </div>
 
-      <LocationRow serviceId={showMenu ? null : serviceId} location={location} locked={lockedHere} onPick={pickLocation} />
       {tier.lockedToHome && (
-        <p className="-mt-3 text-xs text-muted">
+        <p className="text-xs text-muted">
           {tab === "class"
             ? "Your membership covers classes at both locations."
             : "Therapies and treatments are at your home location only."}
@@ -291,6 +290,96 @@ function ServiceMenu({
       })}
     </div>
   );
+}
+
+// The Book front page: Classes, Therapies and Treatments stacked as boxes. Each shows what's in it,
+// your price and the next open time at your home studio, and opens its section when tapped.
+const SECTION_ICON = { class: Dumbbell, therapy: Snowflake, treatment: HandHeart } as const;
+const SHORT_NAME: Partial<Record<ServiceId, string>> = {
+  cryo: "Cryo",
+  "ir-sauna": "Sauna",
+  "red-light": "Red Light",
+  contrast: "Contrast",
+  hbot: "HBOT",
+};
+
+function BookFront({ onOpen }: { onOpen: (id: Tab) => void }) {
+  const { member, spotsLeft, myBookingFor, quote } = useStore();
+  const tier = TIERS[member.tier];
+  const home = member.home;
+  const days = upcomingDays(DAYS_AHEAD);
+  const today = dateKey(new Date());
+  const ids = (tab: Tab) => Object.values(SERVICES).filter((s) => s.category === tab && s.locations.includes(home)).map((s) => s.id);
+  // The soonest time you could still book in this section.
+  const nextOpen = (tab: Tab) => {
+    for (const d of days) {
+      const open = ids(tab)
+        .flatMap((id) => upcoming(d, id, home, null))
+        .filter((s) => spotsLeft(s) > 0 && !myBookingFor(s.id))
+        .sort((a, b) => a.time.localeCompare(b.time));
+      if (open.length) return open[0];
+    }
+    return undefined;
+  };
+  const summary: Record<Tab, string> = {
+    class: "Yoga, Pilates, HIIT and sound baths",
+    therapy: ids("therapy").map((id) => SHORT_NAME[id] ?? SERVICES[id].name).join(" · "),
+    treatment: ids("treatment").map((id) => SERVICES[id].name).join(" · "),
+  };
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <h1 className="font-serif text-3xl">Book</h1>
+        <p className="text-xs text-muted">
+          {LOCATIONS[home].name}
+          {tier.lockedToHome ? " · classes at both studios" : " · switch studios inside each section"}
+        </p>
+      </div>
+      {TABS.map(({ id, label }) => {
+        const Icon = SECTION_ICON[id];
+        const next = nextOpen(id);
+        const q = id === "therapy" ? cheapest(ids(id), quote, home, today) : quote(ids(id)[0], home, today);
+        const credit = id !== "class" && member.credits > 0 && ids(id).some(canUseCredit);
+        return (
+          <button key={id} onClick={() => onOpen(id)} className="block w-full rounded-3xl border border-line bg-card p-4 text-left transition active:scale-[0.99] active:bg-line">
+            <div className="flex items-center gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-moss-soft text-moss">
+                <Icon size={20} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-serif text-2xl leading-tight">{label}</span>
+                <span className="block truncate text-xs text-muted">{summary[id]}</span>
+              </span>
+              <ChevronRight size={20} className="shrink-0 text-muted" />
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-2.5 text-sm">
+              <span className="min-w-0 truncate">
+                {next ? (
+                  <>
+                    <span className="text-muted">Next · </span>
+                    {dayLabel(next.date)} {timeLabel(next.time)} · {id === "class" ? next.title : SHORT_NAME[next.serviceId] ?? SERVICES[next.serviceId].name}
+                  </>
+                ) : (
+                  <span className="text-muted">No open times in the next two weeks</span>
+                )}
+              </span>
+              <span className="flex shrink-0 items-center gap-1.5">
+                {id === "therapy" && q.price > 0 && <span className="text-xs text-muted">from</span>}
+                <PriceTag quote={q} pill />
+                {credit && id === "treatment" && <span className="text-xs text-moss">or 1 credit</span>}
+              </span>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// The lowest price among a section's services (what "from" means on the Therapies box).
+function cheapest(ids: ServiceId[], quote: ReturnType<typeof useStore>["quote"], home: LocationId, today: string) {
+  return ids.map((id) => quote(id, home, today)).sort((a, b) => a.price - b.price)[0];
 }
 
 // A solid band at the top of each day, so where one day ends and the next begins is unmistakable.
@@ -498,31 +587,43 @@ const HOUR_GROUP_THRESHOLD = 24;
 // Time on the left, then the class, teacher and price, like Open's schedule (without photos).
 // Book on the right goes straight to the confirm sheet; the rest of the row opens the class page.
 function ClassCard({ session, onOpen, onBook }: { session: Session; onOpen: () => void; onBook: () => void }) {
-  const { member, spotsLeft, myBookingFor, quote } = useStore();
+  const { spotsLeft, myBookingFor, quote } = useStore();
   const left = spotsLeft(session);
   const mine = !!myBookingFor(session.id);
   const full = left === 0 && !mine;
   const q = quote(session.serviceId, session.location, session.date);
-  // HBOT: a credit can pay instead, and the confirm sheet uses one by default.
-  const orCredit = canUseCredit(session.serviceId) && member.credits > 0 && q.price > 0;
+  const [about, setAbout] = useState(false);
   return (
-    <div className={clsx("flex items-center gap-3 py-3", full && "opacity-50")}>
-      <button onClick={onOpen} className="flex min-w-0 flex-1 items-start gap-3 text-left">
-        <div className="w-[72px] shrink-0">
-          <p className="stat-num whitespace-nowrap text-[15px] leading-tight">{timeLabel(session.time)}</p>
-          <p className="text-xs text-muted">{session.durationMin} min</p>
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-base font-medium leading-tight">{session.title}</p>
-          {session.instructor && <p className="mt-0.5 text-sm text-muted">w/ {session.instructor}</p>}
-          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm">
-            <PriceTag quote={q} pill />
-            {q.kind === "memberOff" && <PromoNote quote={q} />}
-            {!mine && !full && <Status left={left} mine={false} />}
+    <div className={clsx(full && "opacity-50")}>
+      <div className="flex items-center gap-3 py-3">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          <button onClick={onOpen} className="w-[72px] shrink-0 text-left">
+            <p className="stat-num whitespace-nowrap text-[15px] leading-tight">{timeLabel(session.time)}</p>
+            <p className="text-xs text-muted">{session.durationMin} min</p>
+          </button>
+          <div className="min-w-0 flex-1">
+            <button onClick={onOpen} className="block text-left text-base font-medium leading-tight">
+              {session.title}
+            </button>
+            {/* The little pull-down next to the teacher: what the class is, heat and level. */}
+            <button
+              onClick={() => setAbout(!about)}
+              aria-expanded={about}
+              className="mt-0.5 flex max-w-full items-center gap-1 text-left text-sm text-muted"
+            >
+              <span className="truncate">{session.instructor ? `w/ ${session.instructor}` : "About this class"}</span>
+              <ChevronDown size={15} className={clsx("shrink-0 rounded-full bg-line/70 transition", about && "rotate-180")} />
+            </button>
+            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm">
+              <PriceTag quote={q} pill />
+              {q.kind === "memberOff" && <PromoNote quote={q} />}
+              {!mine && !full && <Status left={left} mine={false} />}
+            </div>
           </div>
         </div>
-      </button>
-      <BookPill mine={mine} full={full} onBook={onBook} onOpen={onOpen} label={`${session.title} at ${timeLabel(session.time)}`} />
+        <BookPill mine={mine} full={full} onBook={onBook} onOpen={onOpen} label={`${session.title} at ${timeLabel(session.time)}`} />
+      </div>
+      {about && <p className="-mt-1 mb-3 ml-[84px] rounded-xl bg-card px-3 py-2 text-[13px] leading-snug text-shell">{classDescription(session.title)}</p>}
     </div>
   );
 }
@@ -756,7 +857,7 @@ function SessionPage({ session, onClose }: { session: Session; onClose: () => vo
             <p className="text-muted">
               {session.durationMin} minutes{service.pillar ? ` · ${service.pillar}` : ""}
             </p>
-            <p className="mt-1.5 leading-snug text-shell">{service.description}</p>
+            <p className="mt-1.5 leading-snug text-shell">{session.serviceId === "class" ? classDescription(session.title) : service.description}</p>
           </Section>
 
           {!booking && (
