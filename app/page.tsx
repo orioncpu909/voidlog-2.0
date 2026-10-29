@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { BadgeCheck, Ticket } from "lucide-react";
 import { TIERS } from "@/lib/data";
@@ -10,9 +11,9 @@ import { HomeAlerts } from "@/components/HomeAlerts";
 import { HomeCalendar } from "@/components/HomeCalendar";
 import { StreakCard } from "@/components/StreakCard";
 
-// Home fits on one phone screen: your streak, upcoming events, and this month's calendar. Account
-// alerts (trial, cancelled membership, notices, specials) show as slim rows only when they apply.
-// Booking lives in the Book tab.
+// Home fits on one phone screen: your streak, upcoming events, and this month's calendar (which also
+// holds your bookings and history while the Calendar tab is off). Account alerts (trial, cancelled
+// membership, notices, specials) show as slim rows only when they apply. Booking lives in the Book tab.
 export default function HomePage() {
   const { member } = useStore();
   const tier = TIERS[member.tier];
@@ -46,7 +47,10 @@ export default function HomePage() {
       <HomeAlerts />
       <StreakCard />
       <EventsSection />
-      <HomeCalendar />
+      {/* Suspense: the calendar reads ?day= links from elsewhere in the app. */}
+      <Suspense>
+        <HomeCalendar />
+      </Suspense>
     </div>
   );
 }

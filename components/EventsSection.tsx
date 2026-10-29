@@ -9,6 +9,7 @@ import { eventSessions, sessionStart } from "@/lib/schedule";
 import { useStore } from "@/lib/store";
 import { cancelTerms, policyLine } from "@/lib/policy";
 import { dayLabel, money, timeRange } from "@/lib/format";
+import { calendarHref } from "@/lib/flags";
 import { Button, Sheet } from "./Sheet";
 
 function sessionFor(e: ArthaEvent) {
@@ -83,7 +84,7 @@ export function EventsSection() {
             </ul>
             <p className="text-sm text-muted">{open.description}</p>
             {open.ticket ? (
-              <TicketPanel key={open.id} event={open} />
+              <TicketPanel key={open.id} event={open} onLeave={() => setOpen(null)} />
             ) : rsvps.includes(open.id) ? (
               <div className="space-y-2">
                 <p className="flex items-center justify-center gap-2 rounded-2xl bg-moss-soft py-3 text-sm text-moss">
@@ -108,7 +109,7 @@ export function EventsSection() {
 
 // Buying a ticket for a special or private class: same $10 for every account, then a confirm
 // step with the no-show sentence, like any other booking.
-function TicketPanel({ event }: { event: ArthaEvent }) {
+function TicketPanel({ event, onLeave }: { event: ArthaEvent; onLeave: () => void }) {
   const { member, book, spotsLeft, myBookingFor, termsForBooking } = useStore();
   const [stage, setStage] = useState<"details" | "confirm">("details");
   const [error, setError] = useState<string | null>(null);
@@ -126,8 +127,8 @@ function TicketPanel({ event }: { event: ArthaEvent }) {
           <Ticket size={16} /> You have a ticket
         </p>
         <p className="text-center text-xs text-muted">{policyLine(termsForBooking(mine), false)}</p>
-        <Link href="/calendar" className="block w-full rounded-full border border-line py-3 text-center text-sm hover:bg-line">
-          See it in your Calendar
+        <Link href={calendarHref(mine.date)} onClick={onLeave} className="block w-full rounded-full border border-line py-3 text-center text-sm hover:bg-line">
+          See it on your calendar
         </Link>
       </div>
     );

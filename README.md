@@ -10,7 +10,7 @@ npm run dev   # http://localhost:3100
 ## Home
 Home fits on one phone screen with no scrolling. Top to bottom:
 1. **Streak:** the current streak and this week, Monday to Sunday (visited days filled, today ringed). Taps through to Stats.
-2. **This month's calendar:** a full month grid. Sage dots are upcoming bookings and faint dots are past visits. Tapping a day opens it in the Calendar. Your next booking shows underneath. The calendar stretches or shrinks to fill the space left.
+2. **The calendar (your bookings live here):** a month grid with ‹ › to change month. Gold dots are upcoming bookings and faint dots are past visits. The strip under the grid shows your **Next** booking with a **Cancel** button. Tap a day and the strip shows that day's bookings instead (each with Cancel; × goes back to Next). Cancel asks right in the strip (free, or what a late cancel costs) with Keep it / Yes, cancel. Tap a booking to open its details in place: the cancellation deadline and Add to phone calendar, or for a past visit who taught it, what was paid and Book again. Nothing slides over the calendar. **+n** lists everything coming up and **History** past and cancelled visits. The calendar stretches or shrinks to fill the space left.
 3. **Upcoming events.**
 
 Account alerts show as slim one-line rows above the streak, only when they apply:
@@ -52,8 +52,9 @@ The full trial and membership cards are on Account. Booking is in the Book tab.
 - It's never advertised and never described as a percentage: not on Home, not in onboarding. When a new account books, the price simply shows as the special price with the normal price crossed out and a "First visit price" tag.
 - If that booking is cancelled for free, the offer comes back. A late cancel uses it up.
 
-## Calendar (app/calendar)
-- Every booking appears in the Calendar automatically: a month view with a dot on booked days, plus an upcoming list.
+## Calendar
+- **Trying the app without a Calendar tab.** The tab bar is Home, Book, Account. The Home calendar does the Calendar's jobs (above), and every "see it in your calendar" link (the Booked note's **View**, a class page after booking, an event ticket) opens Home with that day's bookings showing. The old /calendar address sends you there too. To bring the tab back exactly as it was, set `SHOW_CALENDAR_TAB = true` in `lib/flags.ts`.
+- Every booking appears on the calendar automatically, with a dot on booked days.
 - Each booking has **Add to phone calendar**, which downloads an .ics file with a 1-hour reminder. Adding to the phone calendar fully automatically needs the native app or a server-side calendar feed.
 - The Calendar keeps working after a membership or trial is cancelled.
 - **History** (under the upcoming list) shows past and cancelled visits. Tap one to see the instructor or therapist, the date and time, the studio with its address (opens Maps), the service, length and what was paid, plus a **Book again** button that opens the next matching session in the next two weeks (the same class with the same instructor when possible).
@@ -81,7 +82,7 @@ The full trial and membership cards are on Account. Booking is in the Book tab.
 - Treatment times are assigned to the therapists who do that treatment.
 
 ## Events (lib/events.ts)
-- **Ticketed events.** Special classes, private classes and workshops cost a flat **$10 for every account**, Wellness included (`EVENT_TICKET_PRICE`). Buying a ticket goes through a confirm step with the no-show sentence, and the ticket appears in the Calendar, where it can be cancelled for a refund until the deadline.
+- **Ticketed events.** Special classes, private classes and workshops cost a flat **$10 for every account**, Wellness included (`EVENT_TICKET_PRICE`). Buying a ticket goes through a confirm step with the no-show sentence, and the ticket appears on the calendar, where it can be cancelled for a refund until the deadline.
 - **Free events** (e.g. Dia De Los Muertos) use a simple RSVP.
 - Event cards on Home show **$10** or **Free**, change to **✓ Ticket** or **✓ Going** once booked, and are tagged with the location hosting them. Add `ticket: { capacity }` to an event to make it ticketed.
 
@@ -101,7 +102,7 @@ The full trial and membership cards are on Account. Booking is in the Book tab.
   - A booking included in a membership is charged the service's current price (e.g. $9 for a class during the special).
   - A credit-paid booking uses up the credit.
   - Trials: no charge.
-- Every booking goes through a final **Confirm your booking** sheet. It shows the price and the policy as one sentence, e.g. "To avoid a no-show charge of $9, cancel by tomorrow at 7:30 AM." The Calendar and the success screen use the same sentence.
+- Every booking goes through a final **Confirm your booking** sheet. It shows the price and the policy as one sentence, e.g. "To avoid a no-show charge of $9, cancel by tomorrow at 7:30 AM." The calendar and the success screen use the same sentence.
 
 ## Photos
 - Book is text only: classes, therapies and treatments show no photos (name, details, price and times). The only photo left is the sign-up welcome screen. `lib/images.ts` still holds free Unsplash photos for each service in case photos come back; to use ARTHA's own, add files to `/public/images` and point those entries at `/images/<file>`.
@@ -117,4 +118,4 @@ The full trial and membership cards are on Account. Booking is in the Book tab.
 - `docs/artha-public-info.md`: everything collected from artha.la, with sources.
 - `lib/store.tsx`: demo data in localStorage. Swap it for a real backend later.
 
-All data lives in the browser. No payments are taken. Every demo account is named Karan. On the Account tab, the "Demo" row (tap to open) switches between a new download, Wellness, Classic, Gold, Restore and Trial accounts. Each account except the new user has a visit history generated from an activity profile (`ACTIVITY` in `lib/store.tsx`): Gold and Classic are advanced regulars (92 and 58 visits, 14- and 9-day streaks), and Restore, Wellness and Trial are intermediate (22–26 visits).
+All data lives in the browser. No payments are taken. Every demo account is named Karan. On the Account tab, the "Demo" row (tap to open) switches between a new download, Wellness, Classic, Gold, Restore and Trial accounts. Each account except the new user has a visit history generated from an activity profile (`ACTIVITY` in `lib/store.tsx`): Gold and Classic are advanced regulars (121 and 82 visits, 14- and 9-day streaks), and Restore, Wellness and Trial are intermediate (31–40 visits). Many days have **two classes** (morning and evening; the last two days always do), often with a therapy too. Every account also has bookings coming up: two classes tomorrow, then a class and a therapy in three days, so the Home calendar strip shows several visits on one day. Use "Reset demo data" to load them.

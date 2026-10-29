@@ -134,6 +134,7 @@ interface Activity {
   perWeek: number; // average visit days per week before the current streak
   streak: number; // consecutive visit days ending yesterday
   recovery: number; // chance a visit day also includes a therapy
+  doubles: number; // chance a visit day has a second class (morning and evening)
   mix: [ServiceId, number][]; // therapies and how often each is picked
   treatmentsPerMonth: number;
   treatmentsWithCredit?: boolean;
@@ -142,23 +143,23 @@ interface Activity {
 
 const ACTIVITY: Record<string, Activity> = {
   "m-gold": {
-    weeks: 12, perWeek: 4, streak: 14, recovery: 0.8, treatmentsPerMonth: 1, treatmentsWithCredit: true, events: true,
+    weeks: 12, perWeek: 4, streak: 14, recovery: 0.8, doubles: 0.5, treatmentsPerMonth: 1, treatmentsWithCredit: true, events: true,
     mix: [["cryo", 3], ["ir-sauna", 3], ["red-light", 2], ["float", 2], ["contrast", 2], ["hbot", 1]],
   },
   "m-classic": {
-    weeks: 10, perWeek: 4, streak: 9, recovery: 0.5, treatmentsPerMonth: 1, events: true,
+    weeks: 10, perWeek: 4, streak: 9, recovery: 0.5, doubles: 0.45, treatmentsPerMonth: 1, events: true,
     mix: [["cryo", 4], ["ir-sauna", 2], ["contrast", 1], ["float", 1], ["red-light", 1]],
   },
   "m-restore": {
-    weeks: 8, perWeek: 2, streak: 3, recovery: 0.4, treatmentsPerMonth: 1,
+    weeks: 8, perWeek: 2, streak: 3, recovery: 0.4, doubles: 0.35, treatmentsPerMonth: 1,
     mix: [["ir-sauna", 2], ["cryo", 2], ["contrast", 1]],
   },
   "m-wellness": {
-    weeks: 6, perWeek: 2.5, streak: 4, recovery: 0.35, treatmentsPerMonth: 0.5,
+    weeks: 6, perWeek: 2.5, streak: 4, recovery: 0.35, doubles: 0.35, treatmentsPerMonth: 0.5,
     mix: [["cryo", 3], ["ir-sauna", 2], ["contrast", 1]],
   },
   "m-trial": {
-    weeks: 5, perWeek: 2, streak: 3, recovery: 0.3, treatmentsPerMonth: 0,
+    weeks: 5, perWeek: 2, streak: 3, recovery: 0.3, doubles: 0.3, treatmentsPerMonth: 0,
     mix: [["cryo", 2], ["ir-sauna", 1]],
   },
 };
@@ -197,6 +198,7 @@ function pastBookings(member: Member): Booking[] {
   };
   const morning = (slots: Session[]) => slots[Math.floor(rand() * Math.max(1, Math.ceil(slots.length / 2)))];
   const afternoon = (slots: Session[]) => slots[Math.floor(slots.length / 2 + rand() * Math.floor(slots.length / 2))];
+  const evening = (slots: Session[]) => slots[slots.length - 1 - Math.floor(rand() * Math.min(2, slots.length))];
   const pickTherapy = () => {
     const total = a.mix.reduce((sum, [, w]) => sum + w, 0);
     let r = rand() * total;
@@ -209,10 +211,13 @@ function pastBookings(member: Member): Booking[] {
   for (let back = 1; back <= a.streak; back++) days.push(back);
   for (let back = a.streak + 2; back <= a.weeks * 7; back++) if (rand() < a.perWeek / 7) days.push(back);
 
-  // Every visit day gets at least one visit: usually a class, sometimes a therapy too, or instead.
+  // Every visit day gets at least one visit: usually a class, often a second one in the evening,
+  // sometimes a therapy too (or instead). The last two days always have two classes, so the Home
+  // calendar shows a multi-class day right away.
   for (const back of days) {
     const before = out.length;
     if (rand() < 0.85) add("class", back, morning);
+    if (back <= 2 || rand() < a.doubles) add("class", back, evening);
     if (rand() < a.recovery) add(pickTherapy(), back, afternoon);
     if (out.length === before) add("class", back, morning);
   }
@@ -234,14 +239,32 @@ function pastBookings(member: Member): Booking[] {
   return out;
 }
 
+// Demo bookings coming up, so the Home calendar has days with several visits: tomorrow a morning
+// and an evening class, and in three days a class plus a therapy at home.
+function upcomingBookings(member: Member): Booking[] {
+  if (!ACTIVITY[member.id]) return [];
+  const day = (ahead: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + ahead);
+    return dateKey(d);
+  };
+  const open = (serviceId: ServiceId, ahead: number) => slotsFor(member.home, serviceId, day(ahead)).filter((s) => s.bookedByOthers < s.capacity);
+  const picks: Session[] = [];
+  const tomorrow = open("class", 1);
+  if (tomorrow.length) picks.push(tomorrow[0], tomorrow[tomorrow.length - 1]);
+  const later = open("class", 3);
+  if (later.length) picks.push(later[Math.floor(later.length / 3)]);
+  const therapy = open(ACTIVITY[member.id].mix[0][0], 3).filter((s) => s.time >= "15:00")[0];
+  if (therapy) picks.push(therapy);
+  return [...new Set(picks)].map((s) => ({
+    ...makeBooking(member, s, priceFor(member.tier, s.serviceId, member.home, s.date).price, false),
+    createdAt: daysAgo(1),
+  }));
+}
+
 function seedState(): State {
   const members = seedMembers();
-  const ava = members.find((m) => m.id === "m-classic")!;
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const bookings: Booking[] = members.flatMap(pastBookings);
-  const cls = slotsFor("weho", "class", dateKey(tomorrow)).find((s) => s.bookedByOthers < s.capacity);
-  if (cls) bookings.push(makeBooking(ava, cls, 0, false));
+  const bookings: Booking[] = [...members.flatMap(pastBookings), ...members.flatMap(upcomingBookings)];
   const charges: Charge[] = [{ id: uid(), memberId: "m-gold", at: daysAgo(2), label: "Gold membership · first month", amount: TIERS.gold.monthly! }];
   return { version: 2, activeMemberId: "m-new", members, bookings, charges };
 }

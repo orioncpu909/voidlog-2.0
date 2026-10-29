@@ -9,13 +9,14 @@ import { useStore } from "@/lib/store";
 import { Onboarding } from "./Onboarding";
 import { SignUp } from "./SignUp";
 import { PullToRefresh } from "./PullToRefresh";
+import { SHOW_CALENDAR_TAB } from "@/lib/flags";
 
 const TABS = [
   { href: "/", label: "Home", icon: Home },
   { href: "/book", label: "Book", icon: Sparkles },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/membership", label: "Account", icon: UserRound },
-];
+].filter((t) => SHOW_CALENDAR_TAB || t.href !== "/calendar");
 
 export function AppShell({ children }: { children: ReactNode }) {
   const path = usePathname();
@@ -36,7 +37,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <main className="flex-1 px-4 pb-20 pt-3">{children}</main>
       </PullToRefresh>
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-sand/95 backdrop-blur">
-        <div className="mx-auto grid max-w-md grid-cols-4">
+        <div className={clsx("mx-auto grid max-w-md", TABS.length === 4 ? "grid-cols-4" : "grid-cols-3")}>
           {TABS.map(({ href, label, icon: Icon }) => {
             const active = href === "/" ? path === "/" : path.startsWith(href);
             return (

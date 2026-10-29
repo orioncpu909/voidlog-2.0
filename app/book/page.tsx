@@ -16,6 +16,7 @@ import { PriceTag, PromoNote } from "@/components/PriceTag";
 import { Button, Sheet } from "@/components/Sheet";
 import { EmailStudioButton } from "@/components/EmailStudio";
 import { CreditsInfoButton } from "@/components/CreditsInfo";
+import { SHOW_CALENDAR_TAB, calendarHref } from "@/lib/flags";
 
 // Book works like the Open app's In Person screen: pick Classes, Therapies or Treatments, scroll
 // one list of upcoming days (the date strip jumps to a day), and tap Book or a time. Every booking
@@ -218,8 +219,8 @@ function BookScreen() {
           <p className="min-w-0 flex-1 leading-tight">
             <span className="font-medium">Booked</span> · {toast.title}, {dayLabel(toast.date, "short")} {timeLabel(toast.time)}
           </p>
-          <Link href="/calendar" className="shrink-0 font-medium text-sage">
-            Calendar
+          <Link href={calendarHref(toast.date)} className="shrink-0 font-medium text-sage">
+            View
           </Link>
         </div>
       )}
@@ -806,8 +807,8 @@ function SessionPage({ session, onClose }: { session: Session; onClose: () => vo
         <div className="mx-auto max-w-md space-y-2 px-4">
           {booking ? (
             <>
-              <Link href="/calendar" className="block w-full rounded-full bg-sage px-5 py-3 text-center text-sm font-medium text-ink">
-                See it in my Calendar
+              <Link href={calendarHref(booking.date)} className="block w-full rounded-full bg-sage px-5 py-3 text-center text-sm font-medium text-ink">
+                {SHOW_CALENDAR_TAB ? "See it in my Calendar" : "See it on my calendar"}
               </Link>
               <Button variant="secondary" onClick={onClose}>
                 Done

@@ -58,14 +58,14 @@ Open a Claude Code session in `/Users/miguelgarcia/Cursor/artha-app` and start w
 
 ```
 app/
-  page.tsx              Home: streak, events, month calendar (fits one screen)
+  page.tsx              Home: streak, events, month calendar with bookings/history sheets (fits one screen)
   book/page.tsx         Booking, modeled on the Open app: Classes / Therapies / Treatments
                         tabs, date strip, day-grouped list → Book / time → confirm sheet (ConfirmBooking) → toast
-  calendar/page.tsx     Month calendar + bookings, cancel, add to phone calendar (?day=YYYY-MM-DD)
+  calendar/page.tsx     Calendar tab (off: SHOW_CALENDAR_TAB in lib/flags.ts; redirects to /?day=…)
   stats/page.tsx        Full stats dashboard + visit history
   membership/page.tsx   "Account" tab (condensed): plan card, trial/membership cards, one-row stats,
                         prices, change plan, policies, contact, demo controls (no charges list)
-components/             UI pieces (HomeAlerts, StreakCard, HomeCalendar, TrialCard,
+components/             UI pieces (HomeAlerts, StreakCard, HomeCalendar, BookingDetails, TrialCard,
                         MembershipCard, StatsOverview, EventsSection, …)
 lib/
   data.ts         Locations, services, tiers, prices, promos, first-visit rules, priceFor()
@@ -122,7 +122,7 @@ README.md                   Rules and where to change them
 
 ### Booking and cancelling
 
-- **Flow (like the Open app, fewer taps):** pick a tab, scroll the days (or tap a date), tap **Book** on a class or tap a therapy/treatment time, then confirm: two taps. After confirming, a "Booked" toast (with a Calendar link) shows and the list stays put. Tapping a class name opens its full page, whose Reserve uses the same `ConfirmBooking` sheet. Therapies and Treatments start on `ServiceMenu`: every service stacked on one screen (fits 375×812 with no scrolling), each with its next three open times as one-tap Book chips; tapping the name opens that service's two-week list (ServiceIntro, therapist picker for treatments) with a back link. Taken times are hidden in both. Cryo's list expands today's first open hour.
+- **Flow (like the Open app, fewer taps):** pick a tab, scroll the days (or tap a date), tap **Book** on a class or tap a therapy/treatment time, then confirm: two taps. After confirming, a "Booked" toast (with a View link to that day on the Home calendar, via `calendarHref`) shows and the list stays put. Tapping a class name opens its full page, whose Reserve uses the same `ConfirmBooking` sheet. Therapies and Treatments start on `ServiceMenu`: every service stacked on one screen (fits 375×812 with no scrolling), each with its next three open times as one-tap Book chips; tapping the name opens that service's two-week list (ServiceIntro, therapist picker for treatments) with a back link. Taken times are hidden in both. Cryo's list expands today's first open hour.
 - **Confirm step:** every booking ends with a confirm sheet. It shows the price and the policy as one sentence, e.g. "To avoid a no-show charge of $9, cancel by tomorrow at 7:30 AM."
 - **Free-cancel window:** 3 hours before classes and therapies, 12 hours before treatments and contrast.
 - **No-show charge = what the service costs right now:**
@@ -220,7 +220,7 @@ Every account is named "Karan". Switch between them in **Account → Demo** (tap
 - **`next build` while the dev server runs:** it breaks the dev server's `.next` folder. Stop dev, run `rm -rf .next`, then restart.
 - **useEffect returns:** an effect must never return a value. Write `useEffect(() => { … }, [])`, not `useEffect(() => fn(), [])`. Otherwise you get the runtime error "destroy is not a function".
 - **Demo data:** saved under the localStorage key `artha-demo-v2`. After changing seed data in `lib/store.tsx`, reset it (Account → Reset demo data, or `localStorage.removeItem("artha-demo-v2")`). Hot reload can serve old data until a full reload.
-- **The `ACTIVITY` profiles** in `lib/store.tsx` generate the demo visit history. A seeded random generator keeps it the same on every reset.
+- **The `ACTIVITY` profiles** in `lib/store.tsx` generate the demo visit history (`doubles` = chance of a second, evening class on a visit day). `upcomingBookings` adds two classes tomorrow and a class plus therapy in three days for every demo account. A seeded random generator keeps it the same on every reset.
 - **Home fit:** the page height is `calc(100dvh - 145px)`: 53px header, 12px top padding, 80px for the tab bar. If you change the header or tab bar, update that number. Then check that `document.documentElement.scrollHeight <= innerHeight` at 375×812 for every demo account.
 - **Agreement PDFs:** the ones in the Obsidian vault hold real member PII. Never copy names from them into demo data.
 
