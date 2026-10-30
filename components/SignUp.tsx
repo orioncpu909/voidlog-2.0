@@ -1,11 +1,14 @@
 "use client";
 
-import { useState, type InputHTMLAttributes } from "react";
+import { useEffect, useState, type InputHTMLAttributes } from "react";
 import clsx from "clsx";
+import type zxcvbn from "zxcvbn";
 import { ArrowLeft, ChevronRight, Eye, EyeOff } from "lucide-react";
 import { TIERS } from "@/lib/data";
 import { SERVICE_IMAGE } from "@/lib/images";
 import { useStore } from "@/lib/store";
+import { findReferrer } from "@/lib/referral";
+import { checkPassword, PASSWORD_MIN_LENGTH, PASSWORD_MIN_SCORE, STRENGTH_LABELS, type PasswordCheck } from "@/lib/password";
 import { Button } from "./Sheet";
 
 // What someone sees right after downloading the app: a welcome screen, then "Create account".
@@ -53,22 +56,41 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const INSTAGRAM = /^[A-Za-z0-9._]{1,30}$/; // a handle, without the @
 
 function CreateAccount({ onBack }: { onBack: () => void }) {
-  const { signUp } = useStore();
-  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", phone: "", instagram: "", password: "", confirm: "" });
+  const { signUp, members, member } = useStore();
+  // A referral link opens the app with ?ref=CODE, which fills in the code.
+  const [form, setForm] = useState(() => ({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    instagram: "",
+    referral: typeof window === "undefined" ? "" : (new URLSearchParams(window.location.search).get("ref") ?? ""),
+    password: "",
+    confirm: "",
+  }));
   const [agreed, setAgreed] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [tried, setTried] = useState(false); // show errors only after the first "Create account" tap
+  const [scorer, setScorer] = useState<typeof zxcvbn>();
+
+  // Loaded on this screen only, so the rest of the app doesn't carry its password list.
+  useEffect(() => {
+    import("zxcvbn").then((m) => setScorer(() => m.default));
+  }, []);
 
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [key]: e.target.value }));
   const phoneDigits = form.phone.replace(/\D/g, "");
   const handle = form.instagram.trim().replace(/^@/, "");
+  const referrer = form.referral.trim() ? findReferrer(form.referral, members.filter((m) => m.id !== member.id)) : undefined;
+  const passwordCheck = scorer ? checkPassword(form.password, scorer, [form.firstName, form.lastName, form.email, handle, "artha"]) : undefined;
   const errors = {
     firstName: form.firstName.trim() ? "" : "Enter your first name.",
     lastName: form.lastName.trim() ? "" : "Enter your last name.",
     email: EMAIL.test(form.email.trim()) ? "" : "Enter an email like name@example.com.",
     phone: phoneDigits.length >= 10 ? "" : "Enter your 10-digit mobile number.",
     instagram: !handle || INSTAGRAM.test(handle) ? "" : "Use letters, numbers, periods and underscores (up to 30).",
-    password: form.password.length >= 8 ? "" : "Use at least 8 characters.",
+    referral: !form.referral.trim() || referrer ? "" : "We don't recognize that code. Check it, or leave it blank.",
+    password: passwordCheck ? (passwordCheck.problems[0] ?? "") : "Checking your password. Try again in a moment.",
     confirm: !form.confirm ? "Type your password again." : form.confirm === form.password ? "" : "Passwords don't match.",
     agreed: agreed ? "" : "Please agree to continue.",
   };
@@ -79,7 +101,14 @@ function CreateAccount({ onBack }: { onBack: () => void }) {
     e.preventDefault();
     setTried(true);
     if (!valid) return;
-    signUp({ firstName: form.firstName.trim(), lastName: form.lastName.trim(), email: form.email.trim(), phone: form.phone.trim(), instagram: handle || undefined });
+    signUp({
+      firstName: form.firstName.trim(),
+      lastName: form.lastName.trim(),
+      email: form.email.trim(),
+      phone: form.phone.trim(),
+      instagram: handle || undefined,
+      referralCode: referrer ? form.referral : undefined,
+    });
   };
 
   return (
@@ -88,7 +117,7 @@ function CreateAccount({ onBack }: { onBack: () => void }) {
         <ArrowLeft size={20} />
       </button>
       <h1 className="mt-2 font-serif text-4xl leading-tight">Create your account</h1>
-      <p className="mt-1 text-muted">Free to join. You only pay when you book. All fields are required except Instagram.</p>
+      <p className="mt-1 text-muted">Free to join. You only pay when you book. All fields are required except Instagram and a referral code.</p>
 
       <form onSubmit={submit} noValidate className="mt-6 space-y-4">
         <div className="grid grid-cols-2 gap-3">
@@ -118,6 +147,18 @@ function CreateAccount({ onBack }: { onBack: () => void }) {
           error={show("instagram")}
           hint="So we can tag you and you can follow ARTHA."
         />
+        <Field
+          label="Referral code (optional)"
+          optional
+          autoComplete="off"
+          autoCapitalize="characters"
+          spellCheck={false}
+          placeholder="From a friend's link"
+          value={form.referral}
+          onChange={set("referral")}
+          error={show("referral")}
+          hint={referrer ? `✓ Referred by ${referrer.name.split(" ")[0]}` : "Got a link from a friend? Their code goes here."}
+        />
         <div>
           <Field
             label="Password"
@@ -126,8 +167,9 @@ function CreateAccount({ onBack }: { onBack: () => void }) {
             value={form.password}
             onChange={set("password")}
             error={show("password")}
-            hint={tried ? undefined : "At least 8 characters."}
+            hint={tried ? undefined : `At least ${PASSWORD_MIN_LENGTH} characters, with upper and lower case, a number and a symbol.`}
           />
+          {form.password && passwordCheck && <StrengthMeter check={passwordCheck} />}
           <div className="mt-4">
             <Field
               label="Confirm password"
@@ -152,6 +194,22 @@ function CreateAccount({ onBack }: { onBack: () => void }) {
         <Button className="mt-2">Create account</Button>
         <p className="text-center text-xs text-muted">Demo app: nothing you enter leaves this device, and your password isn&apos;t saved.</p>
       </form>
+    </div>
+  );
+}
+
+function StrengthMeter({ check }: { check: PasswordCheck }) {
+  const bars = check.ok ? check.score : Math.min(check.score, PASSWORD_MIN_SCORE - 1);
+  return (
+    <div className="mt-2" role="status" aria-live="polite">
+      <div className="flex gap-1" aria-hidden="true">
+        {[0, 1, 2, 3].map((i) => (
+          <span key={i} className={clsx("h-1.5 flex-1 rounded-full", i >= Math.max(bars, 1) ? "bg-line" : check.ok ? "bg-moss" : "bg-clay")} />
+        ))}
+      </div>
+      <p className={clsx("mt-1 text-xs", check.ok ? "text-moss" : "text-clay")}>
+        {check.ok ? `${STRENGTH_LABELS[check.score]} password` : `${STRENGTH_LABELS[bars]}. ${check.problems[0]}`}
+      </p>
     </div>
   );
 }

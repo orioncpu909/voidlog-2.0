@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, Home, Sparkles, UserRound } from "lucide-react";
+import { CalendarDays, Home, Sparkles, Trophy, UserRound } from "lucide-react";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 import { useStore } from "@/lib/store";
@@ -15,6 +15,7 @@ const TABS = [
   { href: "/", label: "Home", icon: Home },
   { href: "/book", label: "Book", icon: Sparkles },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
+  { href: "/community", label: "Community", icon: Trophy },
   { href: "/membership", label: "Account", icon: UserRound },
 ].filter((t) => SHOW_CALENDAR_TAB || t.href !== "/calendar");
 
@@ -48,7 +49,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <main className="flex-1 px-4 pb-20 pt-3">{children}</main>
       </PullToRefresh>
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-sand/95 backdrop-blur">
-        <div className={clsx("mx-auto grid max-w-md", TABS.length === 4 ? "grid-cols-4" : "grid-cols-3")}>
+        <div className={clsx("mx-auto grid max-w-md", TABS.length === 5 ? "grid-cols-5" : TABS.length === 4 ? "grid-cols-4" : "grid-cols-3")}>
           {TABS.map(({ href, label, icon: Icon }) => {
             const active = href === "/" ? path === "/" : path.startsWith(href);
             return (

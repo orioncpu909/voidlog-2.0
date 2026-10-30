@@ -4,8 +4,8 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import clsx from "clsx";
-import { ArrowLeft, Flame, Heart, Receipt, Sparkles, Timer, Trophy, UserRound } from "lucide-react";
-import { LOCATIONS, SERVICES, TIERS } from "@/lib/data";
+import { ArrowLeft, Flame, Heart, Sparkles, Timer, Trophy, UserRound } from "lucide-react";
+import { LOCATIONS, SERVICES } from "@/lib/data";
 import { useStore } from "@/lib/store";
 import { computeStats } from "@/lib/stats";
 import { money, shortDate } from "@/lib/format";
@@ -20,7 +20,7 @@ export default function StatsPage() {
 }
 
 function StatsScreen() {
-  const { member, bookings } = useStore();
+  const { bookings } = useStore();
   const s = computeStats(bookings);
   const [hover, setHover] = useState<number | null>(null);
   const [showAll, setShowAll] = useState(false);
@@ -128,7 +128,6 @@ function StatsScreen() {
         {s.favoriteInstructor && (
           <Favorite icon={UserRound} label="Most booked with" value={s.favoriteInstructor.name} detail={`${s.favoriteInstructor.count}×`} />
         )}
-        {!TIERS[member.tier].isMember && <Favorite icon={Receipt} label="Spent on visits" value={money(s.spent)} detail={`${s.visits} visits`} />}
       </section>
 
       <section className="rounded-3xl border border-line bg-card p-4">

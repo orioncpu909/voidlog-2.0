@@ -55,16 +55,20 @@ function BookScreen() {
   const section: Tab | null = category === "class" || category === "therapy" || category === "treatment" ? category : null;
   const tab: Tab = section ?? "class";
   const openSection = (id: Tab | null) => router.push(id ? `/book?category=${id}` : "/book");
-  const [picked, setPicked] = useState<Partial<Record<Tab, ServiceId>>>(() =>
-    linked && linked.serviceId !== "class" ? { [SERVICES[linked.serviceId].category]: linked.serviceId } : {},
-  );
+  // Therapies and Treatments open on a menu of every service with today's open times; Details
+  // opens one service's full schedule. That service is in the URL too (&service=…), so the back
+  // button (and "‹") returns to the menu rather than the boxes.
+  const serviceParam = params.get("service");
+  const openedService: ServiceId | null = linked
+    ? linked.serviceId !== "class"
+      ? linked.serviceId
+      : null
+    : serviceParam && serviceParam in SERVICES && SERVICES[serviceParam as ServiceId].category === section
+      ? (serviceParam as ServiceId)
+      : null;
+  const openService = (id: ServiceId) => router.push(`/book?category=${section}&service=${id}`);
+  const backToMenu = () => router.replace(`/book?category=${section}`);
   const [therapist, setTherapist] = useState<string | null>(null);
-  // Therapies and Treatments open on a menu of every service with its next open times; tapping one
-  // shows its full schedule.
-  const [menu, setMenu] = useState(!(linked && linked.serviceId !== "class"));
-  useEffect(() => {
-    if (!linked) setMenu(true);
-  }, [section, linked]);
   const [open, setOpen] = useState<Session | null>(linked ?? null);
   // Tapping Book or a time goes straight to the confirm sheet; the class page is only for details.
   const [quickBook, setQuickBook] = useState<Session | null>(null);
@@ -85,8 +89,8 @@ function BookScreen() {
   const pickLocation = (id: LocationId) => (tier.lockedToHome ? setClassLocation(id) : setLocation(id));
 
   const services = Object.values(SERVICES).filter((s) => s.category === tab && s.locations.includes(location));
-  // The picked service may not exist at a newly chosen location; fall back to the first one there.
-  const preferred = picked[tab];
+  // The opened service may not exist at a newly chosen location; fall back to the first one there.
+  const preferred = openedService;
   const serviceId: ServiceId =
     tab === "class" ? "class" : preferred && SERVICES[preferred].locations.includes(location) ? preferred : services[0].id;
   const shownTherapist = therapist && therapistsFor(serviceId).some((t) => t.name === therapist) ? therapist : null;
@@ -123,8 +127,8 @@ function BookScreen() {
   useEffect(() => {
     window.scrollTo({ top: 0 });
     setActiveDay(days[0]);
-  }, [tab, serviceId, location, days, menu]);
-  const showMenu = tab !== "class" && menu;
+  }, [tab, serviceId, location, days, openedService]);
+  const showMenu = tab !== "class" && !openedService;
 
   if (!section) return <BookFront onOpen={openSection} />;
 
@@ -134,7 +138,11 @@ function BookScreen() {
           price), then the date strip. */}
       <div ref={stickyRef} className={clsx("sticky top-[53px] z-10 -mx-4 -mt-3 border-b border-line bg-sand px-4", showMenu && "pb-2.5")}>
         <div className="flex items-center gap-1 pt-2">
-          <button onClick={() => openSection(null)} aria-label="Back to all services" className="-ml-1.5 rounded-full p-1 hover:bg-line">
+          <button
+            onClick={() => (showMenu || tab === "class" ? openSection(null) : backToMenu())}
+            aria-label={showMenu || tab === "class" ? "Back to all services" : `Back to all ${tab === "therapy" ? "therapies" : "treatments"}`}
+            className="-ml-1.5 rounded-full p-1 hover:bg-line"
+          >
             <ChevronLeft size={22} />
           </button>
           <h1 className="font-serif text-2xl">{TABS.find((t) => t.id === tab)!.label}</h1>
@@ -172,21 +180,12 @@ function BookScreen() {
           location={location}
           days={days}
           onBook={setQuickBook}
-          onAll={(id) => {
-            setPicked((p) => ({ ...p, [tab]: id }));
-            setMenu(false);
-          }}
+          onAll={openService}
         />
       ) : (
         <>
-          {tab !== "class" && (
-            <>
-              <button onClick={() => setMenu(true)} className="-mb-2 flex items-center gap-0.5 text-sm font-medium text-moss">
-                <ChevronLeft size={16} /> All {tab === "therapy" ? "therapies" : "treatments"}
-              </button>
-              <ServiceIntro serviceId={serviceId} therapist={shownTherapist} onTherapist={setTherapist} />
-            </>
-          )}
+          {/* The "‹" at the top (or the phone's back button) returns to the menu. */}
+          {tab !== "class" && <ServiceIntro serviceId={serviceId} therapist={shownTherapist} onTherapist={setTherapist} />}
 
           <div className="space-y-6">
             {days.map((d) => (
@@ -243,44 +242,66 @@ function ServiceMenu({
   onAll: (id: ServiceId) => void;
 }) {
   const { spotsLeft, myBookingFor, quote } = useStore();
-  // The first day that still has an open time, and its next three.
+  // The first day that still has an open time, and every open time left that day.
   const nextOpen = (id: ServiceId) => {
     for (const d of days) {
       const open = upcoming(d, id, location, null).filter((s) => spotsLeft(s) > 0 && !myBookingFor(s.id));
-      if (open.length) return { date: d, times: open.slice(0, 3) };
+      if (open.length) return { date: d, times: open };
     }
     return null;
   };
   return (
-    <div className="divide-y divide-line border-y border-line">
+    <div className="-mx-4 divide-y divide-line border-y border-line">
       {services.map((id) => {
         const service = SERVICES[id];
         const next = nextOpen(id);
         return (
-          <div key={id} className="py-2.5">
-            <button onClick={() => onAll(id)} className="flex w-full items-center gap-2 text-left">
-              <span className="min-w-0 flex-1 truncate">
-                <span className="font-medium">{service.name}</span> <span className="text-xs text-muted">· {service.durationMin} min</span>
+          // The whole block opens Details (what it is, therapists and every day's times), except the
+          // times, which book. Everyone is on a phone, so the tap target is as big as it can be.
+          <div
+            key={id}
+            role="button"
+            tabIndex={0}
+            onClick={() => onAll(id)}
+            onKeyDown={(e) => e.key === "Enter" && onAll(id)}
+            aria-label={`About ${service.name} and more days`}
+            className="cursor-pointer px-4 py-2 transition-colors [&:active:not(:has(button:active))]:bg-line/50"
+          >
+            <div className="flex items-center gap-2">
+              <span className="min-w-0 flex-1 leading-tight">
+                <span className="font-medium">{service.name}</span> <span className="whitespace-nowrap text-xs text-muted">· {service.durationMin} min</span>
               </span>
               <PriceTag quote={quote(id, location, dateKey(new Date()))} pill />
-              <ChevronRight size={16} className="shrink-0 text-muted" />
-            </button>
+              <span className="flex shrink-0 items-center py-1 text-sm font-medium text-moss">
+                Details
+                <ChevronRight size={16} />
+              </span>
+            </div>
             {next ? (
               <div className="mt-1.5 flex items-center gap-2">
-                <span className="w-[58px] shrink-0 text-xs leading-tight text-muted">{dayLabel(next.date)}</span>
-                {next.times.map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => onBook(s)}
-                    aria-label={`Book ${service.name} ${dayLabel(s.date)} at ${timeLabel(s.time)}`}
-                    className="flex-1 whitespace-nowrap rounded-lg border border-line bg-card py-1.5 text-[13px] font-medium active:bg-sage"
-                  >
-                    {timeLabel(s.time)}
-                  </button>
-                ))}
-                {Array.from({ length: 3 - next.times.length }, (_, i) => (
-                  <span key={i} className="flex-1" />
-                ))}
+                <span className="w-[58px] shrink-0 text-xs leading-tight text-muted">
+                  {dayLabel(next.date)}
+                  <span className="block text-[10px]">{next.times.length} open</span>
+                </span>
+                {/* Every open time that day: swipe sideways, tap one to book. */}
+                <div className="relative min-w-0 flex-1">
+                  <div className="no-scrollbar flex snap-x gap-1.5 overflow-x-auto pr-6">
+                    {next.times.map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onBook(s);
+                        }}
+                        aria-label={`Book ${service.name} ${dayLabel(s.date)} at ${timeLabel(s.time)}`}
+                        className="w-[74px] shrink-0 snap-start whitespace-nowrap rounded-lg border border-line bg-card py-1.5 text-[13px] font-medium active:bg-sage"
+                      >
+                        {timeLabel(s.time)}
+                      </button>
+                    ))}
+                  </div>
+                  {next.times.length > 3 && <span className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-sand" aria-hidden />}
+                </div>
               </div>
             ) : (
               <p className="mt-1 text-xs text-muted">No open times in the next two weeks.</p>

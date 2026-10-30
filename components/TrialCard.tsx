@@ -143,7 +143,7 @@ export function NoticeBanner() {
   if (!member.notice) return null;
   return (
     <div className="flex items-start gap-3 rounded-2xl bg-line p-4 text-sm text-shell">
-      <p className="flex-1">{member.notice}</p>
+      <p className="flex-1 whitespace-pre-line">{member.notice}</p>
       <button onClick={dismissNotice} aria-label="Dismiss" className="shrink-0">
         <X size={16} />
       </button>

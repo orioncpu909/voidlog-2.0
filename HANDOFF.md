@@ -64,6 +64,7 @@ app/
   calendar/page.tsx     Calendar tab (off: SHOW_CALENDAR_TAB in lib/flags.ts; redirects to /?day=…)
   stats/page.tsx        Full stats dashboard + visit history
   profile/page.tsx      Profile (header avatar on every tab): basic stats for Wellness; level, achievements, data highlights for members
+  community/page.tsx    Community tab: monthly + weekly challenges, opt-in leaderboards, cold plunge logging
   membership/page.tsx   "Account" tab (condensed): History button top right (BookingHistory), plan card, trial/membership cards, one-row stats,
                         prices, change plan, policies, contact, demo controls (no charges list)
 components/             UI pieces (HomeAlerts, StreakCard, HomeCalendar, BookingDetails, TrialCard,
@@ -125,7 +126,7 @@ README.md                   Rules and where to change them
 ### Booking and cancelling
 
 - **Front page:** `BookFront` shows Classes, Therapies and Treatments as stacked boxes (summary, next open time, price). The open section is the `category` URL param (none = the boxes).
-- **Flow (like the Open app, fewer taps):** pick a section, scroll the days (or tap a date), tap **Book** on a class or tap a therapy/treatment time, then confirm: two taps. After confirming, a "Booked" toast (with a View link to that day on the Home calendar, via `calendarHref`) shows and the list stays put. Tapping a class name opens its full page, whose Reserve uses the same `ConfirmBooking` sheet. Therapies and Treatments start on `ServiceMenu`: every service stacked on one screen (fits 375×812 with no scrolling), each with its next three open times as one-tap Book chips; tapping the name opens that service's two-week list (ServiceIntro, therapist picker for treatments) with a back link. Taken times are hidden in both. Cryo's list expands today's first open hour.
+- **Flow (like the Open app, fewer taps):** pick a section, scroll the days (or tap a date), tap **Book** on a class or tap a therapy/treatment time, then confirm: two taps. After confirming, a "Booked" toast (with a View link to that day on the Home calendar, via `calendarHref`) shows and the list stays put. Tapping a class name opens its full page, whose Reserve uses the same `ConfirmBooking` sheet. Therapies and Treatments start on `ServiceMenu`: every service stacked on one screen (fits 375×812 with no scrolling), each with all of the day's open times (the first day that still has any) as a sideways-scrolling row of one-tap Book chips; tapping anywhere in a service's block except a time opens that service's two-week list (`/book?category=therapy&service=…`, so Back returns to the menu) (ServiceIntro, therapist picker for treatments) with a back link. Taken times are hidden in both. Cryo's list expands today's first open hour.
 - **Confirm step:** every booking ends with a confirm sheet. It shows the price and the policy as one sentence, e.g. "To avoid a no-show charge of $9, cancel by tomorrow at 7:30 AM."
 - **Free-cancel window:** 3 hours before classes and therapies, 12 hours before treatments and contrast.
 - **No-show charge = what the service costs right now:**
@@ -167,10 +168,31 @@ README.md                   Rules and where to change them
 - **Test events:** four events with ids starting `test-` in `lib/events.ts` cover a last-spot private class, a sold-out private class, a free RSVP and a public $10 ticket. `ticket.taken` fakes how many tickets others hold. Remove them before launch.
 - **Free:** RSVP. Each event is tagged with its host location.
 
+### Referrals
+
+- Every account has a code (`referralCode` in `lib/referral.ts`). Sign-up takes it from `?ref=` or typed in, and stores `referredBy`.
+- When the referred account's first `kind: "membership"` charge (a monthly payment, not the trial fee) exists, `applyReferralCredits` gives the referrer +1 treatment credit and a Home notice, once per friend, if the referrer is on Restore, Classic or Gold.
+
+### Community
+
+- **Challenges:** preset each month (`challengesForMonth` in `lib/community.ts`): Class Count and Recovery Ritual all month, plus 4 weekly sprints (Early Riser, Stillness, Hot & Cold, Weekend Warrior). Only completed classes and therapies count; treatments and events never do.
+- **Page order:** the intro with the leaderboards switch inline, then a chip row. Coming-up chips (next 7 days) open a details sheet with the **waitlist** (`Member.challengeWaitlist`); there's no card until the challenge starts. Running chips jump to their card. Then **Active challenges**: one section of compact cards (top 5 each; tap for a details sheet with the top 10). Last month's results show in the first 7 days only.
+- **Boards:** ties for 1st–3rd sit in a "Tied for …" bracket with one row per person. "N taking part" counts hidden members too, and hidden members privately see their would-be rank (`useBoard` in the page).
+- **Prize:** first place (ties included) on an ended challenge gets 1 treatment credit and a Home note, once per challenge (`challengeWins`).
+  - Eligible (`isEntered`, shared with the boards): members whose membership started by the challenge's last day, and who had the switch on by then (`communityJoinedAt`, compared as a local date) or were on its waitlist.
+  - Trial prize credits carry into the membership. Becoming Wellness clears the switch and waitlists.
+  - Notices stack (`addNotice`): Home shows the newest + "N more on Account".
+  - Runs in `settle()` and after every change (`applyChallengePrizes`).
+- **Opt-in:** members opt in (`communityJoined`) and show as first name + last initial. Wellness Accounts can only look.
+- **Parked behind flags** (`lib/flags.ts`, code kept):
+  - "Earlier this month" (`SHOW_FINISHED_SPRINTS`).
+  - Cold Plunge Clock + Log a plunge (`SHOW_PLUNGE_CHALLENGE`; plunge times in `State.plunges`, scored up to 3:00).
+- **Demo data:** the rest of each board is 14 made-up demo members from a seeded generator, and waitlist counts are seeded too. With a backend, boards would rank real opted-in members.
+
 ### Stats
 
 - **Streak:** consecutive days with a completed visit, ending today or yesterday.
-- **Stats page:** streaks, weekly visits (Monday-to-Sunday weeks), visits by service, favorites, spend (Wellness) and visit history. No "saved" figure.
+- **Stats page:** streaks, weekly visits (Monday-to-Sunday weeks), visits by service, favorites and visit history (no spend figure for Wellness). No "saved" figure.
 - **Profile:** opened from the initial at the top right of every tab. Wellness accounts get basic stats: visits, hours, streak and an activity summary. Members (Trial, Restore, Classic, Gold) also get a visit level, perks/trial days/credits, achievements and data highlights (rings, streaks, records), each for 1M, 3M or All time.
 
 ### Demo accounts
@@ -195,7 +217,9 @@ Every account is named "Karan". Switch between them in **Account → Demo** (tap
 **Marked `CONFIRM` in code:**
 - **Class descriptions** (`lib/classInfo.ts`): written from the class names for the demo, not from artha.la. Replace with ARTHA's own copy.
 - **L2N Run and Industry Night** (`lib/events.ts`): dates, times, and which studio hosts Industry Night (assumed West LA).
-- **Profile levels, achievements and Bring a friend** (`lib/profile.ts`, `app/profile/page.tsx`): demo milestones and badge names, not an ARTHA program. Bring a friend only shares artha.la; add the real referral reward if ARTHA has one.
+- **Community challenges** (`lib/community.ts`): the challenge list and names are demo choices, as are the 1-credit prize (including for ties) and the 3:00 plunge cap (parked). Confirm them, and decide how members' names show. Demo competitors are invented names, not real members.
+- **Profile levels, achievements and Refer a friend** (`lib/profile.ts`, `app/profile/page.tsx`): demo milestones and badge names, not an ARTHA program. The referral link (`artha.la/join?ref=KARANMN45`, a code made from the account) is a demo format; artha.la doesn't read `?ref=` yet.
+- **Referral credits** (`lib/referral.ts`): 1 treatment credit to the referrer after the friend's first monthly payment is built. Open questions: should Wellness or Trial referrers get anything (now: no), and does a first month refunded within 5 days take the credit back (now: no). A real backend must grant it from the payment processor's "payment succeeded" event.
 - Therapist bios and specialties (`lib/therapists.ts`)
 - The cryo special's end date, and both specials' start dates (`lib/data.ts`)
 - Room and therapist capacity per slot (`lib/data.ts`)
@@ -215,6 +239,8 @@ Every account is named "Karan". Switch between them in **Account → Demo** (tap
 ## 7. Known limits
 
 - **No backend:** each browser has its own data, nothing syncs, and there's no real sign-in.
+- **Passwords:** sign-up enforces 12+ characters, upper and lower case, a number, a symbol and zxcvbn score 3+ (`lib/password.ts`), in the browser only. Reuse `checkPassword` on the server, and add the haveibeenpwned check there.
+- **Auth security is not built:** sessions, roles, 2FA, rate limiting, lockout and CAPTCHA all need a server, so build them with the backend and before any real launch. Sample accounts open with no password.
 - **Tulip logo:** `components/TulipLogo.tsx` shows `public/images/artha-tulip.png`, the black tulip mark cropped from ARTHA's logo file (without the wordmark). While loading it draws itself in like WHOOP's refresh logo: a spinning gapped arc for the circle and the tulip drawn stroke by stroke (the image is revealed along traced centerlines in `TulipLogo`); a refresh lasts about 1 second in total, like WHOOP's and slides into the header during pull-to-refresh, capped at the bottom of the ARTHA wordmark. A vector (SVG) version would be sharper on large screens.
 - **Email a studio:** the in-app pop-up can't send yet (no server). It hands the message to the phone's email app via a prefilled mailto: link.
 - **No payments:** charges are recorded in the demo state but no longer shown (the Account activity list was removed at Miguel's request).

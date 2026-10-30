@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import clsx from "clsx";
 import {
-  ArrowLeft, Bath, ChevronDown, ChevronRight, ChevronUp, Dumbbell, Flame, HandHeart, Lock, MapPin, Medal, Moon,
+  ArrowLeft, Bath, Check, ChevronDown, ChevronRight, ChevronUp, Copy, Dumbbell, Flame, HandHeart, Lock, MapPin, Medal, Moon,
   Music, Repeat, Share2, Snowflake, Sparkles, Sun, Sunrise, ThermometerSun, Ticket, Timer, Trophy, UserRound, Waves, Wind, Zap,
 } from "lucide-react";
 import { LOCATIONS, PERK_LABEL, ServiceId, TIERS } from "@/lib/data";
@@ -13,6 +13,7 @@ import { useStore } from "@/lib/store";
 import { completedVisits, computeStats } from "@/lib/stats";
 import { AchievementId, PERIODS, Period, computeAchievements, computeHighlights, visitLevel } from "@/lib/profile";
 import { timeLabel } from "@/lib/format";
+import { REFERRAL_CREDITS, referralLink } from "@/lib/referral";
 
 type Icon = typeof Flame;
 
@@ -123,7 +124,7 @@ export default function ProfilePage() {
         </>
       )}
 
-      <ShareCard />
+      <ReferralCard />
     </div>
   );
 }
@@ -410,29 +411,91 @@ function MembersSee() {
   );
 }
 
-// Everyone: share ARTHA with a friend. CONFIRM: no referral reward is offered, since ARTHA's
-// program (if any) isn't in the sources.
-function ShareCard() {
+// Everyone: a personal referral link to send friends (share sheet or copy), the reward, and how
+// each friend who used it is doing. The rules live in lib/referral.ts.
+function ReferralCard() {
+  const { member, members } = useStore();
   const [copied, setCopied] = useState(false);
-  const share = async () => {
-    const data = { title: "ARTHA", text: "Come to a class with me at ARTHA.", url: "https://artha.la" };
+  const link = referralLink(member);
+  const tier = TIERS[member.tier];
+  const earns = tier.isMember && tier.id !== "trial";
+  const friends = members.filter((m) => m.referredBy === member.id);
+  const credited = friends.filter((f) => f.referralResult === "credited").length;
+  const copy = async () => {
+    let ok = false;
     try {
-      if (navigator.share) await navigator.share(data);
-      else {
-        await navigator.clipboard.writeText(data.url);
-        setCopied(true);
-      }
+      await navigator.clipboard.writeText(link);
+      ok = true;
+    } catch {
+      // Older phone browsers: copy through a hidden text field instead.
+      const field = document.createElement("textarea");
+      field.value = link;
+      field.setAttribute("readonly", "");
+      field.style.cssText = "position:fixed;opacity:0";
+      document.body.appendChild(field);
+      field.select();
+      ok = document.execCommand("copy");
+      field.remove();
+    }
+    if (!ok) return; // Still blocked: the link is on screen to copy by hand.
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  const share = async () => {
+    try {
+      if (navigator.share) await navigator.share({ title: "ARTHA", text: "Join me at ARTHA. Sign up with my link:", url: link });
+      else await copy();
     } catch {
       // Closing the share sheet isn't an error worth showing.
     }
   };
   return (
     <section className="rounded-3xl border border-line bg-card p-4">
-      <p className="font-serif text-xl">Bring a friend</p>
-      <p className="mt-0.5 text-sm text-muted">Share ARTHA with someone you&apos;d like to sweat with.</p>
-      <button onClick={share} className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-sage py-2.5 text-sm font-semibold text-ink">
-        <Share2 size={16} /> {copied ? "Link copied" : "Share"}
+      <p className="font-serif text-xl">Refer a friend</p>
+      <p className="mt-0.5 text-sm text-muted">
+        {earns
+          ? `Get ${REFERRAL_CREDITS} treatment credit for every friend who signs up with your link and becomes a member. It's added automatically once their first monthly payment goes through.`
+          : "Send your link to friends. Members get a treatment credit for every friend who joins with it."}
+      </p>
+      <button
+        onClick={copy}
+        aria-label="Copy your referral link"
+        className="mt-3 flex w-full items-center gap-2 rounded-2xl border border-line bg-sand px-3 py-2.5 text-left active:bg-line"
+      >
+        <span className="min-w-0 flex-1 truncate text-sm">{link.replace("https://", "")}</span>
+        <span className="flex shrink-0 items-center gap-1 text-sm font-medium text-moss">
+          {copied ? <Check size={16} /> : <Copy size={16} />} {copied ? "Copied" : "Copy"}
+        </span>
       </button>
+      <button onClick={share} className="mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-sage py-3 text-sm font-semibold text-ink active:opacity-80">
+        <Share2 size={16} /> Share my link
+      </button>
+      {friends.length > 0 && (
+        <div className="mt-3 border-t border-line pt-2.5">
+          <p className="flex justify-between text-xs">
+            <span className="font-semibold uppercase tracking-widest text-muted">Your referrals</span>
+            <span className="text-moss">
+              {credited} credit{credited === 1 ? "" : "s"} earned
+            </span>
+          </p>
+          <ul className="mt-1.5 space-y-1 text-sm">
+            {friends.map((f) => (
+              <li key={f.id} className="flex items-center justify-between gap-2">
+                <span className="truncate">{f.name}</span>
+                <span className={clsx("shrink-0 text-xs", f.referralResult === "credited" ? "text-moss" : "text-muted")}>
+                  {f.referralResult === "credited"
+                    ? `Member · +${REFERRAL_CREDITS} credit`
+                    : f.referralResult === "not-member"
+                      ? "Member · joined before you were a member"
+                      : TIERS[f.tier].id === "trial"
+                        ? "On a trial · credit after first month"
+                        : "Signed up · not a member yet"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </section>
   );
 }

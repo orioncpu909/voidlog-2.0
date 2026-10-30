@@ -11,6 +11,10 @@ import { CancelTerms, canUseCredit, cancelTerms } from "./policy";
 import { TRIAL_BECOMES, firstMonthCharge, trialEndsAt } from "./trial";
 import { endOfMonth, inRefundWindow } from "./membership";
 import { money } from "./format";
+import { REFERRAL_CREDITS, ReferralResult, findReferrer } from "./referral";
+import {
+  CHALLENGE_PRIZE_CREDITS, PLUNGE_MAX_SECONDS, PLUNGE_MIN_SECONDS, challengeName, displayName, endedChallenges, isEntered, leaderboard, scoreFor,
+} from "./community";
 import { TulipLogo } from "@/components/TulipLogo";
 
 export interface Member {
@@ -34,6 +38,21 @@ export interface Member {
   firstVisitUsed?: boolean; // the first-visit price has been used
   memberSince?: string; // ISO start of the current paid membership
   membershipEndsAt?: string; // set when a paid membership is cancelled after the refund window
+  referredBy?: string; // id of the account whose referral code was used at sign-up
+  referralResult?: ReferralResult; // set once this account's first monthly payment went through
+  communityJoined?: boolean; // shows on the Community leaderboards (members only, opt-in)
+  communityJoinedAt?: string; // ISO time it was last turned on; only challenges ending after it can be won that way
+  challengeWaitlist?: string[]; // challenge ids signed up for before they started (enters you in that one)
+  challengeWins?: string[]; // challenge ids won and already paid out as credits
+}
+
+// A cold plunge time a member clocked after a completed Contrast (sauna + plunge) session.
+export interface PlungeLog {
+  id: string;
+  memberId: string;
+  bookingId: string;
+  date: string; // the session's date
+  seconds: number;
 }
 
 // What happens to a cancelled trial account when its paid-for days run out.
@@ -66,6 +85,7 @@ export interface Charge {
   at: string;
   label: string;
   amount: number;
+  kind?: "membership"; // a monthly membership payment (what a referral credit waits for)
 }
 
 interface State {
@@ -75,6 +95,7 @@ interface State {
   members: Member[];
   bookings: Booking[];
   charges: Charge[];
+  plunges?: PlungeLog[]; // missing in data saved before Community existed
 }
 
 const KEY = "artha-demo-v2";
@@ -90,9 +111,9 @@ function seedMembers(): Member[] {
   return [
     { ...NEW_DOWNLOAD },
     { id: "m-wellness", name: "Karan", tier: "wellness", home: "weho", credits: 0, onboarded: true, trialUsed: true, firstVisitUsed: true },
-    { id: "m-classic", name: "Karan", tier: "classic", home: "weho", credits: 4, onboarded: true, firstVisitUsed: true, memberSince: daysAgo(20) },
+    { id: "m-classic", name: "Karan", tier: "classic", home: "weho", credits: 4, onboarded: true, firstVisitUsed: true, memberSince: daysAgo(20), communityJoined: true, communityJoinedAt: daysAgo(40) },
     // Joined 2 days ago, so still inside the 5-day refund window.
-    { id: "m-gold", name: "Karan", tier: "gold", home: "weho", credits: 5, onboarded: true, firstVisitUsed: true, memberSince: daysAgo(2) },
+    { id: "m-gold", name: "Karan", tier: "gold", home: "weho", credits: 5, onboarded: true, firstVisitUsed: true, memberSince: daysAgo(2), communityJoined: true, communityJoinedAt: daysAgo(2) },
     { id: "m-restore", name: "Karan", tier: "restore", home: "scity", credits: 4, onboarded: true, firstVisitUsed: true, memberSince: daysAgo(40) },
     {
       id: "m-trial",
@@ -139,15 +160,16 @@ interface Activity {
   treatmentsPerMonth: number;
   treatmentsWithCredit?: boolean;
   events?: boolean; // went to past ticketed events at their location
+  plunges?: boolean; // Community demo: Contrast 2 and 6 days ago, so this month has a logged plunge and one to log
 }
 
 const ACTIVITY: Record<string, Activity> = {
   "m-gold": {
-    weeks: 12, perWeek: 4, streak: 14, recovery: 0.8, doubles: 0.5, treatmentsPerMonth: 1, treatmentsWithCredit: true, events: true,
+    weeks: 12, perWeek: 4, streak: 14, recovery: 0.8, doubles: 0.5, treatmentsPerMonth: 1, treatmentsWithCredit: true, events: true, plunges: true,
     mix: [["cryo", 3], ["ir-sauna", 3], ["red-light", 2], ["float", 2], ["contrast", 2], ["hbot", 1]],
   },
   "m-classic": {
-    weeks: 10, perWeek: 4, streak: 9, recovery: 0.5, doubles: 0.45, treatmentsPerMonth: 1, events: true,
+    weeks: 10, perWeek: 4, streak: 9, recovery: 0.5, doubles: 0.45, treatmentsPerMonth: 1, events: true, plunges: true,
     mix: [["cryo", 4], ["ir-sauna", 2], ["contrast", 1], ["float", 1], ["red-light", 1]],
   },
   "m-restore": {
@@ -222,6 +244,8 @@ function pastBookings(member: Member): Booking[] {
     if (out.length === before) add("class", back, morning);
   }
 
+  if (a.plunges) for (const back of [6, 2]) if (!out.some((b) => b.serviceId === "contrast" && b.date === dayKey(back))) add("contrast", back, afternoon);
+
   const treatments = Math.round((a.weeks / 4.3) * a.treatmentsPerMonth);
   for (let i = 0; i < treatments; i++) {
     const back = Math.round(((i + 0.5) * a.weeks * 7) / treatments);
@@ -265,8 +289,23 @@ function upcomingBookings(member: Member): Booking[] {
 function seedState(): State {
   const members = seedMembers();
   const bookings: Booking[] = [...members.flatMap(pastBookings), ...members.flatMap(upcomingBookings)];
-  const charges: Charge[] = [{ id: uid(), memberId: "m-gold", at: daysAgo(2), label: "Gold membership · first month", amount: TIERS.gold.monthly! }];
-  return { version: 2, activeMemberId: "m-new", members, bookings, charges };
+  const charges: Charge[] = [{ id: uid(), memberId: "m-gold", at: daysAgo(2), label: "Gold membership · first month", amount: TIERS.gold.monthly!, kind: "membership" }];
+  return { version: 2, activeMemberId: "m-new", members, bookings, charges, plunges: seedPlunges(members, bookings) };
+}
+
+// Demo plunge times: members on the Community boards have clocked every past Contrast session
+// except the most recent, between 1:00 and 3:00; that last one is left for you to log.
+function seedPlunges(members: Member[], bookings: Booking[]): PlungeLog[] {
+  const now = new Date();
+  return members
+    .filter((m) => m.communityJoined)
+    .flatMap((m) => {
+      const rand = seeded(`plunge-${m.id}`);
+      const done = bookings
+        .filter((b) => b.memberId === m.id && b.serviceId === "contrast" && b.status === "booked" && sessionStart(b.date, b.time) <= now)
+        .sort((a, b) => a.date.localeCompare(b.date));
+      return done.slice(0, -1).map((b) => ({ id: uid(), memberId: m.id, bookingId: b.id, date: b.date, seconds: 60 + Math.round((rand() * 120) / 5) * 5 }));
+    });
 }
 
 // Runs on open and once a minute:
@@ -289,6 +328,7 @@ function applyScheduledChanges(s: State, now = new Date()): State {
       if (membershipEnded(m)) {
         return {
           ...m,
+          ...LEAVE_COMMUNITY,
           tier: "wellness",
           credits: 0,
           memberSince: undefined,
@@ -300,6 +340,7 @@ function applyScheduledChanges(s: State, now = new Date()): State {
       if (m.trialCancel === "downgrade") {
         return {
           ...m,
+          ...LEAVE_COMMUNITY,
           tier: "wellness",
           trialEndsAt: undefined,
           trialCancel: undefined,
@@ -316,6 +357,7 @@ function applyScheduledChanges(s: State, now = new Date()): State {
         at: now.toISOString(),
         label: `${next.name} membership · rest of ${month} ($${TIERS.trial.joinFee} trial fee applied)`,
         amount: firstMonthCharge(ends, becomes),
+        kind: "membership",
       });
       return {
         ...m,
@@ -323,7 +365,7 @@ function applyScheduledChanges(s: State, now = new Date()): State {
         trialEndsAt: undefined,
         trialBecomes: undefined,
         memberSince: ends.toISOString(),
-        credits: next.welcomeCredits + next.monthlyCredits,
+        credits: next.welcomeCredits + next.monthlyCredits + m.credits, // a trial only has credits it won in Community
         notice: `Your 7-day trial ended, so you're now a ${next.name} member ($${next.monthly}/month). Your $${TIERS.trial.joinFee} trial fee went toward your first month.`,
       };
     });
@@ -343,17 +385,82 @@ function applyScheduledChanges(s: State, now = new Date()): State {
   };
 }
 
+// Referral credits: once a referred account has a successful monthly membership payment, the
+// account that referred it gets REFERRAL_CREDITS treatment credits (if it's a paying member then)
+// and a note on Home. Each referred account settles once. Returns the same object when nothing is due.
+function applyReferralCredits(s: State): State {
+  const paid = (m: Member) => s.charges.some((c) => c.memberId === m.id && c.kind === "membership" && c.amount > 0);
+  const due = s.members.filter((m) => m.referredBy && !m.referralResult && paid(m));
+  if (due.length === 0) return s;
+  const earns = (m: Member) => TIERS[m.tier].isMember && m.tier !== "trial";
+  const members = s.members.map((m): Member => {
+    const friend = due.find((d) => d.id === m.id);
+    const referrer = friend && s.members.find((r) => r.id === friend.referredBy);
+    if (friend) return { ...m, referralResult: referrer && earns(referrer) ? "credited" : "not-member" };
+    const friends = due.filter((d) => d.referredBy === m.id);
+    if (friends.length === 0 || !earns(m)) return m;
+    const earned = friends.length * REFERRAL_CREDITS;
+    const names = friends.map((f) => f.name.split(" ")[0]).join(" and ");
+    return {
+      ...m,
+      credits: m.credits + earned,
+      notice: addNotice(m.notice, `${names} became ${friends.length === 1 ? "a member" : "members"} with your referral link, so you've earned ${earned} treatment credit${earned === 1 ? "" : "s"}.`),
+    };
+  });
+  return { ...s, members };
+}
+
+// Leaving a membership takes you off the Community boards and waitlists.
+const LEAVE_COMMUNITY: Partial<Member> = { communityJoined: false, challengeWaitlist: [] };
+
+// Adds a note to Home without losing one that hasn't been read yet.
+const addNotice = (current: string | undefined, text: string) => (current ? `${current}\n\n${text}` : text);
+
+// Challenge prizes: when a Community challenge ends, each member who was in it (isEntered: the
+// same rule the boards use) and finished first, ties included, gets CHALLENGE_PRIZE_CREDITS
+// treatment credit and a note on Home, once per challenge. Returns the same object when nothing is due.
+function applyChallengePrizes(s: State, now = new Date()): State {
+  const ended = endedChallenges(now);
+  let changed = false;
+  const members = s.members.map((m): Member => {
+    const tier = TIERS[m.tier];
+    if (!tier.isMember) return m;
+    const won = ended.filter((c) => {
+      if (m.challengeWins?.includes(c.id)) return false;
+      if (!isEntered(c, m, true)) return false;
+      const score = scoreFor(c, m.id, s.bookings, s.plunges ?? [], now);
+      return leaderboard(c, { name: displayName(m), score }, now).some((r) => r.you && r.rank === 1);
+    });
+    if (won.length === 0) return m;
+    changed = true;
+    const credits = won.length * CHALLENGE_PRIZE_CREDITS;
+    return {
+      ...m,
+      credits: m.credits + credits,
+      challengeWins: [...(m.challengeWins ?? []), ...won.map((c) => c.id)],
+      notice: addNotice(m.notice, `You won ${won.map(challengeName).join(" and ")}! ${credits} treatment credit${credits === 1 ? " was" : "s were"} added to your account.`),
+    };
+  });
+  return changed ? { ...s, members } : s;
+}
+
+// Everything that happens on its own: ended trials and memberships, then referral credits and
+// challenge prizes.
+function settle(s: State): State {
+  return applyChallengePrizes(applyReferralCredits(applyScheduledChanges(s)));
+}
+
 function load(): State {
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as State;
-      if (parsed.version === 2) return applyScheduledChanges(parsed);
+      if (parsed.version === 2) return settle(parsed);
     }
   } catch {
     // Storage unavailable or corrupt; start fresh.
   }
-  return seedState();
+  return settle(seedState());
 }
 
 export type BookResult = { ok: true; booking: Booking } | { ok: false; error: string };
@@ -384,11 +491,15 @@ interface Store {
   setTrialBecomes: (tier: TierId) => void;
   endTrialNow: () => void; // demo only: jump to the end of the trial
   dismissNotice: () => void;
+  plunges: PlungeLog[]; // every account's clocked plunge times
+  joinCommunity: (joined: boolean) => void;
+  toggleWaitlist: (challengeId: string) => void; // sign up for (or leave) a challenge before it starts
+  logPlunge: (bookingId: string, seconds: number) => { ok: true } | { ok: false; error: string };
   dismissPromos: (ids: string[]) => void;
   setLocation: (loc: LocationId) => void;
   toggleRsvp: (eventId: string) => void;
   finishOnboarding: () => void;
-  signUp: (details: { firstName: string; lastName: string; email: string; phone?: string; instagram?: string }) => void;
+  signUp: (details: { firstName: string; lastName: string; email: string; phone?: string; instagram?: string; referralCode?: string }) => void;
   restartAsNewDownload: () => void; // demo: wipe the new-user account and open the app as a fresh download
   refresh: () => void; // pull-to-refresh: reload saved data and apply anything due (ended trials, months)
   reset: () => void;
@@ -405,7 +516,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Check once a minute for trials that just ended while the app is open.
   useEffect(() => {
-    const id = setInterval(() => setState((s) => (s ? applyScheduledChanges(s) : s)), 60_000);
+    const id = setInterval(() => setState((s) => (s ? settle(s) : s)), 60_000);
     return () => clearInterval(id);
   }, []);
 
@@ -418,7 +529,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [state]);
 
-  const update = useCallback((fn: (s: State) => State) => setState((s) => (s ? fn(s) : s)), []);
+  // Every change also settles referral credits, so a friend's first payment credits the referrer at once.
+  const update = useCallback((fn: (s: State) => State) => setState((s) => (s ? applyChallengePrizes(applyReferralCredits(fn(s))) : s)), []);
 
   const store = useMemo<Store | null>(() => {
     if (!state) return null;
@@ -544,6 +656,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             return {
               ...s,
               members: patchMember(s, {
+                ...LEAVE_COMMUNITY,
                 tier: "wellness",
                 credits: 0,
                 memberSince: undefined,
@@ -584,9 +697,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               trialEndsAt: undefined,
               membershipEndsAt: undefined,
               memberSince: tier.isMember && tier.id !== "trial" ? member.memberSince : new Date().toISOString(),
-              credits: tier.isMember && tier.id !== "trial" ? member.credits : next.welcomeCredits + next.monthlyCredits,
+              // Keep what you have when switching plans; a trial's only credits are Community prizes.
+              credits: tier.isMember && tier.id !== "trial" ? member.credits : next.welcomeCredits + next.monthlyCredits + (tier.id === "trial" ? member.credits : 0),
             }),
-            charges: fee > 0 ? [...s.charges, charge(label, fee)] : s.charges,
+            charges: fee > 0 ? [...s.charges, { ...charge(label, fee), ...(next.monthly && { kind: "membership" as const }) }] : s.charges,
           };
         }),
       canStartTrial: !tier.isMember && !member.trialUsed,
@@ -596,6 +710,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       endTrialNow: () =>
         update((s) => (member.tier !== "trial" ? s : applyScheduledChanges({ ...s, members: patchMember(s, { trialEndsAt: new Date(Date.now() - 1000).toISOString() }) }))),
       dismissNotice: () => update((s) => ({ ...s, members: patchMember(s, { notice: undefined }) })),
+      plunges: state.plunges ?? [],
+      // Only members can be on the boards; leaving keeps their history but hides them.
+      joinCommunity: (joined) =>
+        update((s) =>
+          joined && !tier.isMember
+            ? s
+            : { ...s, members: patchMember(s, { communityJoined: joined, ...(joined && { communityJoinedAt: new Date().toISOString() }) }) },
+        ),
+      toggleWaitlist: (challengeId) =>
+        update((s) => {
+          if (!tier.isMember) return s;
+          const list = member.challengeWaitlist ?? [];
+          return { ...s, members: patchMember(s, { challengeWaitlist: list.includes(challengeId) ? list.filter((id) => id !== challengeId) : [...list, challengeId] }) };
+        }),
+      logPlunge: (bookingId, seconds) => {
+        const b = state.bookings.find((x) => x.id === bookingId);
+        if (!b || b.memberId !== member.id || b.serviceId !== "contrast" || b.status !== "booked" || sessionStart(b.date, b.time) > new Date()) {
+          return { ok: false, error: "You can log a plunge after a Contrast session you've been to." };
+        }
+        if ((state.plunges ?? []).some((p) => p.bookingId === bookingId)) return { ok: false, error: "You've already logged this plunge." };
+        if (!Number.isFinite(seconds) || seconds < PLUNGE_MIN_SECONDS || seconds > PLUNGE_MAX_SECONDS) {
+          return { ok: false, error: "Plunge times count from 0:10 to 5:00." };
+        }
+        const log: PlungeLog = { id: uid(), memberId: member.id, bookingId, date: b.date, seconds: Math.round(seconds) };
+        update((s) => ({ ...s, plunges: [...(s.plunges ?? []), log] }));
+        return { ok: true };
+      },
       dismissPromos: (ids) => update((s) => ({ ...s, members: patchMember(s, { dismissedPromos: [...new Set([...(member.dismissedPromos ?? []), ...ids])] }) })),
       setLocation: (loc) => update((s) => ({ ...s, members: patchMember(s, { home: loc }) })),
       toggleRsvp: (eventId) =>
@@ -605,8 +746,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }),
       finishOnboarding: () => update((s) => ({ ...s, members: patchMember(s, { onboarded: true }) })),
       // Demo sign-up: keeps the name, email and phone on this device. The password is never stored.
-      signUp: ({ firstName, lastName, email, phone, instagram }) =>
-        update((s) => ({ ...s, members: patchMember(s, { name: `${firstName} ${lastName}`.trim(), email, phone: phone || undefined, instagram, signedUp: true }) })),
+      signUp: ({ firstName, lastName, email, phone, instagram, referralCode }) =>
+        update((s) => {
+          const referrer = referralCode ? findReferrer(referralCode, s.members.filter((m) => m.id !== member.id)) : undefined;
+          return {
+            ...s,
+            members: patchMember(s, { name: `${firstName} ${lastName}`.trim(), email, phone: phone || undefined, instagram, signedUp: true, referredBy: referrer?.id }),
+          };
+        }),
       restartAsNewDownload: () =>
         update((s) => ({
           ...s,
@@ -614,9 +761,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           members: s.members.map((m) => (m.id === NEW_DOWNLOAD.id ? { ...NEW_DOWNLOAD } : m)),
           bookings: s.bookings.filter((b) => b.memberId !== NEW_DOWNLOAD.id),
           charges: s.charges.filter((c) => c.memberId !== NEW_DOWNLOAD.id),
+          plunges: (s.plunges ?? []).filter((p) => p.memberId !== NEW_DOWNLOAD.id),
         })),
       refresh: () => setState(load()),
-      reset: () => setState(seedState()),
+      reset: () => setState(settle(seedState())),
     };
   }, [state, update]);
 

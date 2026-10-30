@@ -45,7 +45,14 @@ export function HomeAlerts() {
             </button>
           }
         >
-          <span className="line-clamp-2">{member.notice}</span>
+          {/* Several notes can stack up (a prize, a referral, a billing change): Home shows the
+              newest and links to Account for the rest, so it still fits one screen. */}
+          <span className="line-clamp-2">{member.notice.split("\n\n").pop()}</span>
+          {member.notice.includes("\n\n") && (
+            <Link href="/membership" className="mt-0.5 block text-[11px] underline underline-offset-2">
+              +{member.notice.split("\n\n").length - 1} more on Account
+            </Link>
+          )}
         </Row>
       )}
 
