@@ -47,7 +47,7 @@ export function PromoBanner() {
           <div key={label}>
             <p className="text-xs">{label}</p>
             <p className="flex items-baseline gap-1.5">
-              <span className="font-serif text-4xl leading-none">{money(quote.price)}</span>
+              <span className="font-heading text-4xl leading-none">{money(quote.price)}</span>
               <span className="text-sm line-through">{money(quote.regular)}</span>
             </p>
             <p className="mt-0.5 text-[11px]">until {shortDate(ends)}</p>

@@ -47,7 +47,7 @@ export function SwitchToWellness() {
         className="flex w-full items-center justify-between gap-3 rounded-2xl border border-dashed border-muted bg-card px-4 py-3 text-left hover:border-shell disabled:cursor-default disabled:hover:border-muted"
       >
         <div>
-          <p className="font-serif text-xl">Wellness Account</p>
+          <p className="font-heading text-xl">Wellness Account</p>
           <p className="text-xs text-muted">
             {deleting
               ? "Your trial is cancelled and the account is set to be deleted."

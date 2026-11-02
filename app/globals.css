@@ -54,6 +54,12 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+h1,
+h2,
+h3 {
+  @apply font-heading;
+}
+
 /* Numbers on the stats views: the app font with even-width digits, so figures line up. */
 .stat-num {
   @apply font-sans font-semibold tabular-nums tracking-tight;

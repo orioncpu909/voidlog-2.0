@@ -36,11 +36,11 @@ function Start({ onCreate, onSignIn }: { onCreate: () => void; onSignIn: () => v
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={SERVICE_IMAGE.event} alt="" className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-b from-ink/60 via-ink/10 to-sand" aria-hidden />
-        <p className="absolute inset-x-0 top-12 text-center font-serif text-4xl tracking-[0.45em] text-shell">ARTHA</p>
+        <p className="absolute inset-x-0 top-12 text-center font-wordmark text-4xl tracking-[0.45em] text-shell">ARTHA</p>
         <p className="absolute inset-x-0 top-[6.5rem] text-center text-[11px] uppercase tracking-[0.35em] text-shell">A Wellness Sanctuary</p>
       </div>
       <div className="relative -mt-6 flex flex-1 flex-col px-6 pb-10 text-center">
-        <h1 className="font-serif text-4xl leading-tight">Move. Sweat. Freeze.</h1>
+        <h1 className="font-heading text-4xl leading-tight">Move. Sweat. Freeze.</h1>
         <p className="mt-2 text-muted">Book classes, therapies and treatments at ARTHA West LA and Studio City.</p>
         <p className="mt-2 text-sm font-medium">
           Join {(MEMBER_COUNT + WELLNESS_COUNT).toLocaleString()} people. {signupsThisWeek()} joined this week.
@@ -118,7 +118,7 @@ function CreateAccount({ onBack }: { onBack: () => void }) {
       <button onClick={onBack} aria-label="Back" className="-ml-2 rounded-full p-2 hover:bg-line">
         <ArrowLeft size={20} />
       </button>
-      <h1 className="mt-2 font-serif text-4xl leading-tight">Create your account</h1>
+      <h1 className="mt-2 font-heading text-4xl leading-tight">Create your account</h1>
       <p className="mt-1 text-muted">Free to join. You only pay when you book. All fields are required except Instagram and a referral code.</p>
 
       <form onSubmit={submit} noValidate className="mt-6 space-y-4">
@@ -242,7 +242,7 @@ function SampleAccounts({ onBack }: { onBack: () => void }) {
       <button onClick={onBack} aria-label="Back" className="-ml-2 rounded-full p-2 hover:bg-line">
         <ArrowLeft size={20} />
       </button>
-      <h1 className="mt-2 font-serif text-4xl leading-tight">Welcome back</h1>
+      <h1 className="mt-2 font-heading text-4xl leading-tight">Welcome back</h1>
       <p className="mt-1 text-muted">This demo has no real sign-in. Pick a sample account to explore.</p>
       <div className="mt-6 divide-y divide-line rounded-2xl border border-line bg-card">
         {members

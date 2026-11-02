@@ -25,7 +25,7 @@ export function UpcomingBookingCard({ booking: b, onCancel }: { booking: Booking
     <div className="rounded-2xl border border-line bg-card p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-serif text-xl leading-tight">{b.title}</p>
+          <p className="font-heading text-xl leading-tight">{b.title}</p>
           <p className="text-sm text-muted">
             {dayLabel(b.date, "long")} · {timeRange(b.time, b.durationMin)}
           </p>

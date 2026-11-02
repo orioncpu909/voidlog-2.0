@@ -956,8 +956,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   if (state?.goodbye) {
     return (
       <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-4 px-6 text-center">
-        <span className="font-serif text-xl tracking-[0.35em]">ARTHA</span>
-        <h1 className="font-serif text-4xl">Goodbye, {state.goodbye}</h1>
+        <span className="font-wordmark text-xl tracking-[0.35em]">ARTHA</span>
+        <h1 className="font-heading text-4xl">Goodbye, {state.goodbye}</h1>
         <p className="text-sm text-muted">Your trial has ended and your account has been deleted, as you asked. You weren&apos;t charged for a membership.</p>
         <button onClick={() => update((s) => ({ ...s, goodbye: undefined }))} className="mt-4 rounded-full bg-sage px-6 py-3 text-sm font-medium text-ink">
           Back to the demo

@@ -48,7 +48,7 @@ export function TrialCard() {
         <Hourglass size={20} className="mt-1 shrink-0 text-moss" />
         <div className="min-w-0 flex-1">
           <p className="text-xs uppercase tracking-widest text-moss">7-day trial</p>
-          <p className="font-serif text-2xl leading-tight">{leftLabel}</p>
+          <p className="font-heading text-2xl leading-tight">{leftLabel}</p>
           <p className="mt-1 text-sm text-shell">
             Ends {momentLabel(ends)}. Then {next.name} starts automatically at {money(next.monthly!)}/month. Your {money(TIERS.trial.joinFee)} trial fee counts toward the first month.
           </p>
@@ -68,7 +68,7 @@ export function TrialCard() {
                 onClick={() => setTrialBecomes(id)}
                 className={clsx("rounded-2xl border px-2 py-2.5 text-center", on ? "border-sage bg-sage text-ink" : "border-line bg-card")}
               >
-                <span className="block font-serif text-lg leading-none">{t.name}</span>
+                <span className="block font-heading text-lg leading-none">{t.name}</span>
                 <span className="mt-1 block text-[11px]">{money(t.monthly!)}/mo</span>
                 {id === TRIAL_BECOMES && <span className="block text-[10px]">default</span>}
               </button>

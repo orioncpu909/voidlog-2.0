@@ -40,7 +40,7 @@ export function EventsSection() {
 
   return (
     <section className="shrink-0 space-y-2">
-      <h2 className="font-serif text-lg leading-none">Upcoming events</h2>
+      <h2 className="font-heading text-lg leading-none">Upcoming events</h2>
       <div className="no-scrollbar -mx-4 flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto px-4 pb-1">
         {upcoming.map((e) => {
           const d = sessionStart(e.date, e.time);
@@ -56,7 +56,7 @@ export function EventsSection() {
               <div className="flex items-center gap-2">
                 <div className="flex h-9 w-9 shrink-0 flex-col items-center justify-center rounded-xl bg-moss-soft text-moss">
                   <span className="text-[9px] uppercase leading-none">{d.toLocaleDateString("en-US", { month: "short" })}</span>
-                  <span className="font-serif text-base leading-none">{d.getDate()}</span>
+                  <span className="font-heading text-base leading-none">{d.getDate()}</span>
                 </div>
                 <p className="min-w-0 truncate text-[11px] text-muted">
                   {d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
@@ -178,10 +178,10 @@ function TicketPanel({ event, onLeave }: { event: ArthaEvent; onLeave: () => voi
   if (stage === "confirm") {
     return (
       <div className="space-y-3 border-t border-line pt-4 text-sm">
-        <p className="font-serif text-xl">Confirm your ticket</p>
+        <p className="font-heading text-xl">Confirm your ticket</p>
         <div className="flex items-baseline justify-between rounded-2xl border border-line p-4">
           <span className="font-medium">You pay today</span>
-          <span className="font-serif text-2xl">{money(price)}</span>
+          <span className="font-heading text-2xl">{money(price)}</span>
         </div>
         <p className="rounded-2xl bg-moss-soft p-4 font-medium text-moss">{policyLine(terms, false)}</p>
         {error && <BlockedBanner message={error} onClose={clearError} />}
@@ -219,7 +219,7 @@ function TicketPanel({ event, onLeave }: { event: ArthaEvent; onLeave: () => voi
           <p className="text-sm font-medium">Ticket</p>
           <p className="text-xs text-muted">{note}</p>
         </div>
-        <span className="font-serif text-3xl">{price > 0 ? money(price) : "Free"}</span>
+        <span className="font-heading text-3xl">{price > 0 ? money(price) : "Free"}</span>
       </div>
       <p className="flex items-center gap-1.5 text-xs text-muted">
         <Users size={13} /> {left > 0 ? `${left} of ${session.capacity} spots left` : "Sold out"}

@@ -21,10 +21,16 @@ const config: Config = {
         sage: { DEFAULT: "rgb(var(--sage) / <alpha-value>)", deep: "rgb(var(--sage-deep) / <alpha-value>)", light: "#C08442" }, // amber fill (ink text); deep = amber text; light = pressed
         copper: "#D68D51", // ARTHA copper: the Studio City dot
       },
+      // A step up from Tailwind's defaults: Futura PT runs small and thin next to a phone's own font.
+      fontSize: {
+        xs: ["0.8125rem", "1.125rem"],
+        sm: ["0.9375rem", "1.3125rem"],
+      },
       fontFamily: {
-        serif: ["var(--font-serif)", "Georgia", "serif"],
-        // The phone's own app font: SF Pro on iPhone and Mac, Roboto on Android, Segoe UI on Windows.
-        sans: ["-apple-system", "BlinkMacSystemFont", "\"SF Pro Text\"", "Roboto", "\"Segoe UI\"", "\"Helvetica Neue\"", "Arial", "sans-serif"],
+        heading: ["var(--font-heading)", "\"Arial Narrow\"", "sans-serif"],
+        wordmark: ["var(--font-wordmark)", "Georgia", "serif"],
+        // Futura PT Book, then the phone's own app font: SF Pro on iPhone and Mac, Roboto on Android.
+        sans: ["var(--font-body)", "-apple-system", "BlinkMacSystemFont", "\"SF Pro Text\"", "Roboto", "\"Segoe UI\"", "\"Helvetica Neue\"", "Arial", "sans-serif"],
       },
     },
   },

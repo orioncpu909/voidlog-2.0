@@ -65,14 +65,14 @@ function CalendarView() {
 
   return (
     <div className="space-y-5">
-      <h1 className="font-serif text-3xl">Calendar</h1>
+      <h1 className="font-heading text-3xl">Calendar</h1>
 
       <section className="rounded-3xl border border-line bg-card p-4">
         <div className="mb-3 flex items-center justify-between">
           <button onClick={() => shiftMonth(-1)} aria-label="Previous month" className="rounded-full p-1.5 hover:bg-line">
             <ChevronLeft size={18} />
           </button>
-          <p className="font-serif text-xl">{month.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</p>
+          <p className="font-heading text-xl">{month.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</p>
           <button onClick={() => shiftMonth(1)} aria-label="Next month" className="rounded-full p-1.5 hover:bg-line">
             <ChevronRight size={18} />
           </button>
@@ -107,7 +107,7 @@ function CalendarView() {
       </section>
 
       <div className="flex items-baseline justify-between">
-        <h2 className="font-serif text-2xl">{selected ? dayLabel(selected, "long") : `Upcoming (${upcoming.length})`}</h2>
+        <h2 className="font-heading text-2xl">{selected ? dayLabel(selected, "long") : `Upcoming (${upcoming.length})`}</h2>
         {selected && (
           <button onClick={() => setSelected(null)} className="text-xs text-moss underline-offset-2 hover:underline">
             Show all upcoming

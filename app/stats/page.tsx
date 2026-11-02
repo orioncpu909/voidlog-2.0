@@ -68,7 +68,7 @@ function StatsScreen() {
 
       <section className="rounded-3xl border border-line bg-card p-4">
         <div className="flex items-baseline justify-between">
-          <h2 className="font-serif text-xl">Visits per week</h2>
+          <h2 className="font-heading text-xl">Visits per week</h2>
           <p className="text-xs text-muted">{s.thisMonth} this month</p>
         </div>
         <p className="mt-1 h-5 text-sm">
@@ -101,7 +101,7 @@ function StatsScreen() {
       </section>
 
       <section className="rounded-3xl border border-line bg-card p-4">
-        <h2 className="font-serif text-xl">By service</h2>
+        <h2 className="font-heading text-xl">By service</h2>
         <ul className="mt-3 space-y-2.5">
           {s.byService.map((x) => (
             <li key={x.serviceId} className="text-sm">
@@ -133,7 +133,7 @@ function StatsScreen() {
 
       <section className="rounded-3xl border border-line bg-card p-4">
         <div className="flex items-baseline justify-between">
-          <h2 className="font-serif text-xl">Visit history</h2>
+          <h2 className="font-heading text-xl">Visit history</h2>
           <p className="text-xs text-muted">{s.history.length} total</p>
         </div>
         <ul className="mt-3 divide-y divide-line">
@@ -185,7 +185,7 @@ function Header() {
       <Link href={back.href} aria-label={back.label} className="-ml-2 rounded-full p-2 hover:bg-line">
         <ArrowLeft size={20} />
       </Link>
-      <h1 className="font-serif text-3xl">Your stats</h1>
+      <h1 className="font-heading text-3xl">Your stats</h1>
     </div>
   );
 }

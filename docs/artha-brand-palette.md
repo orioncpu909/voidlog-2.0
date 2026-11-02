@@ -54,5 +54,5 @@ The earlier light theme used cream `#F6F1E7` pages, white cards, black text, bro
 History: specials went copper, then gold at Miguel's request, and are never red, so the warning role took the burgundy family. On Oct 26 the browns were warmed to sienna; then the Book tab was rebuilt like the Open app in dark colors, and at Miguel's request the rest of the app (Home, Calendar, Account) moved to the same dark palette. He then asked for more contrast: pure black pages, white text, brighter accents and borders, and no faded (semi-transparent) text. Then he asked to keep black, gold and earthy brown as the main colors (brown cards, gold buttons). That read as too dark, so the app moved to a light cream theme that keeps the same three colors: black text, gold buttons and selections, brown accents.
 
 ## Fonts in the app
-- Headings: Cormorant Garamond (serif).
-- Everything else, including all numbers: the phone's own app font (SF Pro on iPhone and Mac, Roboto on Android). Stat numbers use the `stat-num` class in `app/globals.css`: semibold with even-width digits.
+- Headings: Futura PT Cond Bold (`app/fonts`, class `font-heading`). Body text: Futura PT Book (`font-sans`). The ARTHA name in the header stays Cormorant Garamond (`font-wordmark`).
+- Stat numbers use the body font through the `stat-num` class in `app/globals.css`: semibold with even-width digits. If a font can't load, text falls back to the phone's own app font.

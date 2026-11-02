@@ -131,7 +131,7 @@ export default function ProfilePage() {
 
       <section>
         <ProfilePhoto />
-        <h2 className="mt-3 break-words font-serif text-3xl leading-tight">{member.name}</h2>
+        <h2 className="mt-3 break-words font-heading text-3xl leading-tight">{member.name}</h2>
         <p className="text-sm text-muted">
           {member.instagram ? `@${member.instagram} · ` : ""}
           {location.short} studio
@@ -237,7 +237,7 @@ function Achievements() {
   const earned = list.filter((a) => a.count > 0).length;
   return (
     <section>
-      <h2 className="font-serif text-2xl">
+      <h2 className="font-heading text-2xl">
         Achievements <span className="text-muted">({earned})</span>
       </h2>
       <div className="no-scrollbar -mx-4 mt-1 flex gap-3 overflow-x-auto px-4 pb-1 pt-1">
@@ -328,7 +328,7 @@ function DataHighlights() {
 
   return (
     <section>
-      <h2 className="font-serif text-2xl">Data highlights</h2>
+      <h2 className="font-heading text-2xl">Data highlights</h2>
       <div className="mt-2 rounded-3xl border border-line bg-card p-4">
         <PeriodToggle value={period} onChange={setPeriod} />
         {h.visits === 0 ? (
@@ -388,7 +388,7 @@ function ActivitySummary() {
 
   return (
     <section>
-      <h2 className="font-serif text-2xl">Activity summary</h2>
+      <h2 className="font-heading text-2xl">Activity summary</h2>
       <div className="mt-2 rounded-3xl border border-line bg-card p-4">
         <PeriodToggle value={period} onChange={setPeriod} />
         <p className="stat-num mt-4 text-3xl leading-none">{h.visits}×</p>
@@ -496,7 +496,7 @@ function ReferralCard() {
   };
   return (
     <section className="rounded-3xl border border-line bg-card p-4">
-      <p className="font-serif text-xl">Refer a friend</p>
+      <p className="font-heading text-xl">Refer a friend</p>
       <p className="mt-0.5 text-sm text-muted">
         {earns
           ? `Get ${REFERRAL_CREDITS} treatment credit for every friend who signs up with your link and becomes a member. It's added automatically once their first monthly payment goes through.`

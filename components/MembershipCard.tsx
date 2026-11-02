@@ -19,7 +19,7 @@ export function MembershipCard() {
   return (
     <section className="rounded-3xl border border-line bg-card p-4">
       <p className="text-xs uppercase tracking-widest text-muted">Membership cancelled</p>
-      <p className="mt-1 font-serif text-2xl leading-tight">Active until {shortDate(dateKey(ends))}</p>
+      <p className="mt-1 font-heading text-2xl leading-tight">Active until {shortDate(dateKey(ends))}</p>
       <p className="mt-1 text-sm text-shell">
         You won&apos;t be charged again. You keep full {tier.name} access, prices and your calendar until then. After that you&apos;ll be on a free Wellness Account.
       </p>

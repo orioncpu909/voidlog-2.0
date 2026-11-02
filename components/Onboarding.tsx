@@ -32,7 +32,7 @@ export function Onboarding() {
     <div className="fixed inset-0 z-50 overflow-y-auto bg-sand">
       <div className="mx-auto max-w-md px-5 pb-10 pt-6">
         <div className="mb-5 flex items-center justify-between">
-          <span className="font-serif text-xl tracking-[0.35em]">ARTHA</span>
+          <span className="font-wordmark text-xl tracking-[0.35em]">ARTHA</span>
           <div className="flex gap-1.5" aria-label={`Step ${i + 1} of ${steps.length}`}>
             {steps.map((s, n) => (
               <span key={s} className={clsx("h-1.5 w-6 rounded-full", n <= i ? "bg-moss" : "bg-line")} />
@@ -43,7 +43,7 @@ export function Onboarding() {
         {step === "welcome" && (
           <div className="space-y-4">
             <div className="rounded-3xl border border-line bg-card p-5">
-              <h1 className="break-words font-serif text-4xl leading-tight">Welcome, {member.name.split(" ")[0]}</h1>
+              <h1 className="break-words font-heading text-4xl leading-tight">Welcome, {member.name.split(" ")[0]}</h1>
               <p className="mt-2 text-sm text-muted">Your wellness sanctuary in West LA and Studio City.</p>
               <p className="mt-3 border-t border-line pt-3 text-xs italic text-muted">
                 Artha is Sanskrit for &ldquo;the true meaning of life.&rdquo;
@@ -58,7 +58,7 @@ export function Onboarding() {
               ].map(({ icon: Icon, title, text }) => (
                 <div key={title} className="rounded-2xl border border-line bg-card p-3">
                   <Icon size={18} className="text-moss" />
-                  <p className="mt-1.5 font-serif text-lg leading-none">{title}</p>
+                  <p className="mt-1.5 font-heading text-lg leading-none">{title}</p>
                   <p className="mt-1 text-[11px] leading-snug text-muted">{text}</p>
                 </div>
               ))}
@@ -87,7 +87,7 @@ export function Onboarding() {
 
         {step === "location" && (
           <div>
-            <h1 className="font-serif text-4xl leading-tight">Pick your home location</h1>
+            <h1 className="font-heading text-4xl leading-tight">Pick your home location</h1>
             <p className="mt-3 text-muted">This is where the app opens by default. You can switch to the other location anytime, and your Wellness Account works at both.</p>
             <div className="mt-6 space-y-3">
               {(Object.keys(LOCATIONS) as LocationId[]).map((id) => (
@@ -101,7 +101,7 @@ export function Onboarding() {
                 >
                   <MapPin className={member.home === id ? "text-moss" : "text-muted"} />
                   <div className="flex-1">
-                    <p className="font-serif text-xl">{LOCATIONS[id].short}</p>
+                    <p className="font-heading text-xl">{LOCATIONS[id].short}</p>
                     <p className="text-xs text-muted">{LOCATIONS[id].address}</p>
                   </div>
                   {member.home === id && <Check className="text-moss" size={20} />}
@@ -114,7 +114,7 @@ export function Onboarding() {
         {step === "pricing" && (
           <div className="space-y-5">
             <div>
-              <h1 className="font-serif text-4xl leading-tight">{tier.isMember ? `Your ${tier.name} membership` : "Your free Wellness Account"}</h1>
+              <h1 className="font-heading text-4xl leading-tight">{tier.isMember ? `Your ${tier.name} membership` : "Your free Wellness Account"}</h1>
               <p className="mt-3 text-muted">
                 {tier.isMember
                   ? `Classes at both locations. Therapies and treatments at ${LOCATIONS[member.home].short}, your home location. Here's what's included and what you pay.`

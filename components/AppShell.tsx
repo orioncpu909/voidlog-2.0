@@ -46,7 +46,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col bg-sand text-shell">
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-line bg-sand px-4 py-3">
-        <Link href="/" className="font-serif text-xl tracking-[0.35em]">
+        <Link href="/" className="font-wordmark text-xl tracking-[0.35em]">
           ARTHA
         </Link>
         <div className="flex items-center gap-3">

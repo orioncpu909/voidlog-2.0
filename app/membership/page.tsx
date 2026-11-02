@@ -32,7 +32,7 @@ export default function AccountPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="font-serif text-3xl">Account</h1>
+        <h1 className="font-heading text-3xl">Account</h1>
         <HistoryButton />
       </div>
 
@@ -47,7 +47,7 @@ export default function AccountPage() {
           </Link>
         </div>
         <div className="mt-1 flex items-baseline justify-between gap-3">
-          <p className="font-serif text-3xl leading-tight">{tier.name}</p>
+          <p className="font-heading text-3xl leading-tight">{tier.name}</p>
           <p className="shrink-0 text-sm text-muted">
             {tier.monthly ? `${money(tier.monthly)}/mo · billed the 1st` : tier.joinFee ? `${money(tier.joinFee)} for 7 days` : "Free · pay per visit"}
           </p>
@@ -81,7 +81,7 @@ export default function AccountPage() {
       <StatsOverview />
 
       <section className="space-y-2">
-        <h2 className="font-serif text-xl">
+        <h2 className="font-heading text-xl">
           {tier.isMember ? <>What&apos;s included with your {tier.id === "trial" ? tier.name : `${tier.name} membership`}</> : tier.name}
         </h2>
         <PriceList tier={member.tier} location={member.home} />
@@ -89,7 +89,7 @@ export default function AccountPage() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="font-serif text-xl">{tier.isMember ? "Change membership" : "Become a member"}</h2>
+        <h2 className="font-heading text-xl">{tier.isMember ? "Change membership" : "Become a member"}</h2>
         {!tier.isMember && spentThisMonth > 0 && <p className="text-sm text-muted">You&apos;ve spent {money(spentThisMonth)} on visits this month.</p>}
         {!tier.isMember && member.trialUsed && <p className="text-xs text-muted">This account has already used its free 7-day trial.</p>}
         <div className="space-y-2">
@@ -98,7 +98,7 @@ export default function AccountPage() {
             return (
               <button key={id} onClick={() => setJoining(id)} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-line bg-card px-4 py-2.5 text-left hover:border-muted">
                 <div className="min-w-0">
-                  <p className="font-serif text-lg leading-tight">{t.name}</p>
+                  <p className="font-heading text-lg leading-tight">{t.name}</p>
                   <p className="line-clamp-2 text-xs text-muted">{t.summary}</p>
                 </div>
                 <p className="shrink-0 text-sm">{t.monthly ? `${money(t.monthly)}/mo` : money(t.joinFee)}</p>

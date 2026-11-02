@@ -6,7 +6,7 @@ import { ChevronDown } from "lucide-react";
 export function Disclosure({ title, children }: { title: string; children: ReactNode }) {
   return (
     <details className="group rounded-2xl border border-line bg-card">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-serif text-xl [&::-webkit-details-marker]:hidden">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-heading text-xl [&::-webkit-details-marker]:hidden">
         {title}
         <ChevronDown size={18} className="shrink-0 text-muted transition group-open:rotate-180" />
       </summary>

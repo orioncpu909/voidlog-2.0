@@ -58,7 +58,7 @@ function EmailStudioSheet({ initial, onClose }: { initial: LocationId; onClose: 
       {/* Always visible: exactly which studio this goes to. */}
       <div className="rounded-2xl border border-line bg-card p-4 text-shell">
         <p className="text-[10px] uppercase tracking-[0.3em] text-sage-deep">To</p>
-        <p className="mt-1 font-serif text-2xl leading-tight">{studio.name}</p>
+        <p className="mt-1 font-heading text-2xl leading-tight">{studio.name}</p>
         <p className="text-sm">{studio.email}</p>
         <p className="mt-1 flex items-center gap-1 text-xs">
           <MapPin size={12} /> {studio.address}

@@ -161,7 +161,7 @@ function BookScreen() {
           >
             <ChevronLeft size={22} />
           </button>
-          <h1 className="font-serif text-2xl">{TABS.find((t) => t.id === tab)!.label}</h1>
+          <h1 className="font-heading text-2xl">{TABS.find((t) => t.id === tab)!.label}</h1>
         </div>
         <div className="pt-1.5">
           <LocationRow serviceId={showMenu ? null : serviceId} location={location} locked={lockedHere} onPick={pickLocation} />
@@ -371,7 +371,7 @@ function BookFront({ onOpen }: { onOpen: (id: Tab) => void }) {
     // Exactly one screen tall, like Home: the three boxes share whatever room the heading leaves.
     <div className="flex h-[calc(100dvh-145px)] min-h-[560px] flex-col gap-3">
       <div className="shrink-0">
-        <h1 className="font-serif text-3xl">Book</h1>
+        <h1 className="font-heading text-3xl">Book</h1>
         <p className="text-xs text-muted">
           {LOCATIONS[home].name}
           {tier.lockedToHome ? " · classes at both studios" : " · switch studios inside each section"}
@@ -392,7 +392,7 @@ function BookFront({ onOpen }: { onOpen: (id: Tab) => void }) {
                 <Icon size={26} />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block font-serif text-3xl leading-tight">{label}</span>
+                <span className="block font-heading text-3xl leading-tight">{label}</span>
                 <span className="line-clamp-2 text-sm text-muted">{summary[id]}</span>
               </span>
               <ChevronRight size={20} className="shrink-0 text-muted" />
@@ -1128,7 +1128,7 @@ function Avatar({ name, size, ring = false }: { name: string; size: "md" | "lg" 
     <span
       aria-hidden
       className={clsx(
-        "flex shrink-0 items-center justify-center rounded-full border border-line bg-card font-serif text-shell",
+        "flex shrink-0 items-center justify-center rounded-full border border-line bg-card font-heading text-shell",
         size === "xl" ? "h-16 w-16 text-2xl" : size === "lg" ? "h-12 w-12 text-xl" : "h-10 w-10 text-lg",
         ring && "ring-2 ring-sage ring-offset-2 ring-offset-sand",
       )}

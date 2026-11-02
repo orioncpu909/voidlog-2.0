@@ -103,7 +103,7 @@ export function HomeCalendar({ selected, onSelect }: { selected: string | null; 
     <section className="flex flex-1 flex-col rounded-3xl border border-line bg-card px-4 pb-2 pt-2.5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-0.5">
-          <h2 className="mr-1 font-serif text-xl">{month.toLocaleDateString("en-US", isThisMonth ? { month: "long" } : { month: "long", year: "numeric" })}</h2>
+          <h2 className="mr-1 font-heading text-xl">{month.toLocaleDateString("en-US", isThisMonth ? { month: "long" } : { month: "long", year: "numeric" })}</h2>
           <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} aria-label="Previous month" className="rounded-full p-1 text-muted hover:bg-line">
             <ChevronLeft size={16} />
           </button>

@@ -75,7 +75,7 @@ function CommunityView() {
     <div className="space-y-5 pb-4">
       <div className="space-y-2.5">
         <div>
-          <h1 className="font-serif text-3xl font-bold">Community</h1>
+          <h1 className="font-heading text-3xl font-bold">Community</h1>
           <p className="text-sm text-muted">
             Friendly challenges each month. No pressure, and first place wins {CHALLENGE_PRIZE_CREDITS} treatment credit.
           </p>
@@ -310,7 +310,7 @@ function ChallengeCard({ challenge: c }: { challenge: Challenge }) {
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">{c.kind === "week" ? "This week" : "This month"}</p>
-            <h3 className="font-serif text-xl leading-tight">{c.title}</h3>
+            <h3 className="font-heading text-xl leading-tight">{c.title}</h3>
           </div>
           <span className="shrink-0 rounded-full bg-moss-soft px-2.5 py-0.5 text-xs text-moss">{leftLabel(daysLeft(c))}</span>
         </div>
@@ -458,7 +458,7 @@ function PlungeSheet({ challenge: c, open, onClose }: { challenge: Challenge; op
       {saved !== null ? (
         <div className="space-y-4 text-center">
           <Snowflake size={32} className="mx-auto text-moss" />
-          <p className="font-serif text-2xl">{clock(saved)} logged</p>
+          <p className="font-heading text-2xl">{clock(saved)} logged</p>
           <p className="text-sm text-muted">Nice work. Warm up slowly.</p>
           <Button onClick={close}>Done</Button>
         </div>
@@ -556,7 +556,7 @@ function TieBreakers() {
         const tied = `You and ${others} ${others === 1 ? "other" : "others"} tied for first with ${info.unit(outcome.score)}.`;
         const heading = (
           <div className="flex items-start justify-between gap-2">
-            <h3 className="min-w-0 font-serif text-xl leading-tight">{challengeName(c)}</h3>
+            <h3 className="min-w-0 font-heading text-xl leading-tight">{challengeName(c)}</h3>
             {!outcome.closed && <span className="shrink-0 rounded-full bg-moss-soft px-2.5 py-0.5 text-xs text-moss">{leftLabel(daysLeft({ ends: tieBreakEnds(c) }))}</span>}
           </div>
         );

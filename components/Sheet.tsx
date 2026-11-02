@@ -34,7 +34,7 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
       {!ready && <div className="absolute inset-0 z-10" aria-hidden />}
       <div className="relative max-h-[88vh] w-full max-w-md overflow-y-auto rounded-t-3xl border-t border-line bg-card px-5 pb-8 pt-5 text-shell shadow-xl">
         <div className="mb-4 flex items-start justify-between gap-4">
-          <h2 className="font-serif text-2xl leading-tight">{title}</h2>
+          <h2 className="font-heading text-2xl leading-tight">{title}</h2>
           <button onClick={onClose} aria-label="Close" className="rounded-full p-1 text-muted hover:bg-line">
             <X size={20} />
           </button>
