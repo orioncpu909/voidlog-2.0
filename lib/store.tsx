@@ -3,13 +3,13 @@
 // Demo store: accounts, bookings and account charges, saved in localStorage.
 // No real payments; charges are a ledger of what the card on file would be billed.
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { LocationId, PERK_LABEL, Quote, SERVICES, ServiceId, TIERS, TierId, bookableAt, priceFor } from "./data";
 import { Session, dateKey, eventSessions, sessionStart, slotsFor } from "./schedule";
 import { EVENTS, eventAt, eventTicketPrice, eventVisibleTo } from "./events";
 import { CancelTerms, canUseCredit, cancelTerms } from "./policy";
 import { TRIAL_BECOMES, firstMonthCharge, trialEndsAt } from "./trial";
-import { endOfMonth, inRefundWindow, joinCharge } from "./membership";
+import { endOfMonth, inRefundWindow, joinCharge, usesTreatmentCredit } from "./membership";
 import { money, timeLabel, timeRange } from "./format";
 import { REFERRAL_CREDITS, ReferralResult, findReferrer } from "./referral";
 import {
@@ -38,6 +38,8 @@ export interface Member {
   dismissedPromos?: string[]; // specials whose Home banner this account closed
   firstVisitUsed?: boolean; // the first-visit price has been used
   memberSince?: string; // ISO start of the current paid membership
+  lastRenewal?: string; // "YYYY-MM" of the latest month paid; missing means the month they joined
+  welcomeCreditsGiven?: boolean; // welcome credits are once per account, even after leaving and rejoining
   membershipEndsAt?: string; // set when a paid membership is cancelled after the refund window
   referredBy?: string; // id of the account whose referral code was used at sign-up
   referralResult?: ReferralResult; // set once this account's first monthly payment went through
@@ -97,6 +99,13 @@ interface State {
   bookings: Booking[];
   charges: Charge[];
   plunges?: PlungeLog[]; // missing in data saved before Community existed
+  accounts?: AccountDetails[]; // details used to sign up, kept when the demo restarts as a new download
+}
+
+export interface AccountDetails {
+  email: string;
+  phone: string;
+  instagram?: string;
 }
 
 const KEY = "artha-demo-v2";
@@ -266,14 +275,14 @@ function pastBookings(member: Member): Booking[] {
 
 // Demo bookings coming up, so the Home calendar has days with several visits: tomorrow a morning
 // and an evening class, and in three days a class plus a therapy at home.
-function upcomingBookings(member: Member): Booking[] {
+function upcomingBookings(member: Member, taken: Map<string, number>): Booking[] {
   if (!ACTIVITY[member.id]) return [];
   const day = (ahead: number) => {
     const d = new Date();
     d.setDate(d.getDate() + ahead);
     return dateKey(d);
   };
-  const open = (serviceId: ServiceId, ahead: number) => slotsFor(member.home, serviceId, day(ahead)).filter((s) => s.bookedByOthers < s.capacity);
+  const open = (serviceId: ServiceId, ahead: number) => slotsFor(member.home, serviceId, day(ahead)).filter((s) => s.bookedByOthers + (taken.get(s.id) ?? 0) < s.capacity);
   const picks: Session[] = [];
   const tomorrow = open("class", 1);
   if (tomorrow.length) picks.push(tomorrow[0], tomorrow[tomorrow.length - 1]);
@@ -281,15 +290,17 @@ function upcomingBookings(member: Member): Booking[] {
   if (later.length) picks.push(later[Math.floor(later.length / 3)]);
   const therapy = open(ACTIVITY[member.id].mix[0][0], 3).filter((s) => s.time >= "15:00")[0];
   if (therapy) picks.push(therapy);
-  return [...new Set(picks)].map((s) => ({
-    ...makeBooking(member, s, priceFor(member.tier, s.serviceId, member.home, s.date).price, false),
-    createdAt: daysAgo(1),
-  }));
+  return [...new Set(picks)].map((s) => {
+    taken.set(s.id, (taken.get(s.id) ?? 0) + 1); // the demo accounts share these sessions
+    return { ...makeBooking(member, s, priceFor(member.tier, s.serviceId, member.home, s.date).price, false), createdAt: daysAgo(1) };
+  });
 }
 
 function seedState(): State {
-  const members = seedMembers();
-  const bookings: Booking[] = [...members.flatMap(pastBookings), ...members.flatMap(upcomingBookings)];
+  const month = dateKey(new Date()).slice(0, 7);
+  const members = seedMembers().map((m) => (TIERS[m.tier].monthly ? { ...m, lastRenewal: month, welcomeCreditsGiven: true } : m));
+  const taken = new Map<string, number>();
+  const bookings: Booking[] = [...members.flatMap(pastBookings), ...members.flatMap((m) => upcomingBookings(m, taken))];
   const charges: Charge[] = [{ id: uid(), memberId: "m-gold", at: daysAgo(2), label: "Gold membership · first month", amount: TIERS.gold.monthly!, kind: "membership" }];
   return { version: 2, activeMemberId: "m-new", members, bookings, charges, plunges: seedPlunges(members, bookings) };
 }
@@ -332,6 +343,7 @@ function applyScheduledChanges(s: State, now = new Date()): State {
           ...LEAVE_COMMUNITY,
           tier: "wellness",
           credits: 0,
+          welcomeCreditsGiven: true,
           memberSince: undefined,
           membershipEndsAt: undefined,
           notice: "Your membership has ended and you're now on a free Wellness Account. Your calendar and bookings are still here.",
@@ -343,6 +355,7 @@ function applyScheduledChanges(s: State, now = new Date()): State {
           ...m,
           ...LEAVE_COMMUNITY,
           tier: "wellness",
+          credits: 0,
           trialEndsAt: undefined,
           trialCancel: undefined,
           notice: "Your trial has ended. You weren't charged for a membership, and you're now on a free Wellness Account.",
@@ -356,7 +369,7 @@ function applyScheduledChanges(s: State, now = new Date()): State {
         id: uid(),
         memberId: m.id,
         at: now.toISOString(),
-        label: `${next.name} membership · rest of ${month} ($${TIERS.trial.joinFee} trial fee applied)`,
+        label: `${next.name} membership · ${next.neverProrated ? "first month" : `rest of ${month}`} ($${TIERS.trial.joinFee} trial fee applied)`,
         amount: firstMonthCharge(ends, becomes),
         kind: "membership",
       });
@@ -366,15 +379,18 @@ function applyScheduledChanges(s: State, now = new Date()): State {
         trialEndsAt: undefined,
         trialBecomes: undefined,
         memberSince: ends.toISOString(),
-        credits: next.welcomeCredits + next.monthlyCredits + m.credits, // a trial only has credits it won in Community
+        credits: (m.welcomeCreditsGiven ? 0 : next.welcomeCredits) + next.monthlyCredits + m.credits, // a trial only has credits it won in Community
+        welcomeCreditsGiven: true,
         notice: `Your 7-day trial ended, so you're now a ${next.name} member ($${next.monthly}/month). Your $${TIERS.trial.joinFee} trial fee went toward your first month.`,
       };
     });
 
-  // A deleted account's upcoming bookings are released.
-  const bookings = s.bookings.map((b) =>
-    deletedIds.has(b.memberId) && b.status === "booked" && sessionStart(b.date, b.time) > now ? { ...b, status: "cancelled" as const } : b,
-  );
+  // A deleted account's upcoming bookings are released, and anything paid for them goes back.
+  const released = (b: Booking) => deletedIds.has(b.memberId) && b.status === "booked" && sessionStart(b.date, b.time) > now;
+  for (const b of s.bookings) {
+    if (released(b) && b.price > 0) charges.push({ id: uid(), memberId: b.memberId, at: now.toISOString(), label: `Refund: ${b.title} · ${b.date} ${b.time}`, amount: -b.price });
+  }
+  const bookings = s.bookings.map((b) => (released(b) ? { ...b, status: "cancelled" as const } : b));
   const activeDeleted = deleted.find((m) => m.id === s.activeMemberId);
   return {
     ...s,
@@ -445,10 +461,42 @@ function applyChallengePrizes(s: State, now = new Date()): State {
   return changed ? { ...s, members } : s;
 }
 
-// Everything that happens on its own: ended trials and memberships, then referral credits and
-// challenge prizes.
+// Monthly renewal on the 1st: each paid membership is charged the full month and gets its monthly
+// credits. Nothing more is charged once a membership is cancelled. Data saved before renewals
+// existed catches up one month at most. Returns the same object when nothing is due.
+function applyRenewals(s: State, now = new Date()): State {
+  const thisMonth = dateKey(now).slice(0, 7);
+  const lastMonth = dateKey(new Date(now.getFullYear(), now.getMonth() - 1, 1)).slice(0, 7);
+  const paidThrough = (m: Member) => m.lastRenewal ?? [dateKey(new Date(m.memberSince!)).slice(0, 7), lastMonth].sort()[1];
+  const due = (m: Member) => !!TIERS[m.tier].monthly && !!m.memberSince && !m.membershipEndsAt && paidThrough(m) < thisMonth;
+  if (!s.members.some(due)) return s;
+
+  const charges = [...s.charges];
+  const members = s.members.map((m): Member => {
+    if (!due(m)) return m;
+    const tier = TIERS[m.tier];
+    let months = 0;
+    for (let d = new Date(`${paidThrough(m)}-15T12:00:00`); ; months++) {
+      d = new Date(d.getFullYear(), d.getMonth() + 1, 15, 12);
+      if (dateKey(d).slice(0, 7) > thisMonth) break;
+      const name = d.toLocaleDateString("en-US", { month: "long" });
+      charges.push({ id: uid(), memberId: m.id, at: new Date(d.getFullYear(), d.getMonth(), 1, 9).toISOString(), label: `${tier.name} membership · ${name}`, amount: tier.monthly!, kind: "membership" });
+    }
+    const earned = months * tier.monthlyCredits;
+    return {
+      ...m,
+      lastRenewal: thisMonth,
+      credits: m.credits + earned,
+      ...(earned > 0 && { notice: addNotice(m.notice, `Your ${tier.name} membership renewed, and ${earned} treatment credit${earned === 1 ? " was" : "s were"} added to your account.`) }),
+    };
+  });
+  return { ...s, members, charges };
+}
+
+// Everything that happens on its own: ended trials and memberships, renewals, then referral credits
+// and challenge prizes.
 function settle(s: State): State {
-  return applyChallengePrizes(applyReferralCredits(applyScheduledChanges(s)));
+  return applyChallengePrizes(applyReferralCredits(applyRenewals(applyScheduledChanges(s))));
 }
 
 function load(): State {
@@ -475,11 +523,14 @@ interface Store {
   spotsLeft: (session: Session) => number;
   myBookingFor: (sessionId: string) => Booking | undefined;
   book: (session: Session, useCredit: boolean) => BookResult;
-  bookingConflict: (session: Session) => string | null;
+  bookingConflict: (session: Pick<Session, "id" | "serviceId" | "date" | "time" | "durationMin"> & { instructor?: string }) => string | null;
+  creditUsableOn: (date: string) => boolean; // credits end with the membership, so not for dates after it
+  accountTaken: (details: { email: string; phone: string; instagram?: string }) => "email" | "phone" | "instagram" | null;
   quote: (serviceId: ServiceId, location: LocationId, date: string) => Quote;
   perksLeft: (serviceId: ServiceId, date: string) => number; // monthly perks (Restore) still free that month
   firstVisitEligible: boolean;
   refundWindowOpen: boolean;
+  refundLostToCredit: boolean; // inside the first 5 days, but a treatment credit has been used
   cancelMembership: () => void;
   keepMembership: () => void;
   endMembershipNow: () => void; // demo only: jump to the end of the paid-for month
@@ -523,7 +574,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(id);
   }, []);
 
+  // A booking made in another tab shouldn't be overwritten by this one's older copy.
   useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === KEY) setState(load());
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  // The session being booked right now, so a second tap in the same instant can't book it twice.
+  const bookingNow = useRef(new Set<string>());
+  useEffect(() => {
+    bookingNow.current.clear();
     if (!state) return;
     try {
       localStorage.setItem(KEY, JSON.stringify(state));
@@ -540,6 +603,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const member = state.members.find((m) => m.id === state.activeMemberId) ?? state.members[0];
     const tier = TIERS[member.tier];
     const active = state.bookings.filter((b) => b.status === "booked");
+    // Restore and Gold: using a treatment credit since joining ends the 5-day refund.
+    const creditSpent =
+      (member.tier === "restore" || member.tier === "gold") &&
+      state.bookings.some((b) => b.memberId === member.id && b.status !== "cancelled" && !!member.memberSince && b.createdAt >= member.memberSince && usesTreatmentCredit(b));
     const patchMember = (s: State, patch: Partial<Member>) => s.members.map((m) => (m.id === member.id ? { ...m, ...patch } : m));
     const charge = (label: string, amount: number): Charge => ({ id: uid(), memberId: member.id, at: new Date().toISOString(), label, amount });
 
@@ -580,7 +647,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     // Why this account can't take this time, if it can't: one of each therapy a day, and no overlaps.
     const bookingConflict: Store["bookingConflict"] = (session) => {
-      const mine = active.filter((b) => b.memberId === member.id && b.sessionId !== session.id);
+      const mine: Pick<Booking, "serviceId" | "title" | "date" | "time" | "durationMin">[] = active.filter((b) => b.memberId === member.id && b.sessionId !== session.id);
+      for (const e of EVENTS) if (member.rsvps?.includes(e.id) && session.id !== `rsvp|${e.id}`) mine.push({ serviceId: "event", title: e.title, date: e.date, time: e.time, durationMin: e.durationMin });
       const repeat = SERVICES[session.serviceId].category === "therapy" && mine.find((b) => b.serviceId === session.serviceId && b.date === session.date);
       if (repeat) return `You already have ${repeat.title} at ${timeLabel(repeat.time)} that day. Each therapy can be booked once a day.`;
       const start = sessionStart(session.date, session.time).getTime();
@@ -590,6 +658,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return bStart < end && start < bStart + b.durationMin * 60000;
       });
       if (clash) return `This overlaps with your ${clash.title} booking, ${timeRange(clash.time, clash.durationMin)}. Please pick a time that doesn't overlap.`;
+      // One therapist can't be with two clients at once, whichever service or studio they booked.
+      const busy =
+        SERVICES[session.serviceId].category === "treatment" &&
+        !!session.instructor &&
+        active.some((b) => {
+          if (b.memberId === member.id || b.sessionId === session.id || b.instructor !== session.instructor || SERVICES[b.serviceId].category !== "treatment") return false;
+          const bStart = sessionStart(b.date, b.time).getTime();
+          return bStart < end && start < bStart + b.durationMin * 60000;
+        });
+      if (busy) return `${session.instructor} is with another client then. Please pick a different time.`;
+      return null;
+    };
+
+    const creditUsableOn: Store["creditUsableOn"] = (date) => member.credits > 0 && TIERS[tierOn(date)].isMember;
+
+    const accountTaken: Store["accountTaken"] = ({ email, phone, instagram }) => {
+      const used = [...(state.accounts ?? []), ...state.members.filter((m) => m.id !== member.id && m.email).map((m) => ({ email: m.email!, phone: m.phone ?? "", instagram: m.instagram }))];
+      if (used.some((a) => a.email === email)) return "email";
+      if (used.some((a) => a.phone === phone)) return "phone";
+      if (instagram && used.some((a) => a.instagram?.toLowerCase() === instagram.toLowerCase())) return "instagram";
       return null;
     };
 
@@ -603,16 +691,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (event && !eventVisibleTo(event, tier.isMember)) return { ok: false, error: "This event is for members only." };
       if (myBookingFor(session.id)) return { ok: false, error: "You're already booked for this time." };
       if (spotsLeft(session) <= 0) return { ok: false, error: "This time just filled up. Please pick another." };
+      if (bookingNow.current.has(session.id)) return { ok: false, error: "You're already booked for this time." };
 
       const conflict = bookingConflict(session);
       if (conflict) return { ok: false, error: conflict };
 
-      const credit = useCredit && member.credits > 0 && canUseCredit(session.serviceId);
+      const credit = useCredit && creditUsableOn(session.date) && canUseCredit(session.serviceId);
       const q = quote(session.serviceId, session.location, session.date);
       const firstVisit = !credit && q.kind === "firstVisit";
       const perk = !credit && q.kind === "perk";
       const price = credit ? 0 : event ? eventTicketPrice(event, tier.isMember) : q.price;
       const booking = { ...makeBooking(member, session, price, credit), firstVisit, perk };
+      bookingNow.current.add(session.id);
 
       update((s) => ({
         ...s,
@@ -634,7 +724,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (t.refund > 0) extra.push(charge(`Refund: ${label}`, -t.refund));
       if (t.fee > 0) extra.push(charge(`Late-cancel fee: ${label}`, t.fee));
       // A free cancellation gives back the credit, and the first-visit discount if it was used here.
-      const restore = { ...(t.creditBack && { credits: member.credits + 1 }), ...(b.firstVisit && !t.late && { firstVisitUsed: false }) };
+      const restore = { ...(t.creditBack && tier.isMember && { credits: member.credits + 1 }), ...(b.firstVisit && !t.late && { firstVisitUsed: false }) };
       update((s) => ({
         ...s,
         members: Object.keys(restore).length ? patchMember(s, restore) : s.members,
@@ -657,14 +747,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       myBookingFor,
       book,
       bookingConflict,
+      creditUsableOn,
+      accountTaken,
       quote,
       perksLeft,
       firstVisitEligible,
-      refundWindowOpen: inRefundWindow(member.memberSince),
+      refundWindowOpen: inRefundWindow(member.memberSince) && !creditSpent,
+      refundLostToCredit: inRefundWindow(member.memberSince) && creditSpent,
       cancelMembership: () =>
         update((s) => {
           if (!tier.isMember || tier.id === "trial") return s;
-          if (inRefundWindow(member.memberSince)) {
+          if (inRefundWindow(member.memberSince) && !creditSpent) {
             const fee = [...s.charges].reverse().find((c) => c.memberId === member.id && c.label.includes("membership") && c.amount > 0);
             const refund = fee?.amount ?? 0;
             return {
@@ -673,6 +766,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 ...LEAVE_COMMUNITY,
                 tier: "wellness",
                 credits: 0,
+                welcomeCreditsGiven: true,
                 memberSince: undefined,
                 membershipEndsAt: undefined,
                 notice: `Your ${tier.name} membership is cancelled${refund ? ` and ${money(refund)} is being refunded` : ""}, since you cancelled within your first 5 days. You're on a free Wellness Account, and your calendar and bookings are still here.`,
@@ -710,8 +804,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               trialEndsAt: undefined,
               membershipEndsAt: undefined,
               memberSince: tier.isMember && tier.id !== "trial" ? member.memberSince : new Date().toISOString(),
-              // Keep what you have when switching plans; a trial's only credits are Community prizes.
-              credits: tier.isMember && tier.id !== "trial" ? member.credits : next.welcomeCredits + next.monthlyCredits + (tier.id === "trial" ? member.credits : 0),
+              lastRenewal: dateKey(new Date()).slice(0, 7),
+              // Keep what you have when switching plans, plus any monthly credit the new plan adds; a
+              // trial's only credits are Community prizes. Welcome credits are once per account.
+              credits:
+                tier.isMember && tier.id !== "trial"
+                  ? member.credits + Math.max(0, next.monthlyCredits - tier.monthlyCredits)
+                  : (member.welcomeCreditsGiven ? 0 : next.welcomeCredits) + next.monthlyCredits + (tier.id === "trial" ? member.credits : 0),
+              welcomeCreditsGiven: true,
               ...(!tier.isMember && {
                 notice: addNotice(
                   member.notice,
@@ -772,13 +872,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return {
             ...s,
             members: patchMember(s, { name: `${firstName} ${lastName}`.trim(), email, phone: phone || undefined, instagram, signedUp: true, referredBy: referrer?.id }),
+            accounts: [...(s.accounts ?? []), { email, phone: phone ?? "", instagram }],
           };
         }),
       restartAsNewDownload: () =>
         update((s) => ({
           ...s,
           activeMemberId: NEW_DOWNLOAD.id,
-          members: s.members.map((m) => (m.id === NEW_DOWNLOAD.id ? { ...NEW_DOWNLOAD } : m)),
+          // Rebuilt rather than reset, since a deleted account's slot is gone.
+          members: [{ ...NEW_DOWNLOAD }, ...s.members.filter((m) => m.id !== NEW_DOWNLOAD.id)],
           bookings: s.bookings.filter((b) => b.memberId !== NEW_DOWNLOAD.id),
           charges: s.charges.filter((c) => c.memberId !== NEW_DOWNLOAD.id),
           plunges: (s.plunges ?? []).filter((p) => p.memberId !== NEW_DOWNLOAD.id),

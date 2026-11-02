@@ -18,7 +18,14 @@ function sessionFor(e: ArthaEvent) {
 }
 
 export function EventsSection() {
-  const { member, toggleRsvp, myBookingFor, spotsLeft } = useStore();
+  const { member, toggleRsvp, bookingConflict, myBookingFor, spotsLeft } = useStore();
+  const [rsvpBlocked, setRsvpBlocked] = useState<string | null>(null);
+  const clearRsvpBlocked = useCallback(() => setRsvpBlocked(null), []);
+  const tryRsvp = (e: ArthaEvent) => {
+    const conflict = bookingConflict({ id: `rsvp|${e.id}`, serviceId: "event", date: e.date, time: e.time, durationMin: e.durationMin });
+    if (conflict) setRsvpBlocked(conflict);
+    else toggleRsvp(e.id);
+  };
   const [open, setOpen] = useState<ArthaEvent | null>(null);
   const rsvps = member.rsvps ?? [];
   const now = Date.now();
@@ -104,7 +111,8 @@ export function EventsSection() {
             ) : (
               <>
                 <p className="text-sm">Free · RSVP so we know you&apos;re coming.</p>
-                <Button onClick={() => toggleRsvp(open.id)}>RSVP</Button>
+                {rsvpBlocked && <BlockedBanner message={rsvpBlocked} onClose={clearRsvpBlocked} />}
+                <Button onClick={() => tryRsvp(open)}>RSVP</Button>
               </>
             )}
           </div>

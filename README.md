@@ -63,7 +63,7 @@ The full trial and membership cards are on Account. Booking is in the Book tab.
 
 ## Cancelling a membership (lib/membership.ts)
 - **Switch to pay as you go on your own:** every membership (Restore, Classic, Gold and the trial) sees a **Wellness Account · Free** option under Account → Change membership (`components/SwitchToWellness.tsx`). It explains what happens (including that Wellness Accounts stay up to date on future promotions), shows the Wellness prices, and follows the rules below (a trial runs to its end date and doesn't turn into a membership). Once scheduled, the option shows the switch date.
-- **Within the first 5 days:** full refund, and the account moves to a free Wellness Account right away.
+- **Within the first 5 days:** full refund, and the account moves to a free Wellness Account right away. Restore and Gold lose this once a treatment credit is used (Restore's monthly massage counts). Cancelling that booking in time gives the credit and the refund back.
 - **After 5 days:** no refund and no further charges. The member keeps full access, prices and their calendar until the end of the month, then becomes a free Wellness Account. A "Keep my membership" link undoes it until then.
 - Bookings dated after access ends are priced at Wellness rates.
 - Demo: the Gold account joined 2 days ago, so it's inside the refund window. The Classic account is past it. "Jump to the end of this month" ends a cancelled membership right away.
@@ -170,7 +170,7 @@ How tickets work:
 
 ## 7-day trial (lib/trial.ts)
 - **One trial per account.** Starting a trial marks the account as having used it. After that the Trial option no longer appears, even if the trial was cancelled.
-- **Choose the membership after the trial.** The trial card has Restore / Classic / Gold. Nothing chosen means Classic. After 7 days the trial becomes the chosen membership. The first charge is the rest of that month at that membership's rate, minus the $29 trial fee. The app checks for ended trials on open and once a minute while it's open.
+- **Choose the membership after the trial.** The trial card has Restore / Classic / Gold. Nothing chosen means Classic. After 7 days the trial becomes the chosen membership. The first charge is the rest of that month at that membership's rate (Restore always pays the full month), minus the $29 trial fee. The app checks for ended trials on open and once a minute while it's open.
 - **Easy to cancel.** A trial card on Home and Account shows the days left, the exact end time and a **Cancel trial** button. Cancelling never charges for a membership, and the member keeps the rest of the trial they paid for. They choose what happens when it ends:
   - **Switch to a free Wellness Account**, or
   - **Delete my account.** The account is removed and its later bookings are released.

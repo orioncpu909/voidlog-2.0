@@ -12,7 +12,7 @@ import { Button, Sheet } from "./Sheet";
 // Paid membership status. On Home it only appears once a cancellation is scheduled, so members
 // always see when their access ends.
 export function MembershipCard({ statusOnly = false }: { statusOnly?: boolean }) {
-  const { member, refundWindowOpen, keepMembership } = useStore();
+  const { member, refundWindowOpen, refundLostToCredit, keepMembership } = useStore();
   const tier = TIERS[member.tier];
   if (!tier.isMember || tier.id === "trial") return null;
 
@@ -50,6 +50,7 @@ export function MembershipCard({ statusOnly = false }: { statusOnly?: boolean })
               You&apos;re in your first {REFUND_WINDOW_DAYS} days. Cancel before {momentLabel(refundWindowEnds(member.memberSince))} for a full refund.
             </p>
           )}
+          {refundLostToCredit && <p className="mt-2 text-shell">You&apos;ve used a treatment credit, so this membership can no longer be refunded.</p>}
         </div>
       </div>
     </section>
@@ -58,7 +59,7 @@ export function MembershipCard({ statusOnly = false }: { statusOnly?: boolean })
 
 // At the bottom of the Account tab, once there's a paid membership to cancel.
 export function CancelMembership() {
-  const { member, refundWindowOpen, cancelMembership } = useStore();
+  const { member, refundWindowOpen, refundLostToCredit, cancelMembership } = useStore();
   const [confirming, setConfirming] = useState(false);
   const tier = TIERS[member.tier];
   if (!tier.isMember || tier.id === "trial" || member.membershipEndsAt) return null;
@@ -83,7 +84,7 @@ export function CancelMembership() {
             </p>
           ) : (
             <p>
-              You won&apos;t be charged again. It&apos;s past your first {REFUND_WINDOW_DAYS} days, so this month isn&apos;t refunded, but you{" "}
+              You won&apos;t be charged again. {refundLostToCredit ? "You've used a treatment credit" : `It's past your first ${REFUND_WINDOW_DAYS} days`}, so this month isn&apos;t refunded, but you{" "}
               <span className="font-medium">keep full access until {shortDate(dateKey(monthEnd))}</span>. Your calendar and bookings stay active.
             </p>
           )}

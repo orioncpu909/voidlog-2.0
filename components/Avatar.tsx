@@ -8,7 +8,7 @@ export function Avatar({ name, photo, className }: { name: string; photo?: strin
         // eslint-disable-next-line @next/next/no-img-element
         <img src={photo} alt="" className="h-full w-full object-cover" />
       ) : (
-        name.slice(0, 1).toUpperCase()
+        Array.from(name.trim())[0]?.toUpperCase()
       )}
     </span>
   );

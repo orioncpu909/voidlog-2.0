@@ -27,7 +27,7 @@ export default function HomePage() {
     // 145px. The calendar stretches to fill what's left, and the page scrolls if it needs more.
     <div className="flex min-h-[max(560px,calc(100dvh-145px))] flex-col gap-2.5">
       <div className="flex shrink-0 items-end justify-between gap-3">
-        <h1 className="font-serif text-3xl leading-none">
+        <h1 className="min-w-0 truncate font-serif text-3xl leading-none">
           <span className="block font-sans text-xs text-muted">{greeting},</span>
           {member.name.split(" ")[0]}
         </h1>

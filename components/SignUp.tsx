@@ -8,6 +8,7 @@ import { TIERS } from "@/lib/data";
 import { SERVICE_IMAGE } from "@/lib/images";
 import { useStore } from "@/lib/store";
 import { findReferrer } from "@/lib/referral";
+import { EMAIL_MAX, NAME_MAX, cleanEmail, cleanInstagram, cleanName, emailError, instagramError, nameError, phoneError, phoneNumber } from "@/lib/validate";
 import { checkPassword, PASSWORD_MIN_LENGTH, PASSWORD_MIN_SCORE, STRENGTH_LABELS, type PasswordCheck } from "@/lib/password";
 import { Button } from "./Sheet";
 
@@ -52,11 +53,8 @@ function Start({ onCreate, onSignIn }: { onCreate: () => void; onSignIn: () => v
   );
 }
 
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-const INSTAGRAM = /^[A-Za-z0-9._]{1,30}$/; // a handle, without the @
-
 function CreateAccount({ onBack }: { onBack: () => void }) {
-  const { signUp, members, member } = useStore();
+  const { signUp, accountTaken, members, member } = useStore();
   // A referral link opens the app with ?ref=CODE, which fills in the code.
   const [form, setForm] = useState(() => ({
     firstName: "",
@@ -79,16 +77,16 @@ function CreateAccount({ onBack }: { onBack: () => void }) {
   }, []);
 
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [key]: e.target.value }));
-  const phoneDigits = form.phone.replace(/\D/g, "");
-  const handle = form.instagram.trim().replace(/^@/, "");
+  const handle = cleanInstagram(form.instagram);
+  const taken = accountTaken({ email: cleanEmail(form.email), phone: phoneNumber(form.phone), instagram: handle });
   const referrer = form.referral.trim() ? findReferrer(form.referral, members.filter((m) => m.id !== member.id)) : undefined;
   const passwordCheck = scorer ? checkPassword(form.password, scorer, [form.firstName, form.lastName, form.email, handle, "artha"]) : undefined;
   const errors = {
-    firstName: form.firstName.trim() ? "" : "Enter your first name.",
-    lastName: form.lastName.trim() ? "" : "Enter your last name.",
-    email: EMAIL.test(form.email.trim()) ? "" : "Enter an email like name@example.com.",
-    phone: phoneDigits.length >= 10 ? "" : "Enter your 10-digit mobile number.",
-    instagram: !handle || INSTAGRAM.test(handle) ? "" : "Use letters, numbers, periods and underscores (up to 30).",
+    firstName: nameError(form.firstName, "first"),
+    lastName: nameError(form.lastName, "last"),
+    email: emailError(form.email) || (taken === "email" ? "That email already has an account." : ""),
+    phone: phoneError(form.phone) || (taken === "phone" ? "That number already has an account." : ""),
+    instagram: instagramError(handle) || (taken === "instagram" ? "That Instagram already has an account." : ""),
     referral: !form.referral.trim() || referrer ? "" : "We don't recognize that code. Check it, or leave it blank.",
     password: passwordCheck ? (passwordCheck.problems[0] ?? "") : "Checking your password. Try again in a moment.",
     confirm: !form.confirm ? "Type your password again." : form.confirm === form.password ? "" : "Passwords don't match.",
@@ -102,10 +100,10 @@ function CreateAccount({ onBack }: { onBack: () => void }) {
     setTried(true);
     if (!valid) return;
     signUp({
-      firstName: form.firstName.trim(),
-      lastName: form.lastName.trim(),
-      email: form.email.trim(),
-      phone: form.phone.trim(),
+      firstName: cleanName(form.firstName),
+      lastName: cleanName(form.lastName),
+      email: cleanEmail(form.email),
+      phone: phoneNumber(form.phone),
       instagram: handle || undefined,
       referralCode: referrer ? form.referral : undefined,
     });
@@ -121,10 +119,10 @@ function CreateAccount({ onBack }: { onBack: () => void }) {
 
       <form onSubmit={submit} noValidate className="mt-6 space-y-4">
         <div className="grid grid-cols-2 gap-3">
-          <Field label="First name" autoComplete="given-name" value={form.firstName} onChange={set("firstName")} error={show("firstName")} />
-          <Field label="Last name" autoComplete="family-name" value={form.lastName} onChange={set("lastName")} error={show("lastName")} />
+          <Field label="First name" autoComplete="given-name" maxLength={NAME_MAX} value={form.firstName} onChange={set("firstName")} error={show("firstName")} />
+          <Field label="Last name" autoComplete="family-name" maxLength={NAME_MAX} value={form.lastName} onChange={set("lastName")} error={show("lastName")} />
         </div>
-        <Field label="Email" type="email" inputMode="email" autoComplete="email" value={form.email} onChange={set("email")} error={show("email")} />
+        <Field label="Email" type="email" inputMode="email" autoComplete="email" maxLength={EMAIL_MAX} value={form.email} onChange={set("email")} error={show("email")} />
         <Field
           label="Mobile phone"
           type="tel"

@@ -119,6 +119,11 @@ export default function AccountPage() {
             <span className="text-shell">Late cancel or no-show:</span>{" "}
             {tier.id === "trial" ? "no charge during your trial." : "you're charged what the service costs right now. A credit-paid booking uses up the credit."}
           </li>
+          {(tier.id === "restore" || tier.id === "gold") && (
+            <li>
+              <span className="text-shell">Membership refund:</span> full refund within your first 5 days, unless you&apos;ve used a treatment credit.
+            </li>
+          )}
           <li>Please arrive 5 minutes early. No phone calls, inside voices.</li>
         </ul>
       </Disclosure>
@@ -229,6 +234,7 @@ function ChargeSummary({ tier: tierId }: { tier: TierId }) {
           Prorated: {due.days.remaining} of {due.days.daysInMonth} days left this month.
         </p>
       )}
+      {TIERS[tierId].neverProrated && !TIERS[member.tier].isMember && <p className="mt-1 text-muted">{TIERS[tierId].name} is always the full monthly price.</p>}
       {due.monthly && (
         <p className="mt-1 text-muted">
           Then {money(due.monthly)}/month, billed the 1st, starting {nextMonth}.
@@ -255,7 +261,7 @@ function MonthlyPerks() {
               key={id}
               className={clsx("rounded-full px-2.5 py-1 text-xs", left ? "bg-sage text-ink" : "border border-line text-muted line-through")}
             >
-              {PERK_LABEL[id]} {left ? "· free" : "· used"}
+              {PERK_LABEL[id]} · {left ? `${tier.monthlyPerks?.[id]} credit` : "used"}
             </span>
           );
         })}

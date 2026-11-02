@@ -2,7 +2,8 @@
 // - One trial per account, ever.
 // - $29 up front. When the 7 days end, the trial becomes the membership the member picked
 //   (Restore, Classic or Gold). Classic if they never pick. Cancelling stops it.
-// - The $29 is subtracted from the first month, which is prorated to the end of that month.
+// - The $29 is subtracted from the first month, which is prorated to the end of that month
+//   (Restore never is: it pays the full month).
 import { TIERS, TierId } from "./data";
 import { monthLeft } from "./membership";
 
@@ -23,6 +24,7 @@ export function daysLeft(endsAt: Date, now = new Date()): number {
 export function firstMonthCharge(endsAt: Date, becomes: TierId = TRIAL_BECOMES): number {
   const monthly = TIERS[becomes].monthly ?? 0;
   const { remaining, daysInMonth } = monthLeft(endsAt);
-  const amount = (monthly * remaining) / daysInMonth - TIERS.trial.joinFee;
+  const share = TIERS[becomes].neverProrated ? 1 : remaining / daysInMonth;
+  const amount = monthly * share - TIERS.trial.joinFee;
   return Math.max(0, Math.round(amount * 100) / 100);
 }

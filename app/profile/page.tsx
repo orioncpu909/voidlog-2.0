@@ -130,7 +130,7 @@ export default function ProfilePage() {
 
       <section>
         <ProfilePhoto />
-        <h2 className="mt-3 font-serif text-3xl leading-tight">{member.name}</h2>
+        <h2 className="mt-3 break-words font-serif text-3xl leading-tight">{member.name}</h2>
         <p className="text-sm text-muted">
           {member.instagram ? `@${member.instagram} · ` : ""}
           {location.short} studio

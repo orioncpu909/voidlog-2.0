@@ -150,6 +150,7 @@ export interface Tier {
   monthlyCredits: number;
   lockedToHome: boolean; // therapies and treatments only at the home location (see bookableAt)
   monthlyPerks?: Partial<Record<ServiceId, number>>; // free each calendar month, used before any discount
+  neverProrated?: boolean; // the first month is always the full price
   memberDiscountPct?: number; // shown as "{name} · N% off" wherever its prices appear
 }
 
@@ -224,6 +225,7 @@ export const TIERS: Record<TierId, Tier> = {
     monthlyCredits: 0,
     lockedToHome: true,
     monthlyPerks: { class: 1, "ir-sauna": 1, cryo: 1, massage: 1 },
+    neverProrated: true, // it comes with a treatment each month
     memberDiscountPct: 25,
   },
   classic: {

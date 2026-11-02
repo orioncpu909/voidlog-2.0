@@ -43,7 +43,7 @@ export function Onboarding() {
         {step === "welcome" && (
           <div className="space-y-4">
             <div className="rounded-3xl border border-line bg-card p-5">
-              <h1 className="font-serif text-4xl leading-tight">Welcome, {member.name.split(" ")[0]}</h1>
+              <h1 className="break-words font-serif text-4xl leading-tight">Welcome, {member.name.split(" ")[0]}</h1>
               <p className="mt-2 text-sm text-muted">Your wellness sanctuary in West LA and Studio City.</p>
               <p className="mt-3 border-t border-line pt-3 text-xs italic text-muted">
                 Artha is Sanskrit for &ldquo;the true meaning of life.&rdquo;

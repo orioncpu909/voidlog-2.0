@@ -25,7 +25,7 @@ export function referralLink(member: Pick<Member, "id" | "name">): string {
 
 // Accepts a code or a pasted link, in any case.
 export function findReferrer(input: string, members: Member[]): Member | undefined {
-  const code = (input.match(/ref=([A-Za-z0-9]+)/)?.[1] ?? input).trim().toUpperCase();
+  const code = (input.match(/ref=([A-Za-z0-9]+)/i)?.[1] ?? input).trim().toUpperCase();
   if (!code) return undefined;
   return members.find((m) => m.signedUp !== false && referralCode(m) === code);
 }

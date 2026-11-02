@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useLayoutEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { gesture } from "@/lib/gesture";
+import { InPreview, gesture } from "@/lib/gesture";
 import { dateKey } from "@/lib/schedule";
 
 // Swipe left or right to move between the bottom tabs, like pages in a carousel: the next tab sits
@@ -29,7 +29,11 @@ const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayout
 // A rendered tab, kept out of the swipe's own updates: dragging only moves it, and it re-renders
 // only when the app's data changes.
 const TabPage = memo(function TabPage({ page: Page }: { page: ComponentType }) {
-  return <Page />;
+  return (
+    <InPreview.Provider value>
+      <Page />
+    </InPreview.Provider>
+  );
 });
 
 const sidewaysScroller = (start: EventTarget | null) => {

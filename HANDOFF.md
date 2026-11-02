@@ -139,14 +139,14 @@ README.md                   Rules and where to change them
 ### 7-day trial
 
 - **Once per account:** the Trial option disappears after it's used.
-- **What it becomes:** the member picks Restore, Classic (the default) or Gold. The first month is prorated, minus the $29.
+- **What it becomes:** the member picks Restore, Classic (the default) or Gold. The first month is prorated (Restore always pays the full month), minus the $29.
 - **Cancelling:** no membership charge, and the member keeps the remaining days. At the end, they choose to downgrade to Wellness or delete the account.
 - **Cancel button:** on Home (slim row) and on Account.
 
 ### Cancelling a membership
 
 - **Switch to Wellness yourself:** Account → Change membership has a "Wellness Account · Free" option for every membership type and the trial, using the rules below.
-- **Within 5 days of joining:** full refund, and it ends now.
+- **Within 5 days of joining:** full refund, and it ends now. Restore and Gold lose this once a treatment credit is used (`usesTreatmentCredit`). Restore's monthly massage counts, and cancelling that booking in time restores the refund. CONFIRM both.
 - **After 5 days:** no refund, but full access until the end of the month. Then the account becomes Wellness.
 - **Calendar and bookings:** stay either way.
 
@@ -220,8 +220,10 @@ Every account is named "Karan". Switch between them in **Account → Demo** (tap
 - **L2N Run and Industry Night** (`lib/events.ts`): dates, times, and which studio hosts Industry Night (assumed West LA).
 - **Community challenges** (`lib/community.ts`): the challenge list and names are demo choices, as are the 1-credit prize (including for ties) and the 3:00 plunge cap (parked). Confirm them, and decide how members' names show. Demo competitors are invented names, not real members.
 - **Profile levels, achievements and Refer a friend** (`lib/profile.ts`, `app/profile/page.tsx`): demo milestones and badge names, not an ARTHA program. The referral link (`artha.la/join?ref=KARANMN45`, a code made from the account) is a demo format; artha.la doesn't read `?ref=` yet.
+- **Renewals** (`applyRenewals` in `lib/store.tsx`): on the 1st each paid membership is charged and gets its monthly credits. There's no real card, so this is only a ledger entry; a failed payment isn't modeled.
+- **Sign-up checks** (`lib/validate.ts`, `accountTaken`): format and duplicates only. A real email or phone needs a code sent by a server. Welcome credits are once per account, even after a refund. Open question: should a deleted account's email be free to sign up again? It stays taken today.
 - **Booking limits** (`bookingConflict` in `lib/store.tsx`): one of each therapy a day and no overlaps, with no travel or changeover gap between back-to-back appointments. Open questions: should there be a gap, and should a repeat count across both studios (it does today)?
-- **Upgrade proration** (`joinCharge` in `lib/membership.ts`): a Wellness Account joining mid-month pays the rest of the month, counting today, at the membership rate. Open questions: should Gold's monthly credit and Restore's perks also prorate, and should a trial or member switching plans mid-month prorate? Those still pay the full amount.
+- **Upgrade proration** (`joinCharge` in `lib/membership.ts`): a Wellness Account joining mid-month pays the rest of the month, counting today, at the membership rate. Restore is never prorated, since it comes with a treatment each month, so joining on the 30th pays $125 and pays again on the 1st. Open questions: should Gold's monthly credit and Restore's perks also prorate, and should a trial or member switching plans mid-month prorate? Those still pay the full amount.
 - **Referral credits** (`lib/referral.ts`): 1 treatment credit to the referrer after the friend's first monthly payment is built. Open questions: should Wellness or Trial referrers get anything (now: no), and does a first month refunded within 5 days take the credit back (now: no). A real backend must grant it from the payment processor's "payment succeeded" event.
 - Therapist bios and specialties (`lib/therapists.ts`)
 - The cryo special's end date, and both specials' start dates (`lib/data.ts`)

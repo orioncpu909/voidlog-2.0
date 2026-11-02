@@ -9,10 +9,12 @@ import { Category, LOCATIONS, LocationId, SERVICES, ServiceId, TIERS, bookableAt
 import { Session, dateKey, findSession, sessionStart, slotsFor, upcomingDays } from "@/lib/schedule";
 import { Booking, useStore } from "@/lib/store";
 import { canUseCredit, cancelTerms, policyLine } from "@/lib/policy";
+import { usesTreatmentCredit } from "@/lib/membership";
 import { dayLabel, money, timeLabel, timeRange } from "@/lib/format";
 import { Therapist, therapistsFor } from "@/lib/therapists";
 import { addToPhoneCalendar } from "@/lib/ics";
 import { BlockedBanner } from "@/components/BlockedBanner";
+import { InPreview } from "@/lib/gesture";
 import { PriceTag, PromoNote } from "@/components/PriceTag";
 import { Button, Sheet } from "@/components/Sheet";
 import { EmailStudioButton } from "@/components/EmailStudio";
@@ -45,7 +47,9 @@ export default function BookPage() {
 }
 
 function BookScreen() {
-  const params = useSearchParams();
+  const urlParams = useSearchParams();
+  const preview = useContext(InPreview);
+  const params = useMemo(() => (preview ? new URLSearchParams() : urlParams), [preview, urlParams]); // the copy beside the page ignores the link
   const router = useRouter();
   const { member, setLocation, bookingConflict } = useStore();
   const tier = TIERS[member.tier];
@@ -838,13 +842,13 @@ function HourGroups({
 
 // Full-screen page for one class or time, like Open's class page: photo, details, and Reserve at the bottom.
 function SessionPage({ session, onClose, onBlocked }: { session: Session; onClose: () => void; onBlocked: (reason: string) => void }) {
-  const { member, book, bookingConflict, spotsLeft, quote, myBookingFor, termsForBooking } = useStore();
+  const { member, book, bookingConflict, creditUsableOn, spotsLeft, quote, myBookingFor, termsForBooking } = useStore();
   const tier = TIERS[member.tier];
   const service = SERVICES[session.serviceId];
   const location = LOCATIONS[session.location];
   const q = quote(session.serviceId, session.location, session.date);
   // A credit is used by default when one can cover this; the confirm sheet lets you switch it off.
-  const credit = canUseCredit(session.serviceId) && member.credits > 0 && q.price > 0;
+  const credit = canUseCredit(session.serviceId) && creditUsableOn(session.date) && q.price > 0;
   const total = credit ? 0 : q.price;
   const terms = cancelTerms(tier, { ...session, price: total, usedCredit: credit, perk: !credit && q.kind === "perk" });
   const [confirming, setConfirming] = useState(false);
@@ -1031,16 +1035,18 @@ function SessionPage({ session, onClose, onBlocked }: { session: Session; onClos
 // Book button in the list: what, when, where, the price (with the credit switch when a credit can
 // cover it), and the cancellation line.
 function ConfirmBooking({ session, onClose, onBooked }: { session: Session; onClose: () => void; onBooked: (b: Booking) => void }) {
-  const { member, book, quote } = useStore();
+  const { member, book, quote, refundWindowOpen, creditUsableOn } = useStore();
   const tier = TIERS[member.tier];
   const location = LOCATIONS[session.location];
   const q = quote(session.serviceId, session.location, session.date);
-  const creditAvailable = canUseCredit(session.serviceId) && member.credits > 0 && q.price > 0;
+  const creditAvailable = canUseCredit(session.serviceId) && creditUsableOn(session.date) && q.price > 0;
   const [useCredit, setUseCredit] = useState(creditAvailable);
   const credit = useCredit && creditAvailable;
   const total = credit ? 0 : q.price;
   const terms = cancelTerms(tier, { ...session, price: total, usedCredit: credit, perk: !credit && q.kind === "perk" });
   const [error, setError] = useState<string | null>(null);
+  const endsRefund =
+    refundWindowOpen && (tier.id === "restore" || tier.id === "gold") && usesTreatmentCredit({ usedCredit: credit, perk: q.kind === "perk", serviceId: session.serviceId });
 
   return (
     <Sheet open onClose={onClose} title="Confirm your booking">
@@ -1077,6 +1083,7 @@ function ConfirmBooking({ session, onClose, onBooked }: { session: Session; onCl
           </div>
         </div>
         <p className="rounded-2xl bg-sand p-3 font-medium text-shell">{policyLine(terms, credit)}</p>
+        {endsRefund && <p className="rounded-2xl bg-sand p-3 font-medium text-shell">Using a treatment credit ends your 5-day membership refund.</p>}
         {error && <p className="rounded-2xl bg-sand p-3 text-shell">{error}</p>}
         <div className="space-y-2">
           <Button

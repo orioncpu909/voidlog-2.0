@@ -11,7 +11,7 @@ import { Booking, useStore } from "@/lib/store";
 import { dayLabel, money, timeLabel } from "@/lib/format";
 import { policyLine } from "@/lib/policy";
 import { addToPhoneCalendar } from "@/lib/ics";
-import { Sheet } from "./Sheet";
+import { Sheet, useTapGuard } from "./Sheet";
 import { PAST_LABEL, PastVisitRow, PastVisitSheet, bookingStart, nextSameSession } from "./BookingDetails";
 
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"]; // weeks start on Monday
@@ -24,7 +24,7 @@ const DAY = /^\d{4}-\d{2}-\d{2}$/;
 // details in place. "History" lists past visits. Links like /?day=2026-10-29 select that day.
 // The selected day is shared with the streak card (Home owns it), so picking a day in either one
 // shows it in both.
-const DAY_ROW_PX = 26; // the smallest a week can be; they grow into any spare room
+const DAY_ROW_PX = 36; // the smallest a week can be; they grow into any spare room
 
 export function HomeCalendar({ selected, onSelect }: { selected: string | null; onSelect: (day: string | null) => void }) {
   const { bookings } = useStore();
@@ -118,7 +118,7 @@ export function HomeCalendar({ selected, onSelect }: { selected: string | null; 
         )}
       </div>
 
-      <div className="mt-1 border-b border-line pb-1.5 text-xs">
+      <div className="mt-1 text-xs">
         {confirming ? (
           <CancelConfirm booking={confirming} onDone={() => setConfirming(null)} />
         ) : (
@@ -144,7 +144,7 @@ export function HomeCalendar({ selected, onSelect }: { selected: string | null; 
               >
                 {(openPage ? [openPage] : pages).map((pair) => (
                   <div key={pair[0].id} className="snap-start snap-always" style={pages.length > 1 && !openPage ? { height: pageHeight } : undefined}>
-                    <div data-pair className="divide-y divide-line">
+                    <div data-pair className="divide-y divide-line border-b border-line">
                       {pair.map((b, i) => (
                         <div key={b.id}>
                           {!selected && (i === 0 || b.date !== pair[0].date) && (
@@ -158,7 +158,7 @@ export function HomeCalendar({ selected, onSelect }: { selected: string | null; 
                 ))}
               </div>
             ) : (
-              <div className="flex items-center justify-between py-1">
+              <div className="flex items-center justify-between border-b border-line py-1">
                 <span className="text-muted">{selected ? "Nothing booked this day." : "Nothing booked yet."}</span>
                 {(!selected || selected >= today) && (
                   <Link href="/book" className="font-medium text-moss">
@@ -171,7 +171,7 @@ export function HomeCalendar({ selected, onSelect }: { selected: string | null; 
         )}
       </div>
 
-      {/* Weeks take any spare room on Home, from 26px up to 42px, so the card fills a taller phone. */}
+      {/* Weeks take any spare room on Home, from 36px up to 44px, so the card fills a taller phone. */}
       <div className="mt-1 grid grid-cols-7 text-center text-[11px] text-muted">
         {WEEKDAYS.map((d, i) => (
           <span key={i}>{d}</span>
@@ -179,7 +179,7 @@ export function HomeCalendar({ selected, onSelect }: { selected: string | null; 
       </div>
       <div
         className="grid grid-cols-7 text-center"
-        style={{ gridTemplateRows: `repeat(${rows}, minmax(${DAY_ROW_PX}px, 42px))`, flex: "1 1 0", minHeight: rows * DAY_ROW_PX }}
+        style={{ gridTemplateRows: `repeat(${rows}, minmax(${DAY_ROW_PX}px, 44px))`, flex: "1 1 0", minHeight: rows * DAY_ROW_PX }}
       >
         {cells.map((day, i) => {
           if (!day) return <span key={`e${i}`} />;
@@ -303,6 +303,7 @@ function RowDetails({ booking: b, upcoming }: { booking: Booking; upcoming: bool
 // back) or late (and what it costs), then Keep or Yes, cancel. Same rules as CancelSheet.
 function CancelConfirm({ booking: b, onDone }: { booking: Booking; onDone: () => void }) {
   const { termsForBooking, cancel } = useStore();
+  const ready = useTapGuard();
   const t = termsForBooking(b);
   const back = [t.refund > 0 && `${money(t.refund)} back to your card`, t.creditBack && "your credit comes back"].filter(Boolean).join(", ");
   return (
@@ -315,10 +316,11 @@ function CancelConfirm({ booking: b, onDone }: { booking: Booking; onDone: () =>
         <span>{t.late ? `Free cancellation has passed: ${t.lateConsequence}` : `Free to cancel${back ? `: ${back}.` : "."}`}</span>
       </p>
       <div className="flex gap-2">
-        <button onClick={onDone} className="flex-1 rounded-full border border-line py-1.5 font-medium hover:bg-line">
+        <button disabled={!ready} onClick={onDone} className="flex-1 rounded-full border border-line py-1.5 font-medium hover:bg-line">
           Keep it
         </button>
         <button
+          disabled={!ready}
           onClick={() => {
             cancel(b.id);
             onDone();
