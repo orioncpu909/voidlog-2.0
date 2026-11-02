@@ -29,6 +29,23 @@ export default function AccountPage() {
   const location = LOCATIONS[member.home];
   // The trial only shows for accounts that have never had one.
   const options = MEMBERSHIP_ORDER.filter((id) => id !== member.tier && (id !== "trial" || canStartTrial));
+  const plans = (
+    <div className="space-y-2">
+      {options.map((id) => {
+        const t = TIERS[id];
+        return (
+          <button key={id} onClick={() => setJoining(id)} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-line bg-card px-4 py-2.5 text-left transition-colors active:bg-sand">
+            <div className="min-w-0">
+              <p className="font-heading text-lg leading-tight">{t.name}</p>
+              <p className="line-clamp-2 text-xs text-muted">{t.summary}</p>
+            </div>
+            <p className="shrink-0 text-sm">{t.monthly ? `${money(t.monthly)}/mo` : money(t.joinFee)}</p>
+          </button>
+        );
+      })}
+      <SwitchToWellness />
+    </div>
+  );
 
   return (
     <div className="space-y-4">
@@ -93,29 +110,18 @@ export default function AccountPage() {
           {tier.isMember ? <>What&apos;s included with your {tier.id === "trial" ? tier.name : `${tier.name} membership`}</> : tier.name}
         </h2>
         <PriceList tier={member.tier} location={member.home} />
-        <p className="text-xs text-muted">Exactly what you pay; you&apos;ll see it again before you confirm.</p>
       </section>
 
-      <section className="space-y-2">
-        <h2 className="font-heading text-xl">{tier.isMember ? "Change membership" : "Become a member"}</h2>
-        {!tier.isMember && spentThisMonth > 0 && <p className="text-sm text-muted">You&apos;ve spent {money(spentThisMonth)} on visits this month.</p>}
-        {!tier.isMember && member.trialUsed && <p className="text-xs text-muted">This account has already used its free 7-day trial.</p>}
-        <div className="space-y-2">
-          {options.map((id) => {
-            const t = TIERS[id];
-            return (
-              <button key={id} onClick={() => setJoining(id)} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-line bg-card px-4 py-2.5 text-left hover:border-muted">
-                <div className="min-w-0">
-                  <p className="font-heading text-lg leading-tight">{t.name}</p>
-                  <p className="line-clamp-2 text-xs text-muted">{t.summary}</p>
-                </div>
-                <p className="shrink-0 text-sm">{t.monthly ? `${money(t.monthly)}/mo` : money(t.joinFee)}</p>
-              </button>
-            );
-          })}
-          <SwitchToWellness />
-        </div>
-      </section>
+      {tier.isMember ? (
+        <Disclosure title="Explore other Memberships">{plans}</Disclosure>
+      ) : (
+        <section className="space-y-2">
+          <h2 className="font-heading text-xl">Become a member</h2>
+          {spentThisMonth > 0 && <p className="text-sm text-muted">You&apos;ve spent {money(spentThisMonth)} on visits this month.</p>}
+          {member.trialUsed && <p className="text-xs text-muted">This account has already used its free 7-day trial.</p>}
+          {plans}
+        </section>
+      )}
 
       <Disclosure title="Contact us">
         <div className="divide-y divide-line">

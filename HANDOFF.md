@@ -146,7 +146,7 @@ README.md                   Rules and where to change them
 
 ### Cancelling a membership
 
-- **Switch to Wellness yourself:** Account → Change membership has a "Wellness Account · Free" option for every membership type and the trial, using the rules below.
+- **Switch to Wellness yourself:** Account → Explore other Memberships has a "Wellness Account · Free" option for every membership type and the trial, using the rules below.
 - **Within 5 days of joining:** full refund, and it ends now, unless the membership has been used (`membershipUsed`): a visit since joining, or a treatment credit on any booking, on any plan. Restore's monthly massage counts, and cancelling that booking in time restores the refund. The refund terms show only in the cancel steps, because the member agreement covers them.
 - **Check with a lawyer:** the agreements' five-day right to cancel doesn't mention usage, and they also say "no refunds", so confirm the used-membership rule against them.
 - **After 5 days:** no refund, but full access until the end of the month. Then the account becomes Wellness.
