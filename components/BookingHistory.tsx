@@ -61,7 +61,7 @@ function HistoryPage({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-sand text-shell" role="dialog" aria-modal="true" aria-label="History">
       <div className="mx-auto max-w-md pb-10">
-        <div className="sticky top-0 z-10 border-b border-line bg-sand/95 px-4 pb-2 pt-3 backdrop-blur">
+        <div className="sticky top-0 z-10 border-b border-line bg-sand px-4 pb-2 pt-3">
           <div className="flex items-center justify-between">
             <h2 className="font-serif text-3xl">History</h2>
             <button onClick={onClose} aria-label="Close" className="rounded-full p-2 hover:bg-line">

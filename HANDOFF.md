@@ -36,6 +36,7 @@ Other commands:
 ```bash
 npx tsc --noEmit -p .   # type-check (ignore errors under .next/)
 npm run build           # production build (stop the dev server first, see gotchas)
+npm run preview         # fast production preview on :3100; rebuild to see code changes (stop the dev server first)
 ```
 
 **In the Claude desktop app:** the preview config lives at `/Applications/Orions Belt/.claude/launch.json` (server name `artha-app`), because that's the session's main folder. Start it with the Browser pane's `preview_start` and the name `artha-app`. If you open a session directly in the artha-app folder, there's also a copy at `artha-app/.claude/launch.json`.
@@ -251,7 +252,7 @@ Every account is named "Karan". Switch between them in **Account → Demo** (tap
 
 ## 8. Gotchas (learned the hard way)
 
-- **One light theme everywhere:** cream pages, white cards, black text, gold buttons and selected items, earthy-brown accents. Token names are roles, not colors: `sand` is the cream page background, `card` the white card color, `shell` the black main text. On gold, use `text-ink`.
+- **One dark theme everywhere:** black pages, near-black cards, cream text, gold buttons and selected items, warm tan accents. Colors live in `tailwind.config.ts`; `docs/artha-brand-palette.md` has the roles and contrast. The tulip PNG is black, so `TulipLogo` inverts it. If Tailwind colors change while the dev server runs, restart it.
 - **Colors:** the app uses ARTHA's brand palette (see `docs/artha-brand-palette.md`). Token names like `moss` and `sage` are app roles, not the actual colors anymore; the comments in `tailwind.config.ts` say which brand color each one holds.
 - **New Tailwind colors:** after adding a color to `tailwind.config.ts`, **restart the dev server**, or the class won't apply.
 - **`next build` while the dev server runs:** it breaks the dev server's `.next` folder. Stop dev, run `rm -rf .next`, then restart.

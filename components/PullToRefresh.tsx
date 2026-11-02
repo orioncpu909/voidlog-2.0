@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import clsx from "clsx";
+import { canScrollY, gesture as swipe } from "@/lib/gesture";
 import { useStore } from "@/lib/store";
 import { TulipLogo } from "./TulipLogo";
 
@@ -12,6 +13,7 @@ import { TulipLogo } from "./TulipLogo";
 // off while a sheet or full-screen page is open.
 // Works with a finger, a mouse (click and drag down), and a trackpad or wheel (scroll up while
 // already at the top).
+// Pulling up at the bottom of a page moves it the same way and springs back, with no logo or refresh.
 const TRIGGER = 70; // px of (damped) pull needed to refresh
 const MAX = 110;
 const LOADING_MS = 1000; // a refresh shows the logo for this long in total, exit included (about WHOOP's length)
@@ -28,6 +30,7 @@ const REFRESH_MS = LOADING_MS - EXIT_MS; // how long the logo shows before it fa
 // The page itself moves: it follows the pull, settles at HOLD while loading, then springs back.
 const HOLD = 44;
 const SETTLE_MS = 220;
+const MAX_STRETCH = 70; // how far a pull up at the bottom can move the page
 
 export function PullToRefresh({ children }: { children: ReactNode }) {
   const { refresh } = useStore();
@@ -36,6 +39,8 @@ export function PullToRefresh({ children }: { children: ReactNode }) {
   const [pull, setPull] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [stretch, setStretch] = useState(0); // px the page is pulled up at the bottom
+  const [springing, setSpringing] = useState(false);
   const busy = useRef(false);
   const hide = useRef<() => void>(() => {});
 
@@ -43,7 +48,10 @@ export function PullToRefresh({ children }: { children: ReactNode }) {
     let distance = 0;
     let doneTimer: ReturnType<typeof setTimeout> | undefined;
     let exitTimer: ReturnType<typeof setTimeout> | undefined;
-    const blocked = () => busy.current || window.scrollY > 0 || !!document.querySelector("[role=dialog]") || document.body.style.overflow === "hidden";
+    let springTimer: ReturnType<typeof setTimeout> | undefined;
+    const covered = () => busy.current || !!document.querySelector("[role=dialog]") || document.body.style.overflow === "hidden";
+    const blocked = () => covered() || window.scrollY > 0;
+    const atBottom = () => window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2;
     const setDistance = (d: number) => {
       distance = Math.max(0, Math.min(MAX, d));
       setPull(distance);
@@ -60,9 +68,30 @@ export function PullToRefresh({ children }: { children: ReactNode }) {
       distance = 0;
     };
 
-    // Finger and mouse: drag down from the top.
+    // Pull up at the bottom: the page follows, then springs back on release.
+    let stretched = 0;
+    const setStretched = (d: number) => {
+      stretched = Math.max(0, Math.min(MAX_STRETCH, d));
+      clearTimeout(springTimer);
+      setSpringing(false);
+      setStretch(stretched);
+    };
+    const springBack = () => {
+      if (!stretched) return;
+      setStretched(0);
+      setSpringing(true);
+      springTimer = setTimeout(() => setSpringing(false), EXIT_MS);
+    };
+
+    // Finger and mouse: drag down from the top, or up at the bottom.
     let startY: number | null = null;
     let dragging = false;
+    let upAllowed = false;
+    let upFrom: number | null = null; // where the finger was when the page reached its bottom
+    let stretching = false;
+    let target: EventTarget | null = null;
+    let origin = { x: 0, y: 0 };
+    const mostlySideways = (x: number, y: number) => Math.abs(x - origin.x) >= Math.abs(y - origin.y);
 
     // Clear everything: the refresh finished, or the logo hit its time limit.
     // Pop the logo back up out of view, then clear everything once it's gone.
@@ -82,15 +111,54 @@ export function PullToRefresh({ children }: { children: ReactNode }) {
         setPull(0);
       }, EXIT_MS);
     };
-    const begin = (y: number) => {
+    const begin = (x: number, y: number, from: EventTarget | null) => {
+      target = from;
+      origin = { x, y };
       startY = blocked() ? null : y;
       dragging = false;
       distance = 0;
+      upAllowed = !covered();
+      upFrom = null;
     };
-    const move = (y: number, e: Event, slop: number) => {
+    // A sideways tab swipe won: drop any pull that had just begun.
+    const standDown = () => {
+      startY = null;
+      upAllowed = false;
+      if (!dragging && !stretching) return;
+      dragging = false;
+      stretching = false;
+      document.body.style.userSelect = "";
+      setDistance(0);
+      setStretched(0);
+    };
+    const moveUp = (x: number, y: number, e: Event, slop: number) => {
+      if (swipe.axis === "x") return standDown();
+      if (!upAllowed || dragging) return;
+      if (!stretching && (mostlySideways(x, y) || canScrollY(target, 1))) return; // a sideways row or a list of its own
+      if (!atBottom()) {
+        upFrom = null;
+        return springBack();
+      }
+      if (upFrom === null) upFrom = y;
+      const dy = upFrom - y;
+      if (dy <= slop) {
+        if (dy < 0) upFrom = y;
+        if (stretching) setStretched(0);
+        return;
+      }
+      if (!e.cancelable) return; // already a native scroll, which brings its own bounce
+      if (!stretching) {
+        window.getSelection()?.removeAllRanges();
+        document.body.style.userSelect = "none";
+        stretching = true;
+      }
+      e.preventDefault();
+      setStretched((dy - slop) * 0.5);
+    };
+    const move = (x: number, y: number, e: Event, slop: number) => {
       if (startY === null) return;
       const dy = y - startY;
-      if (!dragging && dy < slop) return;
+      if (!dragging && (dy < slop || !e.cancelable || mostlySideways(x, y) || canScrollY(target, -1))) return;
       if (!dragging) {
         // A pull isn't a text selection: clear any highlight and pause selecting until it ends.
         window.getSelection()?.removeAllRanges();
@@ -102,6 +170,13 @@ export function PullToRefresh({ children }: { children: ReactNode }) {
       if (e.cancelable) e.preventDefault(); // stop the page from bouncing or selecting text while pulling
     };
     const end = () => {
+      upAllowed = false;
+      upFrom = null;
+      if (stretching) {
+        stretching = false;
+        document.body.style.userSelect = "";
+        springBack();
+      }
       if (startY === null) return;
       startY = null;
       if (dragging) {
@@ -111,11 +186,15 @@ export function PullToRefresh({ children }: { children: ReactNode }) {
       dragging = false;
     };
 
-    const onTouchStart = (e: TouchEvent) => begin(e.touches[0].clientY);
-    const onTouchMove = (e: TouchEvent) => move(e.touches[0].clientY, e, 0);
+    const onTouchStart = (e: TouchEvent) => (e.touches.length > 1 ? standDown() : begin(e.touches[0].clientX, e.touches[0].clientY, e.target));
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length > 1) return standDown();
+      moveUp(e.touches[0].clientX, e.touches[0].clientY, e, 0);
+      move(e.touches[0].clientX, e.touches[0].clientY, e, 0);
+    };
     let suppressClick = false;
     const onMouseUp = () => {
-      if (dragging) {
+      if (dragging || stretching) {
         // Swallow only the click this same release produces (it fires right after mouseup); if the
         // release lands elsewhere there's no click, so don't let the flag eat the next real one.
         suppressClick = true;
@@ -123,10 +202,11 @@ export function PullToRefresh({ children }: { children: ReactNode }) {
       }
       end();
     };
-    const onMouseDown = (e: MouseEvent) => e.button === 0 && begin(e.clientY);
+    const onMouseDown = (e: MouseEvent) => e.button === 0 && begin(e.clientX, e.clientY, e.target);
     const onMouseMove = (e: MouseEvent) => {
-      if (startY !== null && e.buttons === 0) return onMouseUp(); // the button was let go outside the window
-      move(e.clientY, e, DRAG_SLOP);
+      if ((startY !== null || upAllowed) && e.buttons === 0) return onMouseUp(); // the button was let go outside the window
+      moveUp(e.clientX, e.clientY, e, DRAG_SLOP);
+      move(e.clientX, e.clientY, e, DRAG_SLOP);
     };
     // A mouse drag that turned into a pull shouldn't also click whatever it started on.
     const onClick = (e: MouseEvent) => {
@@ -142,14 +222,20 @@ export function PullToRefresh({ children }: { children: ReactNode }) {
     // The refresh starts the moment the pull crosses the line, without waiting for a trackpad's
     // momentum to die down; the rest of that gesture is then ignored.
     let wheelTimer: ReturnType<typeof setTimeout> | undefined;
-    let gesture: "pull" | "ignore" | null = null;
+    let gesture: "pull" | "stretch" | "ignore" | null = null;
     const onWheel = (e: WheelEvent) => {
-      if (gesture === null) gesture = e.deltaY < 0 && !blocked() ? "pull" : "ignore";
+      if (gesture === null) {
+        const down = Math.abs(e.deltaX) >= Math.abs(e.deltaY) || canScrollY(e.target, e.deltaY > 0 ? 1 : -1) ? 0 : e.deltaY;
+        gesture = down < 0 && !blocked() ? "pull" : down > 0 && !covered() && atBottom() ? "stretch" : "ignore";
+      }
       clearTimeout(wheelTimer);
       wheelTimer = setTimeout(() => {
         if (gesture === "pull") release(); // stopped short of the line: tuck the logo away
+        if (gesture === "stretch") springBack();
         gesture = null;
       }, WHEEL_SETTLE_MS);
+      if (swipe.axis === "x") return;
+      if (gesture === "stretch") return setStretched(stretched + Math.max(0, e.deltaY) * 0.35);
       if (gesture !== "pull" || e.deltaY >= 0 || blocked()) return;
       setDistance(distance + -e.deltaY * 0.35);
       if (distance >= TRIGGER) {
@@ -171,6 +257,7 @@ export function PullToRefresh({ children }: { children: ReactNode }) {
       clearTimeout(wheelTimer);
       clearTimeout(doneTimer);
       clearTimeout(exitTimer);
+      clearTimeout(springTimer);
       window.removeEventListener("touchstart", onTouchStart);
       window.removeEventListener("touchmove", onTouchMove);
       window.removeEventListener("touchend", end);
@@ -222,7 +309,10 @@ export function PullToRefresh({ children }: { children: ReactNode }) {
       )}
       <div
         className="flex flex-1 flex-col"
-        style={{ transform: pageOffset || phase !== "idle" ? `translateY(${pageOffset}px)` : undefined, transition: phase === "idle" ? undefined : pageTransition }}
+        style={{
+          transform: stretch ? `translateY(${-stretch}px)` : pageOffset || phase !== "idle" || springing ? `translateY(${pageOffset}px)` : undefined,
+          transition: stretch ? "none" : phase === "idle" && !springing ? undefined : pageTransition,
+        }}
       >
         {children}
       </div>

@@ -36,22 +36,25 @@ Headlines are a bold, condensed, all-caps sans serif (a custom font uploaded to 
 
 ## Applied in the app (tailwind.config.ts)
 
-A light theme built on ARTHA's three main colors: **black** text and headings, **gold** buttons and selected items, and **earthy brown** links and accents, on cream pages with white cards. The layout follows the Open app.
+A dark theme built on ARTHA's warm near-black: **cream** text, **gold** buttons and selected items, and **warm tan** links and accents.
 
 | App role | Token | Color | Notes |
 |---|---|---|---|
-| Page background, header, tab bar | `sand` | `#F6F1E7` | Cream |
-| Cards and sheets | `card` | `#FFFFFF` | White |
-| Borders and dividers | `line` | `#DCCDB6` | Tan |
-| Main text and headings | `shell` | `#141210` | Black, 18.7:1 on cards (the token name is historical) |
-| Text on gold | `ink` | `#141210` | Black, 9:1 on gold |
+| Page background, header, tab bar | `sand` | `#000000` | Black, ARTHA's main site color |
+| Cards and sheets | `card` | `#261F1B` | ARTHA's warm near-black |
+| Borders and dividers | `line` | `#463B32` | Warm brown |
+| Main text and headings | `shell` | `#F6F1E7` | Cream, 14.4:1 on cards (the token name is historical) |
+| Text on gold and other light fills | `ink` | `#15110E` | 9:1 on gold |
 | Buttons, selected day, tab underline, account badge, specials | `sage` | `#D9AE4F` | Gold |
-| Special prices, gold text | `sage-deep` | `#7A5C12` | Deep gold, 6.2:1 on cards |
-| Streak flame | `sage-light` | `#B8862B` | |
-| Secondary text | `muted` | `#5F5346` | Warm gray-brown, 7.5:1 on cards |
-| Links, icons, chart bars, credits, "Booked" | `moss` | `#7A4E2D` | Earthy brown, 7.1:1 on cards. Soft tint `#F1E6D8` |
-| Warnings, late cancels, Cancel buttons | `clay` | `#9F2747` | ARTHA burgundy, 7.4:1 on cards. Soft tint `#F8E4E8` |
+| Special prices, gold text | `sage-deep` | `#E6C477` | Light gold, 9.7:1 on cards |
+| Streak flame | `sage-light` | `#C99A3B` | |
+| Secondary text | `muted` | `#BDB0A0` | Warm gray, 7.6:1 on cards |
+| Links, icons, chart bars, credits, "Booked" | `moss` | `#D9AE85` | Warm tan, 8:1 on cards. Soft tint `#3A2C20` |
+| Warnings, late cancels, Cancel buttons | `clay` | `#F0859F` | ARTHA burgundy, lifted for dark, 6.6:1 on cards. Soft tint `#43202B` |
+| Cancel button outlines | `clay-deep` | `#9F2747` | ARTHA burgundy border only; the button text stays `clay` so it reads on dark |
 | Studio City dot | `copper` | `#D68D51` | Never behind text |
+
+The earlier light theme used cream `#F6F1E7` pages, white cards, black text, brown `#7A4E2D` and burgundy `#9F2747`. It's in git history before this change.
 
 History: specials went copper, then gold at Miguel's request, and are never red, so the warning role took the burgundy family. On Oct 26 the browns were warmed to sienna; then the Book tab was rebuilt like the Open app in dark colors, and at Miguel's request the rest of the app (Home, Calendar, Account) moved to the same dark palette. He then asked for more contrast: pure black pages, white text, brighter accents and borders, and no faded (semi-transparent) text. Then he asked to keep black, gold and earthy brown as the main colors (brown cards, gold buttons). That read as too dark, so the app moved to a light cream theme that keeps the same three colors: black text, gold buttons and selections, brown accents.
 

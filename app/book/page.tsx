@@ -125,9 +125,9 @@ function BookScreen() {
     if (strip && btn) strip.scrollTo({ left: btn.offsetLeft - strip.clientWidth / 2 + btn.clientWidth / 2, behavior: "smooth" });
   }, [activeDay]);
   useEffect(() => {
-    window.scrollTo({ top: 0 });
+    if (section) window.scrollTo({ top: 0 }); // the front page also renders beside other tabs
     setActiveDay(days[0]);
-  }, [tab, serviceId, location, days, openedService]);
+  }, [section, tab, serviceId, location, days, openedService]);
   const showMenu = tab !== "class" && !openedService;
 
   if (!section) return <BookFront onOpen={openSection} />;
@@ -212,7 +212,7 @@ function BookScreen() {
         />
       )}
       {toast && (
-        <div role="status" className="fixed inset-x-4 bottom-24 z-[70] mx-auto flex max-w-md items-center gap-3 rounded-2xl bg-shell px-4 py-3 text-sm text-sand shadow-lg">
+        <div role="status" className="fixed inset-x-4 bottom-24 z-[70] mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-line bg-card px-4 py-3 text-sm text-shell shadow-lg">
           <Check size={18} className="shrink-0 text-sage" />
           <p className="min-w-0 flex-1 leading-tight">
             <span className="font-medium">Booked</span> · {toast.title}, {dayLabel(toast.date, "short")} {timeLabel(toast.time)}
@@ -349,8 +349,9 @@ function BookFront({ onOpen }: { onOpen: (id: Tab) => void }) {
   };
 
   return (
-    <div className="space-y-3">
-      <div>
+    // Exactly one screen tall, like Home: the three boxes share whatever room the heading leaves.
+    <div className="flex h-[calc(100dvh-145px)] min-h-[560px] flex-col gap-3">
+      <div className="shrink-0">
         <h1 className="font-serif text-3xl">Book</h1>
         <p className="text-xs text-muted">
           {LOCATIONS[home].name}
@@ -363,18 +364,18 @@ function BookFront({ onOpen }: { onOpen: (id: Tab) => void }) {
         const q = id === "therapy" ? cheapest(ids(id), quote, home, today) : quote(ids(id)[0], home, today);
         const credit = id !== "class" && member.credits > 0 && ids(id).some(canUseCredit);
         return (
-          <button key={id} onClick={() => onOpen(id)} className="block w-full rounded-3xl border border-line bg-card p-4 text-left transition active:scale-[0.99] active:bg-line">
-            <div className="flex items-center gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-moss-soft text-moss">
-                <Icon size={20} />
+          <button key={id} onClick={() => onOpen(id)} className="flex min-h-0 w-full flex-1 flex-col justify-between rounded-3xl border border-line bg-card p-5 text-left transition active:scale-[0.99] active:bg-line">
+            <div className="flex items-center gap-3.5">
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-moss-soft text-moss">
+                <Icon size={26} />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block font-serif text-2xl leading-tight">{label}</span>
-                <span className="block truncate text-xs text-muted">{summary[id]}</span>
+                <span className="block font-serif text-3xl leading-tight">{label}</span>
+                <span className="line-clamp-2 text-sm text-muted">{summary[id]}</span>
               </span>
               <ChevronRight size={20} className="shrink-0 text-muted" />
             </div>
-            <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-2.5 text-sm">
+            <div className="flex items-center justify-between gap-2 border-t border-line pt-3 text-sm">
               <span className="min-w-0 truncate">
                 {next ? (
                   <>
@@ -411,7 +412,7 @@ function DayHeader({ date }: { date: string }) {
   const weekday = d.toLocaleDateString("en-US", { weekday: "long" });
   const monthDay = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   return (
-    <h2 className="-mx-4 flex items-baseline justify-between bg-shell px-4 py-2.5 text-sand">
+    <h2 className="-mx-4 flex items-baseline justify-between bg-card px-4 py-2.5 text-shell">
       <span className="text-lg font-semibold tracking-tight">{relative ? label : weekday}</span>
       <span className="text-sm text-sage">{relative ? `${weekday}, ${monthDay}` : monthDay}</span>
     </h2>
@@ -829,7 +830,7 @@ function SessionPage({ session, onClose }: { session: Session; onClose: () => vo
   };
 
   const close = (
-    <button onClick={onClose} aria-label="Close" className="rounded-full bg-sand/70 p-2 backdrop-blur">
+    <button onClick={onClose} aria-label="Close" className="rounded-full bg-sand/70 p-2">
       <X size={20} />
     </button>
   );

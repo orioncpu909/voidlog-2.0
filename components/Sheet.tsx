@@ -44,7 +44,7 @@ export function Button({
   const styles = {
     primary: "bg-sage text-ink hover:bg-sage/90", // gold pill
     secondary: "border border-line bg-card text-shell hover:bg-line",
-    danger: "bg-clay text-ink hover:bg-clay/90",
+    danger: "border border-clay-deep text-clay active:bg-clay-soft",
   }[variant];
   return (
     <button

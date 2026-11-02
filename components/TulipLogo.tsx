@@ -3,8 +3,9 @@
 import { useId } from "react";
 import clsx from "clsx";
 
-// The ARTHA tulip mark in black, from ARTHA's own logo file (public/images/artha-tulip.png, the
-// mark without the "ARTHA" wordmark). Just the logo: no border, no color.
+// The ARTHA tulip mark, from ARTHA's own logo file (public/images/artha-tulip.png, the mark without
+// the "ARTHA" wordmark). The file is black, so it's inverted to white on the dark theme. Just the
+// logo: no border, no color.
 //
 // The image is shown through two masks so it can animate like WHOOP's refresh logo (their circled
 // "W"): the tulip is revealed along traced centerlines (CUP, DROP; they cover every tulip pixel at
@@ -21,7 +22,7 @@ export function TulipLogo({ size = 56, loading = false, className }: { size?: nu
   const id = useId().replace(/:/g, "");
   const anim = (name: string) => (loading ? name : undefined);
   return (
-    <svg viewBox="0 0 100 100" width={size} height={size} role="img" aria-label="ARTHA" className={clsx("select-none", className)}>
+    <svg viewBox="0 0 100 100" width={size} height={size} role="img" aria-label="ARTHA" className={clsx("select-none invert", className)}>
       <defs>
         <mask id={`${id}-tulip`} maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">
           <g fill="none" stroke="#fff" strokeWidth={8.5} strokeLinecap="round" strokeLinejoin="round">

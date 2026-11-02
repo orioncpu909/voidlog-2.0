@@ -1,21 +1,65 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import clsx from "clsx";
 import {
-  ArrowLeft, Bath, Check, ChevronDown, ChevronRight, ChevronUp, Copy, Dumbbell, Flame, HandHeart, Lock, MapPin, Medal, Moon,
+  ArrowLeft, Bath, Camera, Check, ChevronDown, ChevronRight, ChevronUp, Copy, Dumbbell, Flame, HandHeart, Lock, MapPin, Medal, Moon,
   Music, Repeat, Share2, Snowflake, Sparkles, Sun, Sunrise, ThermometerSun, Ticket, Timer, Trophy, UserRound, Waves, Wind, Zap,
 } from "lucide-react";
+import { Avatar } from "@/components/Avatar";
 import { LOCATIONS, PERK_LABEL, ServiceId, TIERS } from "@/lib/data";
 import { dateKey, sessionStart } from "@/lib/schedule";
 import { useStore } from "@/lib/store";
 import { completedVisits, computeStats } from "@/lib/stats";
 import { AchievementId, PERIODS, Period, computeAchievements, computeHighlights, visitLevel } from "@/lib/profile";
 import { timeLabel } from "@/lib/format";
+import { shrinkPhoto } from "@/lib/photo";
 import { REFERRAL_CREDITS, referralLink } from "@/lib/referral";
 
 type Icon = typeof Flame;
+
+// Tap the picture to choose one: the phone offers its camera roll (and the camera).
+function ProfilePhoto() {
+  const { member, setPhoto } = useStore();
+  const input = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState("");
+
+  const choose = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // so choosing the same picture again still works
+    if (!file) return;
+    try {
+      setPhoto(await shrinkPhoto(file));
+      setError("");
+    } catch {
+      setError("We couldn't open that picture. Try a different one.");
+    }
+  };
+
+  return (
+    <div>
+      <div className="flex items-center gap-1">
+        <button type="button" onClick={() => input.current?.click()} aria-label={member.photo ? "Change your photo" : "Add a photo"} className="relative rounded-full transition active:scale-95">
+          <Avatar name={member.name} photo={member.photo} className="h-20 w-20 text-4xl" />
+          <span className="absolute -bottom-0.5 -right-0.5 flex h-7 w-7 items-center justify-center rounded-full border-2 border-sand bg-card text-shell">
+            <Camera size={14} />
+          </span>
+        </button>
+        <button type="button" onClick={() => input.current?.click()} className="px-3 py-3 text-sm text-moss active:opacity-60">
+          {member.photo ? "Change photo" : "Add photo"}
+        </button>
+        {member.photo && (
+          <button type="button" onClick={() => setPhoto(undefined)} className="px-3 py-3 text-sm text-muted active:opacity-60">
+            Remove
+          </button>
+        )}
+      </div>
+      <input ref={input} type="file" accept="image/*" onChange={choose} className="hidden" aria-hidden tabIndex={-1} />
+      {error && <p className="mt-1 text-xs text-clay">{error}</p>}
+    </div>
+  );
+}
 
 const SERVICE_ICON: Record<ServiceId, Icon> = {
   class: Dumbbell,
@@ -83,9 +127,7 @@ export default function ProfilePage() {
       </div>
 
       <section>
-        <span className="flex h-16 w-16 items-center justify-center rounded-full bg-shell font-serif text-3xl text-sage">
-          {member.name.slice(0, 1).toUpperCase()}
-        </span>
+        <ProfilePhoto />
         <h2 className="mt-3 font-serif text-3xl leading-tight">{member.name}</h2>
         <p className="text-sm text-muted">
           {member.instagram ? `@${member.instagram} · ` : ""}
@@ -204,7 +246,7 @@ function Achievements() {
               <span
                 className={clsx(
                   "mx-auto flex h-16 w-16 items-center justify-center rounded-full",
-                  got ? "bg-shell text-sage ring-2 ring-sage ring-offset-2 ring-offset-sand" : "border border-dashed border-muted text-muted",
+                  got ? "bg-sage text-ink ring-2 ring-sage ring-offset-2 ring-offset-sand" : "border border-dashed border-muted text-muted",
                 )}
               >
                 {got ? <Icon size={26} strokeWidth={1.6} /> : <Lock size={20} />}

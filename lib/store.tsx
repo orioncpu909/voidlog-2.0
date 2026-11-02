@@ -28,6 +28,7 @@ export interface Member {
   email?: string;
   phone?: string;
   instagram?: string; // handle without the @, optional at sign-up
+  photo?: string; // profile picture, as a small image saved on this device
   rsvps?: string[]; // event ids
   trialUsed?: boolean; // set the moment a trial starts; an account never gets a second one
   trialEndsAt?: string; // ISO time, only while on a trial
@@ -493,6 +494,7 @@ interface Store {
   dismissNotice: () => void;
   plunges: PlungeLog[]; // every account's clocked plunge times
   joinCommunity: (joined: boolean) => void;
+  setPhoto: (photo?: string) => void;
   toggleWaitlist: (challengeId: string) => void; // sign up for (or leave) a challenge before it starts
   logPlunge: (bookingId: string, seconds: number) => { ok: true } | { ok: false; error: string };
   dismissPromos: (ids: string[]) => void;
@@ -712,6 +714,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       dismissNotice: () => update((s) => ({ ...s, members: patchMember(s, { notice: undefined }) })),
       plunges: state.plunges ?? [],
       // Only members can be on the boards; leaving keeps their history but hides them.
+      setPhoto: (photo) => update((s) => ({ ...s, members: patchMember(s, { photo }) })),
       joinCommunity: (joined) =>
         update((s) =>
           joined && !tier.isMember

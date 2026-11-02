@@ -56,7 +56,7 @@ export function MembershipCard({ statusOnly = false }: { statusOnly?: boolean })
       </div>
       <button
         onClick={() => setConfirming(true)}
-        className="mt-3 w-full rounded-full border border-clay/40 bg-card py-2 text-sm font-medium text-clay hover:bg-clay-soft"
+        className="mt-3 w-full rounded-full py-2 text-sm font-medium border border-clay-deep text-clay active:bg-clay-soft"
       >
         Cancel membership
       </button>

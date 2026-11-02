@@ -40,8 +40,8 @@ export default function HomePage() {
             {tier.isMember && tier.id !== "trial" ? `${tier.name} Member` : tier.name}
           </Link>
           {member.credits > 0 && (
-            <CreditsInfoButton className="text-[11px] !text-clay">
-              <Ticket size={11} /> {member.credits} credits
+            <CreditsInfoButton className="rounded-full bg-moss-soft px-2.5 py-0.5 text-xs hover:no-underline">
+              <Ticket size={12} /> {member.credits} credits
             </CreditsInfoButton>
           )}
         </div>

@@ -50,7 +50,7 @@ export function UpcomingBookingCard({ booking: b, onCancel }: { booking: Booking
         <button onClick={() => addToPhoneCalendar(b, policyLine(t, b.usedCredit))} className="flex items-center gap-1.5 text-xs text-moss hover:underline">
           <CalendarPlus size={14} /> Add to phone calendar
         </button>
-        <button onClick={onCancel} className="shrink-0 rounded-full border border-line px-3 py-1 text-sm text-clay hover:bg-clay-soft">
+        <button onClick={onCancel} className="shrink-0 rounded-full px-3 py-1 text-sm border border-clay-deep text-clay active:bg-clay-soft">
           Cancel
         </button>
       </div>

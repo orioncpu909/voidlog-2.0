@@ -34,8 +34,8 @@ function Start({ onCreate, onSignIn }: { onCreate: () => void; onSignIn: () => v
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={SERVICE_IMAGE.event} alt="" className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-b from-ink/60 via-ink/10 to-sand" aria-hidden />
-        <p className="absolute inset-x-0 top-12 text-center font-serif text-4xl tracking-[0.45em] text-sand">ARTHA</p>
-        <p className="absolute inset-x-0 top-[6.5rem] text-center text-[11px] uppercase tracking-[0.35em] text-sand">A Wellness Sanctuary</p>
+        <p className="absolute inset-x-0 top-12 text-center font-serif text-4xl tracking-[0.45em] text-shell">ARTHA</p>
+        <p className="absolute inset-x-0 top-[6.5rem] text-center text-[11px] uppercase tracking-[0.35em] text-shell">A Wellness Sanctuary</p>
       </div>
       <div className="relative -mt-6 flex flex-1 flex-col px-6 pb-10 text-center">
         <h1 className="font-serif text-4xl leading-tight">Move. Sweat. Freeze.</h1>

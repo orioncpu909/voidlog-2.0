@@ -66,7 +66,7 @@ export function HomeAlerts() {
                 Keep trial
               </button>
             ) : (
-              <button onClick={() => setCancelling(true)} className="shrink-0 rounded-full border border-clay/40 bg-card px-2.5 py-1 font-medium text-clay">
+              <button onClick={() => setCancelling(true)} className="shrink-0 rounded-full px-2.5 py-1 font-medium border border-clay-deep text-clay active:bg-clay-soft">
                 Cancel
               </button>
             )

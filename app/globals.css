@@ -4,9 +4,9 @@
 
 html,
 body {
-  background: #f6f1e7;
-  color: #141210;
-  color-scheme: light;
+  background: #000000;
+  color: #f6f1e7;
+  color-scheme: dark;
 }
 
 body {
@@ -86,4 +86,5 @@ body {
 html,
 body {
   overscroll-behavior-y: contain;
+  overscroll-behavior-x: none; /* a sideways swipe changes tabs, not browser history */
 }
