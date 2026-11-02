@@ -4,7 +4,7 @@
 // No real payments; charges are a ledger of what the card on file would be billed.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { LocationId, PERK_LABEL, Quote, SERVICES, ServiceId, TIERS, TierId, bookableAt, priceFor } from "./data";
+import { LOCATIONS, LocationId, PERK_LABEL, Quote, SERVICES, ServiceId, TIERS, TierId, bookableAt, priceFor } from "./data";
 import { Session, dateKey, eventSessions, sessionStart, slotsFor } from "./schedule";
 import { EVENTS, eventAt, eventTicketPrice, eventVisibleTo } from "./events";
 import { CancelTerms, canUseCredit, cancelTerms } from "./policy";
@@ -14,6 +14,7 @@ import { CardOnFile, cardDeclines } from "./card";
 import { endOfMonth, inRefundWindow, joinCharge, membershipUsed } from "./membership";
 import { money, shortDate, timeLabel, timeRange } from "./format";
 import { REFERRAL_CREDITS, ReferralResult, findReferrer } from "./referral";
+import { GuestPass, emailKey, guestBookerId, guestPassBlock, passesLeft } from "./guest";
 import {
   CHALLENGE_PRIZE_CREDITS, Challenge, ChallengeResult, PLUNGE_MAX_SECONDS, PLUNGE_MIN_SECONDS, challengeName, displayName, endedChallenges, firstPlace, isEntered, runTieBreak, scoreFor, tieBreakEnds,
 } from "./community";
@@ -105,6 +106,7 @@ interface State {
   bookings: Booking[];
   charges: Charge[];
   plunges?: PlungeLog[]; // missing in data saved before Community existed
+  guestPasses?: GuestPass[]; // every account's, since a guest can only ever claim one
   accounts?: AccountDetails[]; // details used to sign up, kept when the demo restarts as a new download
 }
 
@@ -503,6 +505,15 @@ function applyChallengePrizes(s: State, now = new Date()): State {
   return changed ? { ...s, members } : s;
 }
 
+// A pass still waiting ends with its sender's membership, so nobody's left holding a friend's
+// number. Claimed ones stay: they're what stops a guest coming back. Returns the same object when
+// nothing is due.
+function dropOrphanedPasses(s: State): State {
+  const passes = s.guestPasses ?? [];
+  const live = passes.filter((p) => p.claimedAt || s.members.some((m) => m.id === p.senderId && !!TIERS[m.tier].monthly));
+  return live.length === passes.length ? s : { ...s, guestPasses: live };
+}
+
 // Monthly renewal on the 1st: each paid membership is charged the full month and gets its monthly
 // credits. Nothing more is charged once a membership is cancelled. Data saved before renewals
 // existed catches up one month at most. Returns the same object when nothing is due.
@@ -539,7 +550,7 @@ function applyRenewals(s: State, now = new Date()): State {
 // and challenge prizes. Prizes also go first, so a challenge's result is saved before anything
 // changes who was in it.
 function settle(s: State): State {
-  return applyChallengePrizes(applyReferralCredits(applyRenewals(applyScheduledChanges(applyChallengePrizes(s)))));
+  return dropOrphanedPasses(applyChallengePrizes(applyReferralCredits(applyRenewals(applyScheduledChanges(applyChallengePrizes(s))))));
 }
 
 function load(): State {
@@ -593,6 +604,12 @@ interface Store {
   joinCommunity: (joined: boolean) => void;
   setPhoto: (photo?: string) => void;
   setCard: (card: CardOnFile) => void;
+  guestPasses: GuestPass[];
+  sendGuestPass: (name: string, email: string) => { ok: true; pass: GuestPass } | { ok: false; error: string };
+  cancelGuestPass: (id: string) => void; // only until it's claimed; gives the pass back
+  guestBookings: (pass: GuestPass) => Booking[]; // what's booked on a pass and still on
+  guestBook: (pass: GuestPass, session: Session) => { ok: true } | { ok: false; error: string };
+  guestCancel: (pass: GuestPass, bookingId: string) => void;
   setCardDeclines: (declining: boolean) => void; // demo only
   toggleWaitlist: (challengeId: string) => void; // sign up for (or leave) a challenge before it starts
   logPlunge: (bookingId: string, seconds: number) => { ok: true } | { ok: false; error: string };
@@ -643,7 +660,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [state]);
 
   // Every change also settles referral credits, so a friend's first payment credits the referrer at once.
-  const update = useCallback((fn: (s: State) => State) => setState((s) => (s ? applyChallengePrizes(applyReferralCredits(fn(s))) : s)), []);
+  const update = useCallback((fn: (s: State) => State) => setState((s) => (s ? dropOrphanedPasses(applyChallengePrizes(applyReferralCredits(fn(s)))) : s)), []);
 
   const store = useMemo<Store | null>(() => {
     if (!state) return null;
@@ -731,6 +748,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (instagram && used.some((a) => a.instagram?.toLowerCase() === instagram.toLowerCase())) return "instagram";
       return null;
     };
+
+    const guestBookingsOf = (pass: GuestPass) => active.filter((b) => b.memberId === guestBookerId(pass));
 
     const book: Store["book"] = (session, useCredit) => {
       const start = sessionStart(session.date, session.time);
@@ -887,6 +906,46 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // Only members can be on the boards; leaving keeps their history but hides them.
       setPhoto: (photo) => update((s) => ({ ...s, members: patchMember(s, { photo }) })),
       setCard: (card) => update((s) => ({ ...s, members: patchMember(s, { card }) })),
+      guestPasses: state.guestPasses ?? [],
+      sendGuestPass: (name, email) => {
+        const passes = state.guestPasses ?? [];
+        if (!tier.monthly) return { ok: false, error: "Guest passes are for members." };
+        if (passesLeft(member.id, passes) === 0) return { ok: false, error: "You've sent all your guest passes this month." };
+        if (member.email && emailKey(member.email) === emailKey(email)) return { ok: false, error: "This is your own email. Guest passes are for friends." };
+        const blocked = guestPassBlock(email, passes);
+        if (blocked) return { ok: false, error: blocked };
+        const pass: GuestPass = { id: uid(), code: uid().toUpperCase(), senderId: member.id, senderName: member.name.split(" ")[0], location: member.home, name, email, sentAt: new Date().toISOString() };
+        // Rechecked here so a double tap can't send two.
+        update((s) => (guestPassBlock(email, s.guestPasses ?? []) ? s : { ...s, guestPasses: [...(s.guestPasses ?? []), pass] }));
+        return { ok: true, pass };
+      },
+      cancelGuestPass: (id) => update((s) => ({ ...s, guestPasses: (s.guestPasses ?? []).filter((p) => p.id !== id || !!p.claimedAt) })),
+      guestBookings: guestBookingsOf,
+      guestBook: (pass, session) => {
+        const mine = guestBookingsOf(pass);
+        const start = sessionStart(session.date, session.time).getTime();
+        if (start <= Date.now()) return { ok: false, error: "This time has already started. Please pick a later time." };
+        if (session.location !== pass.location) return { ok: false, error: `This pass only works at ${LOCATIONS[pass.location].name}.` };
+        if (mine.some((b) => b.serviceId === session.serviceId)) return { ok: false, error: "This is already booked on your pass." };
+        if (spotsLeft(session) <= 0) return { ok: false, error: "This time just filled up. Please pick another." };
+        const clash = mine.find((b) => {
+          const other = sessionStart(b.date, b.time).getTime();
+          return start < other + b.durationMin * 60000 && other < start + session.durationMin * 60000;
+        });
+        if (clash) return { ok: false, error: `This overlaps your ${clash.title} at ${timeLabel(clash.time)}. Please pick another time.` };
+        const booking = makeBooking({ id: guestBookerId(pass) } as Member, session, 0, false);
+        update((s) => ({
+          ...s,
+          bookings: [...s.bookings, booking],
+          guestPasses: (s.guestPasses ?? []).map((p) => (p.id === pass.id ? { ...p, claimedAt: p.claimedAt ?? new Date().toISOString() } : p)),
+        }));
+        return { ok: true };
+      },
+      guestCancel: (pass, bookingId) =>
+        update((s) => ({
+          ...s,
+          bookings: s.bookings.map((b) => (b.id === bookingId && b.memberId === guestBookerId(pass) && sessionStart(b.date, b.time).getTime() > Date.now() ? { ...b, status: "cancelled" } : b)),
+        })),
       setCardDeclines: (declining) => update((s) => (member.card ? { ...s, members: patchMember(s, { card: { ...member.card, declining } }) } : s)),
       joinCommunity: (joined) =>
         update((s) =>
@@ -940,6 +999,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           bookings: s.bookings.filter((b) => b.memberId !== NEW_DOWNLOAD.id),
           charges: s.charges.filter((c) => c.memberId !== NEW_DOWNLOAD.id),
           plunges: (s.plunges ?? []).filter((p) => p.memberId !== NEW_DOWNLOAD.id),
+          // The next person gets this account's id, not its passes. Claimed ones still block a repeat guest.
+          guestPasses: (s.guestPasses ?? []).filter((p) => p.senderId !== NEW_DOWNLOAD.id || p.claimedAt).map((p) => (p.senderId === NEW_DOWNLOAD.id ? { ...p, senderId: "" } : p)),
         })),
       refresh: () => setState(load()),
       reset: () => setState(settle(seedState())),

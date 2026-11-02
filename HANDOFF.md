@@ -199,9 +199,19 @@ README.md                   Rules and where to change them
   - Cold Plunge Clock + Log a plunge (`SHOW_PLUNGE_CHALLENGE`; plunge times in `State.plunges`, scored up to 3:00).
 - **Demo data:** the rest of each board is 14 made-up demo members from a seeded generator, and waitlist counts are seeded too. With a backend, boards would rank real opted-in members.
 
+### Guest passes
+
+- `lib/guest.ts`, `components/GuestPasses.tsx`, `State.guestPasses`. Paying members only (`tier.monthly`), so not trials or Wellness Accounts.
+- 8 a calendar month, no rollover. A pass counts when sent; cancelling before it's claimed gives it back if it was sent this month. A claimed pass can't be cancelled.
+- Passes still waiting stay listed across months. They end with the sender's membership (`dropOrphanedPasses`), which frees the friend's number. Claimed ones are kept forever to stop repeat guests.
+- No recurring guests: an email (`emailKey`: ignores capitals, +tags and Gmail dots) that has claimed, or has a pass waiting, can't get another, from any member. Your own email is blocked too.
+- **The friend's side** (`app/guest`, outside the tabs and sign-up): `/guest?pass=CODE` lists the class, sauna and cryo, at the sender's home studio only (`GuestPass.location`, set when it's sent). Each is picked by day (14 ahead) and time, once per pass. Booking the first one claims the pass. Guest bookings live in `State.bookings` as `guest:<passId>`, price $0, so they take real spots. They can cancel and pick again until a service starts; the pass stays claimed.
+- **Needs a backend:** the email is only shown to the member, not sent, and the link only works on this device. The no-repeat check also only sees this device. The link format is a placeholder. Guests have no QR check-in, so the front desk needs a guest list.
+- **Open:** the 2026 agreements say 4 free guest passes on joining; the app follows Miguel's 8 a month. Update the agreements or confirm. Also whether passes expire, whether trials get any, a cancel deadline for guests, and whether the services must be on the same day.
+
 ### Card on file
 
-- A row on Account (`components/CardOnFileRow.tsx`) shows the card and opens a sheet to change or add it. Checks are in `lib/card.ts`: brand, length, check digit, expiry, security code, ZIP.
+- A half-width tile on Account beside Guest passes (a full-width row for trials and Wellness Accounts; `components/CardOnFileRow.tsx`) shows the card and opens a sheet to change or add it. Checks are in `lib/card.ts`: brand, length, check digit, expiry, security code, ZIP.
 - `Member.card` holds only the brand, last 4 and expiry. The full number and security code stay in the form and are dropped when it closes.
 - Sample accounts get a made-up Visa ending in 4242 (`withSampleCard`, also applied to saved data). Sign-up and joining don't ask for a card, so a new account shows "No card yet", even after joining a membership.
 - With a backend, replace the form with the payment provider's hosted fields, so card numbers never pass through the app.

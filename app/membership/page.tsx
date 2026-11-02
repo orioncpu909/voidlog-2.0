@@ -18,6 +18,7 @@ import { EmailStudioButton } from "@/components/EmailStudio";
 import { Disclosure } from "@/components/Disclosure";
 import { CreditsInfoButton } from "@/components/CreditsInfo";
 import { CardOnFileRow } from "@/components/CardOnFileRow";
+import { GuestPassesTile } from "@/components/GuestPasses";
 import { HistoryButton } from "@/components/BookingHistory";
 import { Button, Sheet } from "@/components/Sheet";
 
@@ -76,9 +77,16 @@ export default function AccountPage() {
       <NoticeBanner />
       <TrialCard />
       <MembershipCard />
-      <CardOnFileRow />
-
       <StatsOverview />
+
+      {tier.monthly ? (
+        <div className="grid grid-cols-2 gap-3">
+          <CardOnFileRow compact />
+          <GuestPassesTile />
+        </div>
+      ) : (
+        <CardOnFileRow />
+      )}
 
       <section className="space-y-2">
         <h2 className="font-heading text-xl">
@@ -109,22 +117,6 @@ export default function AccountPage() {
         </div>
       </section>
 
-      <Disclosure title="Cancellation policy">
-        <ul className="space-y-1.5 text-muted">
-          <li>
-            <span className="text-shell">Classes and therapies:</span> free to cancel until 3 hours before.
-          </li>
-          <li>
-            <span className="text-shell">Treatments and contrast:</span> free to cancel until 12 hours before.
-          </li>
-          <li>
-            <span className="text-shell">Late cancel or no-show:</span>{" "}
-            {tier.id === "trial" ? "no charge during your trial." : "you're charged what the service costs right now. A credit-paid booking uses up the credit."}
-          </li>
-          <li>Please arrive 5 minutes early. No phone calls, inside voices.</li>
-        </ul>
-      </Disclosure>
-
       <Disclosure title="Contact us">
         <div className="divide-y divide-line">
           {Object.values(LOCATIONS).map((l) => (
@@ -146,6 +138,22 @@ export default function AccountPage() {
             membership@artha.la
           </a>
         </p>
+        <div className="mt-3 border-t border-line pt-3">
+          <h3 className="mb-1.5 text-lg leading-tight">Cancellation policy</h3>
+          <ul className="space-y-1.5 text-muted">
+            <li>
+              <span className="text-shell">Classes and therapies:</span> free to cancel until 3 hours before.
+            </li>
+            <li>
+              <span className="text-shell">Treatments and contrast:</span> free to cancel until 12 hours before.
+            </li>
+            <li>
+              <span className="text-shell">Late cancel or no-show:</span>{" "}
+              {tier.id === "trial" ? "no charge during your trial." : "you're charged what the service costs right now. A credit-paid booking uses up the credit."}
+            </li>
+            <li>Please arrive 5 minutes early. No phone calls, inside voices.</li>
+          </ul>
+        </div>
       </Disclosure>
 
       <Disclosure title="Demo">

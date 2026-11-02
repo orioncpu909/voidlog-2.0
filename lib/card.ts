@@ -91,4 +91,5 @@ export function toCardOnFile(number: string, expiry: string): CardOnFile {
 }
 
 export const cardLabel = (c: CardOnFile) => `${c.brand} ending in ${c.last4}`;
+export const cardShortLabel = (c: CardOnFile) => `${c.brand === "American Express" ? "Amex" : c.brand} •• ${c.last4}`; // for the half-width tile
 export const cardExpiry = (c: CardOnFile) => `${String(c.expMonth).padStart(2, "0")}/${String(c.expYear).slice(-2)}`;

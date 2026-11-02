@@ -39,6 +39,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isActive = (href: string) => (href === "/" ? current === "/" : current.startsWith(href));
   const activeTab = TABS.findIndex((t) => isActive(t.href));
 
+  // A guest's page: they have no account, so no sign-up and no tabs.
+  if (path === "/guest") return <>{children}</>;
+
   // A fresh download creates an account first, then sees the welcome walkthrough.
   if (member.signedUp === false) return <SignUp />;
   if (!member.onboarded) return <Onboarding />;

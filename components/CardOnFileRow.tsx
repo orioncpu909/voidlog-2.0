@@ -6,18 +6,35 @@ import { ChevronRight, CreditCard } from "lucide-react";
 import { TIERS } from "@/lib/data";
 import { useStore } from "@/lib/store";
 import {
-  CardOnFile, cardBrand, cardDeclines, cardExpiry, cardLabel, cardNumberError, cvcError, digitsOnly, expiryError, formatCardNumber, formatExpiry, toCardOnFile, zipError,
+  CardOnFile, cardBrand, cardDeclines, cardExpiry, cardLabel, cardNumberError, cardShortLabel, cvcError, digitsOnly, expiryError, formatCardNumber, formatExpiry, toCardOnFile, zipError,
 } from "@/lib/card";
 import { BlockedBanner } from "@/components/BlockedBanner";
 import { Button, Sheet } from "@/components/Sheet";
 
-// The card on file on Account. The whole row opens the sheet to change it (or add one).
-export function CardOnFileRow() {
+// The card on file on Account. The whole block opens the sheet to change it (or add one). Half width
+// (compact) when it sits beside guest passes.
+export function CardOnFileRow({ compact = false }: { compact?: boolean }) {
   const { member } = useStore();
   const [open, setOpen] = useState(false);
   const card = member.card;
   const problem = !!card && cardDeclines(card);
   const status = !card ? null : card.declining ? "Declined. Update it to book." : `${problem ? "Expired" : "Expires"} ${cardExpiry(card)}`;
+  if (compact) {
+    return (
+      <>
+        <button onClick={() => setOpen(true)} className="flex min-h-[112px] w-full flex-col rounded-2xl border border-line bg-card p-3.5 text-left transition-colors active:bg-sand">
+          <span className="flex w-full items-center justify-between">
+            <CreditCard size={20} />
+            <ChevronRight size={16} />
+          </span>
+          <span className="mt-2 block text-xs text-muted">Card on file</span>
+          <span className="block text-sm font-medium">{card ? cardShortLabel(card) : "Add a card"}</span>
+          {status && <span className={clsx("block text-xs", problem ? "font-medium text-clay" : "text-muted")}>{status}</span>}
+        </button>
+        <CardSheet open={open} onClose={() => setOpen(false)} />
+      </>
+    );
+  }
   return (
     <>
       <button onClick={() => setOpen(true)} className="flex min-h-[64px] w-full items-center gap-3 rounded-2xl border border-line bg-card px-4 py-3 text-left transition-colors active:bg-sand">

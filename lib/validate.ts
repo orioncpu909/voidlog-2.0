@@ -26,11 +26,11 @@ export function phoneNumber(input: string): string {
   return digits.length === 11 && digits[0] === "1" ? digits.slice(1) : digits;
 }
 
-export function nameError(input: string, label: string): string {
+export function nameError(input: string, label: string, whose = "your"): string {
   const name = cleanName(input);
-  if (!name) return `Enter your ${label} name.`;
+  if (!name) return `Enter ${whose} ${label} name.`;
   if (name.length > NAME_MAX) return `Keep it to ${NAME_MAX} characters.`;
-  if (!NAME.test(name) || name.replace(/[^\p{L}]/gu, "").length < 2) return `Enter your real ${label} name, using letters only.`;
+  if (!NAME.test(name) || name.replace(/[^\p{L}]/gu, "").length < 2) return `Enter ${whose} real ${label} name, using letters only.`;
   return "";
 }
 
