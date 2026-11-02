@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Hourglass, Info, Sparkles, X } from "lucide-react";
 import { PriceGroup, TIERS, currentPromos, priceFor } from "@/lib/data";
+import { SHOW_COMMUNITY } from "@/lib/flags";
 import { dateKey } from "@/lib/schedule";
 import { useStore } from "@/lib/store";
 import { TRIAL_BECOMES, daysLeft } from "@/lib/trial";
@@ -48,7 +49,7 @@ export function HomeAlerts() {
         >
           {/* Several notes can stack up (a prize, a referral, a billing change): Home shows the
               newest and links to Account for the rest, so it still fits one screen. */}
-          {note?.startsWith("Tied for 1st") ? (
+          {SHOW_COMMUNITY && note?.startsWith("Tied for 1st") ? (
             <Link href="/community" className="line-clamp-2">{note}</Link>
           ) : (
             <span className="line-clamp-2">{note}</span>

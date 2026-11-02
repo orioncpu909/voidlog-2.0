@@ -1,7 +1,8 @@
 "use client";
 
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import { Check, ChevronRight, Gift, Lock, Minus, Plus, Snowflake, Timer, Trophy, Users } from "lucide-react";
 import { TIERS } from "@/lib/data";
@@ -11,7 +12,7 @@ import {
   BoardRow, CHALLENGE_PRIZE_CREDITS, Challenge, METRICS, PLUNGE_MAX_SECONDS, PLUNGE_MIN_SECONDS, PLUNGE_SCORE_CAP, TIE_BREAK_DAYS, challengeCalendar, challengeName, clock, daysLeft,
   MEMBER_COUNT, allTimeBoard, allTimeStats, demoAllTimeStats, displayName, endedChallenges, isEntered, leaderboard, loggableSessions, scoreFor, tieBreakEnds, waitlistCount,
 } from "@/lib/community";
-import { SHOW_FINISHED_SPRINTS, SHOW_PLUNGE_CHALLENGE } from "@/lib/flags";
+import { SHOW_COMMUNITY, SHOW_FINISHED_SPRINTS, SHOW_PLUNGE_CHALLENGE } from "@/lib/flags";
 import { dateKey } from "@/lib/schedule";
 import { dayLabel, shortDate } from "@/lib/format";
 import { Button, Sheet } from "@/components/Sheet";
@@ -48,7 +49,20 @@ const TIE_RULE = `If first place ends in a tie, the first of them to scan in and
 // challenge; what's coming up comes first (with a waitlist to sign up early), then this week's
 // sprint and the month's challenges. Members choose whether to show on the boards; Wellness
 // Accounts can look but not join. Rules and demo data: lib/community.ts.
+// While Community is switched off (lib/flags.ts), this page sends you Home.
 export default function CommunityPage() {
+  return SHOW_COMMUNITY ? <CommunityView /> : <ToHome />;
+}
+
+function ToHome() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/");
+  }, [router]);
+  return null;
+}
+
+function CommunityView() {
   const { member } = useStore();
   const tier = TIERS[member.tier];
   const cal = challengeCalendar();

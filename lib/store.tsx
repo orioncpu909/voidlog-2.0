@@ -16,6 +16,7 @@ import { REFERRAL_CREDITS, ReferralResult, findReferrer } from "./referral";
 import {
   CHALLENGE_PRIZE_CREDITS, Challenge, ChallengeResult, PLUNGE_MAX_SECONDS, PLUNGE_MIN_SECONDS, challengeName, displayName, endedChallenges, firstPlace, isEntered, runTieBreak, scoreFor, tieBreakEnds,
 } from "./community";
+import { SHOW_COMMUNITY } from "./flags";
 import { TulipLogo } from "@/components/TulipLogo";
 
 export interface Member {
@@ -452,6 +453,7 @@ function challengeResultOf(c: Challenge, m: Member, s: State, now: Date): Challe
 // treatment credit and a note on Home; a tied member also hears when the tie breaker starts and how
 // it ended. Returns the same object when nothing is due.
 function applyChallengePrizes(s: State, now = new Date()): State {
+  if (!SHOW_COMMUNITY) return s;
   const ended = endedChallenges(now);
   let changed = false;
   const members = s.members.map((m): Member => {

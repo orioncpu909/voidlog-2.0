@@ -177,6 +177,8 @@ README.md                   Rules and where to change them
 
 ### Community
 
+**Switched off** (`SHOW_COMMUNITY` in `lib/flags.ts`): visit-count challenges favor Gold, so it's pushed back. Off means no tab, `/community` goes Home, and `applyChallengePrizes` does nothing. Saved credits and results stay. The idea for its return: a personal goal per plan, with everyone who hits it entered in a drawing. Before switching back on, decide how to handle challenges that ended while it was off, because prizes catch up on last month's and this month's.
+
 - **Challenges:** preset each month (`challengesForMonth` in `lib/community.ts`): Class Count and Recovery Ritual all month, plus 4 weekly sprints (Early Riser, Stillness, Hot & Cold, Weekend Warrior). Only completed classes and therapies count; treatments and events never do.
 - **Page order:** the intro with the leaderboards switch inline, then a chip row. Coming-up chips (next 7 days) open a details sheet with the **waitlist** (`Member.challengeWaitlist`); there's no card until the challenge starts. Running chips jump to their card. Then **Active challenges**: one section of compact cards (top 5 each; tap for a details sheet with the top 10). Last month's results show in the first 7 days only.
 - **Boards:** ties for 1st–3rd sit in a "Tied for …" bracket with one row per person. "N taking part" counts hidden members too, and hidden members privately see their would-be rank (`useBoard` in the page).

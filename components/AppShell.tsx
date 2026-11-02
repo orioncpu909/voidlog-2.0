@@ -12,7 +12,7 @@ import { Onboarding } from "./Onboarding";
 import { SignUp } from "./SignUp";
 import { PullToRefresh } from "./PullToRefresh";
 import { SwipeTabs } from "./SwipeTabs";
-import { SHOW_CALENDAR_TAB } from "@/lib/flags";
+import { SHOW_CALENDAR_TAB, SHOW_COMMUNITY } from "@/lib/flags";
 import HomePage from "@/app/page";
 import BookPage from "@/app/book/page";
 import CommunityPage from "@/app/community/page";
@@ -24,7 +24,7 @@ const TABS = [
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/community", label: "Community", icon: Trophy },
   { href: "/membership", label: "Account", icon: UserRound },
-].filter((t) => SHOW_CALENDAR_TAB || t.href !== "/calendar");
+].filter((t) => (SHOW_CALENDAR_TAB || t.href !== "/calendar") && (SHOW_COMMUNITY || t.href !== "/community"));
 const TAB_HREFS = TABS.map((t) => t.href);
 const TAB_PAGES = { "/": HomePage, "/book": BookPage, "/community": CommunityPage, "/membership": AccountPage };
 
