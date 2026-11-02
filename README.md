@@ -66,10 +66,10 @@ The full trial and membership cards are on Account. Booking is in the Book tab.
 
 ## Cancelling a membership (lib/membership.ts)
 - **Switch to pay as you go on your own:** every membership (Restore, Classic, Gold and the trial) sees a **Wellness Account · Free** option under Account → Change membership (`components/SwitchToWellness.tsx`). It explains what happens (including that Wellness Accounts stay up to date on future promotions), shows the Wellness prices, and follows the rules below (a trial runs to its end date and doesn't turn into a membership). Once scheduled, the option shows the switch date.
-- **Within the first 5 days:** full refund, and the account moves to a free Wellness Account right away. Restore and Gold lose this once a treatment credit is used (Restore's monthly massage counts). Cancelling that booking in time gives the credit and the refund back.
+- **Within the first 5 days:** full refund, and the account moves to a free Wellness Account right away, unless the membership has been used. Used means a visit since joining, or a treatment credit on any booking on any plan (Restore's monthly massage counts). Cancelling that booking in time gives the refund back. The refund terms show only in the cancel steps, since they're in the member agreement.
 - **After 5 days:** no refund and no further charges. The member keeps full access, prices and their calendar until the end of the month, then becomes a free Wellness Account. A "Keep my membership" link undoes it until then.
 - Bookings dated after access ends are priced at Wellness rates.
-- Demo: the Gold account joined 2 days ago, so it's inside the refund window. The Classic account is past it. "Jump to the end of this month" ends a cancelled membership right away.
+- Demo: the Gold account joined 2 days ago but has visits since, so it shows the used-membership wording. To see a refund, join a plan from a new account and cancel. The Classic account is past the 5 days. "Jump to the end of this month" ends a cancelled membership right away.
 
 ## Streaks and stats (lib/stats.ts, app/stats)
 - **Profile photo** (`lib/photo.ts`, `components/Avatar.tsx`): tap the picture on Profile to choose one from the phone. It's cropped to a 256px square and saved on this device; the header shows it too.

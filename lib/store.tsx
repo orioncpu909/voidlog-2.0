@@ -11,7 +11,7 @@ import { CancelTerms, canUseCredit, cancelTerms } from "./policy";
 import { TRIAL_BECOMES, firstMonthCharge, trialEndsAt } from "./trial";
 import { checkInDue } from "./checkin";
 import type { CardOnFile } from "./card";
-import { endOfMonth, inRefundWindow, joinCharge, usesTreatmentCredit } from "./membership";
+import { endOfMonth, inRefundWindow, joinCharge, membershipUsed } from "./membership";
 import { money, shortDate, timeLabel, timeRange } from "./format";
 import { REFERRAL_CREDITS, ReferralResult, findReferrer } from "./referral";
 import {
@@ -132,7 +132,7 @@ function seedMembers(): Member[] {
     { ...NEW_DOWNLOAD },
     { id: "m-wellness", name: "Karan", tier: "wellness", home: "weho", credits: 0, onboarded: true, trialUsed: true, firstVisitUsed: true },
     { id: "m-classic", name: "Karan", tier: "classic", home: "weho", credits: 4, onboarded: true, firstVisitUsed: true, memberSince: daysAgo(20), communityJoined: true, communityJoinedAt: daysAgo(40) },
-    // Joined 2 days ago, so still inside the 5-day refund window.
+    // Joined 2 days ago with visits since, so the 5-day refund has ended.
     { id: "m-gold", name: "Karan", tier: "gold", home: "weho", credits: 5, onboarded: true, firstVisitUsed: true, memberSince: daysAgo(2), communityJoined: true, communityJoinedAt: daysAgo(2) },
     { id: "m-restore", name: "Karan", tier: "restore", home: "scity", credits: 4, onboarded: true, firstVisitUsed: true, memberSince: daysAgo(40) },
     {
@@ -574,7 +574,7 @@ interface Store {
   perksLeft: (serviceId: ServiceId, date: string) => number; // monthly perks (Restore) still free that month
   firstVisitEligible: boolean;
   refundWindowOpen: boolean;
-  refundLostToCredit: boolean; // inside the first 5 days, but a treatment credit has been used
+  refundLostToUse: boolean; // inside the first 5 days, but the membership has been used
   cancelMembership: () => void;
   keepMembership: () => void;
   endMembershipNow: () => void; // demo only: jump to the end of the paid-for month
@@ -649,10 +649,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const member = state.members.find((m) => m.id === state.activeMemberId) ?? state.members[0];
     const tier = TIERS[member.tier];
     const active = state.bookings.filter((b) => b.status === "booked");
-    // Restore and Gold: using a treatment credit since joining ends the 5-day refund.
-    const creditSpent =
-      (member.tier === "restore" || member.tier === "gold") &&
-      state.bookings.some((b) => b.memberId === member.id && b.status !== "cancelled" && !!member.memberSince && b.createdAt >= member.memberSince && usesTreatmentCredit(b));
+    // Using the membership since joining ends the 5-day refund.
+    const used = membershipUsed(member.memberSince, state.bookings.filter((b) => b.memberId === member.id));
     const patchMember = (s: State, patch: Partial<Member>) => s.members.map((m) => (m.id === member.id ? { ...m, ...patch } : m));
     const charge = (label: string, amount: number): Charge => ({ id: uid(), memberId: member.id, at: new Date().toISOString(), label, amount });
 
@@ -805,12 +803,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       quote,
       perksLeft,
       firstVisitEligible,
-      refundWindowOpen: inRefundWindow(member.memberSince) && !creditSpent,
-      refundLostToCredit: inRefundWindow(member.memberSince) && creditSpent,
+      refundWindowOpen: inRefundWindow(member.memberSince) && !used,
+      refundLostToUse: inRefundWindow(member.memberSince) && used,
       cancelMembership: () =>
         update((s) => {
           if (!tier.isMember || tier.id === "trial") return s;
-          if (inRefundWindow(member.memberSince) && !creditSpent) {
+          if (inRefundWindow(member.memberSince) && !used) {
             const fee = [...s.charges].reverse().find((c) => c.memberId === member.id && c.label.includes("membership") && c.amount > 0);
             const refund = fee?.amount ?? 0;
             return {

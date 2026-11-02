@@ -121,11 +121,6 @@ export default function AccountPage() {
             <span className="text-shell">Late cancel or no-show:</span>{" "}
             {tier.id === "trial" ? "no charge during your trial." : "you're charged what the service costs right now. A credit-paid booking uses up the credit."}
           </li>
-          {(tier.id === "restore" || tier.id === "gold") && (
-            <li>
-              <span className="text-shell">Membership refund:</span> full refund within your first 5 days, unless you&apos;ve used a treatment credit.
-            </li>
-          )}
           <li>Please arrive 5 minutes early. No phone calls, inside voices.</li>
         </ul>
       </Disclosure>

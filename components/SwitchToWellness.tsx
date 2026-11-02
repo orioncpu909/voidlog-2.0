@@ -15,7 +15,7 @@ import { Button, Sheet } from "./Sheet";
 // membership ends now with a refund; after that it runs to the end of the month; a trial runs to
 // its end date and doesn't turn into a membership.
 export function SwitchToWellness() {
-  const { member, charges, refundWindowOpen, cancelMembership, cancelTrial } = useStore();
+  const { member, charges, refundWindowOpen, refundLostToUse, cancelMembership, cancelTrial } = useStore();
   const [open, setOpen] = useState(false);
   const tier = TIERS[member.tier];
   if (!tier.isMember) return null;
@@ -72,7 +72,7 @@ export function SwitchToWellness() {
               ? `Your trial won't turn into a membership and you won't be charged. You keep your trial prices until ${shortDate(switchDate!)}, then you're on a free Wellness Account.`
               : refundWindowOpen
                 ? `You're within your first ${REFUND_WINDOW_DAYS} days, so your ${tier.name} membership ends now${refund ? ` and your ${money(refund)} is refunded` : ""}. You'll be on a free Wellness Account right away.`
-                : `You won't be charged again. You keep ${tier.name} until ${shortDate(switchDate!)}, then you're on a free Wellness Account.`}
+                : `${refundLostToUse ? "You've already used your membership, so this month isn't refunded. " : ""}You won't be charged again. You keep ${tier.name} until ${shortDate(switchDate!)}, then you're on a free Wellness Account.`}
           </p>
           <p className="text-muted">
             No monthly fee: pay for each visit at regular prices or specials, at West LA and Studio City. You&apos;ll also stay up to date on future

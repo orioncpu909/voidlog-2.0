@@ -147,7 +147,8 @@ README.md                   Rules and where to change them
 ### Cancelling a membership
 
 - **Switch to Wellness yourself:** Account → Change membership has a "Wellness Account · Free" option for every membership type and the trial, using the rules below.
-- **Within 5 days of joining:** full refund, and it ends now. Restore and Gold lose this once a treatment credit is used (`usesTreatmentCredit`). Restore's monthly massage counts, and cancelling that booking in time restores the refund. CONFIRM both.
+- **Within 5 days of joining:** full refund, and it ends now, unless the membership has been used (`membershipUsed`): a visit since joining, or a treatment credit on any booking, on any plan. Restore's monthly massage counts, and cancelling that booking in time restores the refund. The refund terms show only in the cancel steps, because the member agreement covers them.
+- **Check with a lawyer:** the agreements' five-day right to cancel doesn't mention usage, and they also say "no refunds", so confirm the used-membership rule against them.
 - **After 5 days:** no refund, but full access until the end of the month. Then the account becomes Wellness.
 - **Calendar and bookings:** stay either way.
 
@@ -220,7 +221,7 @@ Every account is named "Karan". Switch between them in **Account → Demo** (tap
 | New download | none: opens on the create-account screens, then onboarding; gets the first-visit price at booking. Account → "Open the app as a new download" replays it |
 | Wellness | intermediate: about 24 visits, 4-day streak, specials banner |
 | Classic | advanced: about 58 visits, 9-day streak, a booking tomorrow |
-| Gold | advanced: about 92 visits, 14-day streak; joined 2 days ago, so it's inside the refund window |
+| Gold | advanced: about 92 visits, 14-day streak; joined 2 days ago, with visits since, so its refund has ended |
 | Restore | intermediate (Studio City) |
 | Trial | intermediate: 3 days left on the trial |
 

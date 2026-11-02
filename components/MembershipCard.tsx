@@ -3,55 +3,36 @@
 import { useState } from "react";
 import { TIERS } from "@/lib/data";
 import { useStore } from "@/lib/store";
-import { REFUND_WINDOW_DAYS, refundWindowEnds } from "@/lib/membership";
-import { momentLabel, shortDate } from "@/lib/format";
+import { REFUND_WINDOW_DAYS } from "@/lib/membership";
+import { shortDate } from "@/lib/format";
 import { dateKey } from "@/lib/schedule";
 import { Button, Sheet } from "./Sheet";
 
-// Paid membership status. On Home it only appears once a cancellation is scheduled, so members
-// always see when their access ends.
-export function MembershipCard({ statusOnly = false }: { statusOnly?: boolean }) {
-  const { member, refundWindowOpen, refundLostToCredit, keepMembership } = useStore();
+// Shown once a cancellation is scheduled, so members always see when their access ends. Refund
+// terms stay out of the way until someone cancels: they're in the member agreement.
+export function MembershipCard() {
+  const { member, keepMembership } = useStore();
   const tier = TIERS[member.tier];
-  if (!tier.isMember || tier.id === "trial") return null;
+  if (!tier.isMember || tier.id === "trial" || !member.membershipEndsAt) return null;
 
-  if (member.membershipEndsAt) {
-    const ends = new Date(member.membershipEndsAt);
-    return (
-      <section className="rounded-3xl border border-line bg-card p-4">
-        <p className="text-xs uppercase tracking-widest text-muted">Membership cancelled</p>
-        <p className="mt-1 font-serif text-2xl leading-tight">Active until {shortDate(dateKey(ends))}</p>
-        <p className="mt-1 text-sm text-shell">
-          You won&apos;t be charged again. You keep full {tier.name} access, prices and your calendar until then. After that you&apos;ll be on a free Wellness Account.
-        </p>
-        <button onClick={keepMembership} className="mt-3 text-sm text-moss underline-offset-2 hover:underline">
-          Changed your mind? Keep my membership
-        </button>
-      </section>
-    );
-  }
-  if (statusOnly) return null;
-
-  // Otherwise only the refund rules that apply right now: the plan and billing day are on the
-  // Account card just above.
-  const refundable = refundWindowOpen && !!member.memberSince;
-  if (!refundable && !refundLostToCredit) return null;
-
+  const ends = new Date(member.membershipEndsAt);
   return (
-    <section className="space-y-2 rounded-3xl border border-line bg-card p-4 text-sm">
-      {refundable && (
-        <p className="text-sage-deep">
-          You&apos;re in your first {REFUND_WINDOW_DAYS} days. Cancel before {momentLabel(refundWindowEnds(member.memberSince!))} for a full refund.
-        </p>
-      )}
-      {refundLostToCredit && <p className="text-shell">You&apos;ve used a treatment credit, so this membership can no longer be refunded.</p>}
+    <section className="rounded-3xl border border-line bg-card p-4">
+      <p className="text-xs uppercase tracking-widest text-muted">Membership cancelled</p>
+      <p className="mt-1 font-serif text-2xl leading-tight">Active until {shortDate(dateKey(ends))}</p>
+      <p className="mt-1 text-sm text-shell">
+        You won&apos;t be charged again. You keep full {tier.name} access, prices and your calendar until then. After that you&apos;ll be on a free Wellness Account.
+      </p>
+      <button onClick={keepMembership} className="mt-3 text-sm text-moss underline-offset-2 hover:underline">
+        Changed your mind? Keep my membership
+      </button>
     </section>
   );
 }
 
 // At the bottom of the Account tab, once there's a paid membership to cancel.
 export function CancelMembership() {
-  const { member, refundWindowOpen, refundLostToCredit, cancelMembership } = useStore();
+  const { member, refundWindowOpen, refundLostToUse, cancelMembership } = useStore();
   const [confirming, setConfirming] = useState(false);
   const tier = TIERS[member.tier];
   if (!tier.isMember || tier.id === "trial" || member.membershipEndsAt) return null;
@@ -76,7 +57,7 @@ export function CancelMembership() {
             </p>
           ) : (
             <p>
-              You won&apos;t be charged again. {refundLostToCredit ? "You've used a treatment credit" : `It's past your first ${REFUND_WINDOW_DAYS} days`}, so this month isn&apos;t refunded, but you{" "}
+              You won&apos;t be charged again. {refundLostToUse ? "You've already used your membership" : `It's past your first ${REFUND_WINDOW_DAYS} days`}, so this month isn&apos;t refunded, but you{" "}
               <span className="font-medium">keep full access until {shortDate(dateKey(monthEnd))}</span>. Your calendar and bookings stay active.
             </p>
           )}

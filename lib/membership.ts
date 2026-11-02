@@ -1,10 +1,12 @@
 // Cancelling a paid membership (Restore, Classic, Gold):
-// - Within the first 5 days: full refund, and the membership ends right away. Restore and Gold lose
-//   this once a treatment credit is used.
+// - Within the first 5 days: full refund, and the membership ends right away, unless the membership
+//   has been used (membershipUsed).
 // - After that: no refund. Nothing more is charged, and the member keeps full access, prices
 //   and their calendar until the end of the month. Then the account becomes a free Wellness Account.
 
 import { SERVICES, ServiceId, TIERS, TierId } from "./data";
+import { sessionStart } from "./schedule";
+import type { Booking } from "./store";
 
 export const REFUND_WINDOW_DAYS = 5;
 
@@ -17,8 +19,17 @@ export function usesTreatmentCredit(b: { usedCredit: boolean; perk?: boolean; se
   return b.usedCredit || (!!b.perk && SERVICES[b.serviceId].category === "treatment");
 }
 
-export function refundWindowEnds(memberSince: string): Date {
-  return new Date(new Date(memberSince).getTime() + REFUND_WINDOW_DAYS * 864e5);
+// Used since joining, on any plan: a visit, or a treatment credit on a booking (even an upcoming
+// one). A booking cancelled in time doesn't count. These are one account's bookings.
+export function membershipUsed(memberSince: string | undefined, bookings: Booking[], now = new Date()): boolean {
+  if (!memberSince) return false;
+  const joined = new Date(memberSince);
+  return bookings.some((b) => {
+    if (b.status === "cancelled") return false;
+    if (b.createdAt >= memberSince && usesTreatmentCredit(b)) return true;
+    const start = sessionStart(b.date, b.time);
+    return b.status === "booked" && start >= joined && start <= now;
+  });
 }
 
 export function endOfMonth(d: Date): Date {

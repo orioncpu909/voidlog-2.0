@@ -9,7 +9,6 @@ import { Category, LOCATIONS, LocationId, SERVICES, ServiceId, TIERS, bookableAt
 import { Session, dateKey, findSession, sessionStart, slotsFor, upcomingDays } from "@/lib/schedule";
 import { Booking, useStore } from "@/lib/store";
 import { canUseCredit, cancelTerms, policyLine } from "@/lib/policy";
-import { usesTreatmentCredit } from "@/lib/membership";
 import { dayLabel, money, timeLabel, timeRange } from "@/lib/format";
 import { Therapist, therapistsFor } from "@/lib/therapists";
 import { addToPhoneCalendar } from "@/lib/ics";
@@ -1035,7 +1034,7 @@ function SessionPage({ session, onClose, onBlocked }: { session: Session; onClos
 // Book button in the list: what, when, where, the price (with the credit switch when a credit can
 // cover it), and the cancellation line.
 function ConfirmBooking({ session, onClose, onBooked }: { session: Session; onClose: () => void; onBooked: (b: Booking) => void }) {
-  const { member, book, quote, refundWindowOpen, creditUsableOn } = useStore();
+  const { member, book, quote, creditUsableOn } = useStore();
   const tier = TIERS[member.tier];
   const location = LOCATIONS[session.location];
   const q = quote(session.serviceId, session.location, session.date);
@@ -1045,8 +1044,6 @@ function ConfirmBooking({ session, onClose, onBooked }: { session: Session; onCl
   const total = credit ? 0 : q.price;
   const terms = cancelTerms(tier, { ...session, price: total, usedCredit: credit, perk: !credit && q.kind === "perk" });
   const [error, setError] = useState<string | null>(null);
-  const endsRefund =
-    refundWindowOpen && (tier.id === "restore" || tier.id === "gold") && usesTreatmentCredit({ usedCredit: credit, perk: q.kind === "perk", serviceId: session.serviceId });
 
   return (
     <Sheet open onClose={onClose} title="Confirm your booking">
@@ -1083,7 +1080,6 @@ function ConfirmBooking({ session, onClose, onBooked }: { session: Session; onCl
           </div>
         </div>
         <p className="rounded-2xl bg-sand p-3 font-medium text-shell">{policyLine(terms, credit)}</p>
-        {endsRefund && <p className="rounded-2xl bg-sand p-3 font-medium text-shell">Using a treatment credit ends your 5-day membership refund.</p>}
         {error && <p className="rounded-2xl bg-sand p-3 text-shell">{error}</p>}
         <div className="space-y-2">
           <Button
