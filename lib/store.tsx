@@ -9,6 +9,7 @@ import { Session, dateKey, eventSessions, sessionStart, slotsFor } from "./sched
 import { EVENTS, eventAt, eventTicketPrice, eventVisibleTo } from "./events";
 import { CancelTerms, canUseCredit, cancelTerms } from "./policy";
 import { TRIAL_BECOMES, firstMonthCharge, trialEndsAt } from "./trial";
+import { checkInDue } from "./checkin";
 import { endOfMonth, inRefundWindow, joinCharge, usesTreatmentCredit } from "./membership";
 import { money, timeLabel, timeRange } from "./format";
 import { REFERRAL_CREDITS, ReferralResult, findReferrer } from "./referral";
@@ -80,6 +81,7 @@ export interface Booking {
   perk?: boolean; // free as a monthly membership perk (Restore)
   status: BookingStatus;
   createdAt: string;
+  checkedInAt?: string; // set when the front desk scans the account's QR code
 }
 
 export interface Charge {
@@ -134,7 +136,7 @@ function seedMembers(): Member[] {
       onboarded: true,
       trialUsed: true,
       firstVisitUsed: true,
-      trialEndsAt: new Date(Date.now() + 3 * 864e5).toISOString(),
+      trialEndsAt: trialEndsAt(new Date(Date.now() - 4 * 864e5)).toISOString(),
     },
   ];
 }
@@ -361,8 +363,8 @@ function applyScheduledChanges(s: State, now = new Date()): State {
           notice: "Your trial has ended. You weren't charged for a membership, and you're now on a free Wellness Account.",
         };
       }
-      const ends = new Date(m.trialEndsAt!);
-      const month = ends.toLocaleDateString("en-US", { month: "long" });
+      const starts = new Date(new Date(m.trialEndsAt!).getTime() + 1); // the membership begins as the trial's last day ends
+      const month = starts.toLocaleDateString("en-US", { month: "long" });
       const becomes = m.trialBecomes ?? TRIAL_BECOMES;
       const next = TIERS[becomes];
       charges.push({
@@ -370,7 +372,7 @@ function applyScheduledChanges(s: State, now = new Date()): State {
         memberId: m.id,
         at: now.toISOString(),
         label: `${next.name} membership · ${next.neverProrated ? "first month" : `rest of ${month}`} ($${TIERS.trial.joinFee} trial fee applied)`,
-        amount: firstMonthCharge(ends, becomes),
+        amount: firstMonthCharge(starts, becomes),
         kind: "membership",
       });
       return {
@@ -378,7 +380,7 @@ function applyScheduledChanges(s: State, now = new Date()): State {
         tier: becomes,
         trialEndsAt: undefined,
         trialBecomes: undefined,
-        memberSince: ends.toISOString(),
+        memberSince: starts.toISOString(),
         credits: (m.welcomeCreditsGiven ? 0 : next.welcomeCredits) + next.monthlyCredits + m.credits, // a trial only has credits it won in Community
         welcomeCreditsGiven: true,
         notice: `Your 7-day trial ended, so you're now a ${next.name} member ($${next.monthly}/month). Your $${TIERS.trial.joinFee} trial fee went toward your first month.`,
@@ -524,6 +526,7 @@ interface Store {
   myBookingFor: (sessionId: string) => Booking | undefined;
   book: (session: Session, useCredit: boolean) => BookResult;
   bookingConflict: (session: Pick<Session, "id" | "serviceId" | "date" | "time" | "durationMin"> & { instructor?: string }) => string | null;
+  checkIn: () => Booking | undefined; // what the front desk's scan does: checks in the appointment that's due
   creditUsableOn: (date: string) => boolean; // credits end with the membership, so not for dates after it
   accountTaken: (details: { email: string; phone: string; instagram?: string }) => "email" | "phone" | "instagram" | null;
   quote: (serviceId: ServiceId, location: LocationId, date: string) => Quote;
@@ -671,6 +674,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return null;
     };
 
+    const checkIn: Store["checkIn"] = () => {
+      const due = checkInDue(state.bookings.filter((b) => b.memberId === member.id));
+      if (due) update((s) => ({ ...s, bookings: s.bookings.map((b) => (b.id === due.id ? { ...b, checkedInAt: new Date().toISOString() } : b)) }));
+      return due;
+    };
+
     const creditUsableOn: Store["creditUsableOn"] = (date) => member.credits > 0 && TIERS[tierOn(date)].isMember;
 
     const accountTaken: Store["accountTaken"] = ({ email, phone, instagram }) => {
@@ -747,6 +756,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       myBookingFor,
       book,
       bookingConflict,
+      checkIn,
       creditUsableOn,
       accountTaken,
       quote,

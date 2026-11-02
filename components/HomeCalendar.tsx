@@ -246,7 +246,7 @@ function BookingRow({
 }) {
   // Only what you actually paid or used; nothing for an included visit.
   const paid = b.usedCredit ? "1 credit" : b.perk ? "Perk" : b.price > 0 ? money(b.price) : null;
-  const facts = [b.instructor?.split(" ")[0], LOCATIONS[b.location].short, `${b.durationMin} min`, paid].filter(Boolean).join(" · ");
+  const facts = [b.checkedInAt && "Checked in", b.instructor?.split(" ")[0], LOCATIONS[b.location].short, `${b.durationMin} min`, paid].filter(Boolean).join(" · ");
   return (
     <div className="flex gap-2 py-1">
       <span className="stat-num w-[56px] shrink-0 whitespace-nowrap pt-0.5 font-medium">{timeLabel(b.time)}</span>

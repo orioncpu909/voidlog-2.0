@@ -1,8 +1,9 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, Home, Sparkles, Trophy, UserRound } from "lucide-react";
+import { CalendarDays, Home, QrCode, Sparkles, Trophy, UserRound } from "lucide-react";
 import clsx from "clsx";
 import { useState, type ReactNode } from "react";
 import { useStore } from "@/lib/store";
@@ -27,10 +28,13 @@ const TABS = [
 const TAB_HREFS = TABS.map((t) => t.href);
 const TAB_PAGES = { "/": HomePage, "/book": BookPage, "/community": CommunityPage, "/membership": AccountPage };
 
+const CheckInSheet = dynamic(() => import("./CheckInSheet").then((m) => m.CheckInSheet), { ssr: false });
+
 export function AppShell({ children }: { children: ReactNode }) {
   const path = usePathname();
   const { member } = useStore();
   const [landing, setLanding] = useState<string | null>(null); // a swipe's destination, while it finishes
+  const [checkingIn, setCheckingIn] = useState(false);
   const current = landing ?? path;
   const isActive = (href: string) => (href === "/" ? current === "/" : current.startsWith(href));
   const activeTab = TABS.findIndex((t) => isActive(t.href));
@@ -45,15 +49,22 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Link href="/" className="font-serif text-xl tracking-[0.35em]">
           ARTHA
         </Link>
-        {/* Your profile, from every tab. */}
-        <Link
-          href="/profile"
-          aria-label="Your profile"
-          className={clsx("-my-1 rounded-full", path === "/profile" && "ring-2 ring-sage ring-offset-2 ring-offset-sand")}
-        >
-          <Avatar name={member.name} photo={member.photo} className="h-8 w-8 text-base" />
-        </Link>
+        <div className="flex items-center gap-3">
+          {/* Your check-in code, from every tab. */}
+          <button onClick={() => setCheckingIn(true)} aria-label="Check in" className="-my-1 flex h-8 w-8 items-center justify-center rounded-full border border-line bg-card active:bg-line">
+            <QrCode size={18} />
+          </button>
+          {/* Your profile, from every tab. */}
+          <Link
+            href="/profile"
+            aria-label="Your profile"
+            className={clsx("-my-1 rounded-full", path === "/profile" && "ring-2 ring-sage ring-offset-2 ring-offset-sand")}
+          >
+            <Avatar name={member.name} photo={member.photo} className="h-8 w-8 text-base" />
+          </Link>
+        </div>
       </header>
+      {checkingIn && <CheckInSheet onClose={() => setCheckingIn(false)} />}
       <PullToRefresh>
         <SwipeTabs tabs={TAB_HREFS} pages={TAB_PAGES} onLanding={setLanding}>
           <main className="flex-1 px-4 pb-20 pt-3">{children}</main>
