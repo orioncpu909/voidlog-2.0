@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarCheck } from "lucide-react";
 import { TIERS } from "@/lib/data";
 import { useStore } from "@/lib/store";
 import { REFUND_WINDOW_DAYS, refundWindowEnds } from "@/lib/membership";
@@ -33,26 +32,19 @@ export function MembershipCard({ statusOnly = false }: { statusOnly?: boolean })
   }
   if (statusOnly) return null;
 
-  const now = new Date();
-  const renews = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  // Otherwise only the refund rules that apply right now: the plan and billing day are on the
+  // Account card just above.
+  const refundable = refundWindowOpen && !!member.memberSince;
+  if (!refundable && !refundLostToCredit) return null;
 
   return (
-    <section className="rounded-3xl border border-line bg-card p-4">
-      <div className="flex items-start gap-3">
-        <CalendarCheck size={18} className="mt-0.5 shrink-0 text-moss" />
-        <div className="text-sm">
-          {/* The plan and price are on the Account card just above, so this card is only the dates. */}
-          <p className="text-muted">
-            {member.memberSince && `Member since ${shortDate(dateKey(new Date(member.memberSince)))} · `}Renews {shortDate(dateKey(renews))}
-          </p>
-          {refundWindowOpen && member.memberSince && (
-            <p className="mt-2 text-sage-deep">
-              You&apos;re in your first {REFUND_WINDOW_DAYS} days. Cancel before {momentLabel(refundWindowEnds(member.memberSince))} for a full refund.
-            </p>
-          )}
-          {refundLostToCredit && <p className="mt-2 text-shell">You&apos;ve used a treatment credit, so this membership can no longer be refunded.</p>}
-        </div>
-      </div>
+    <section className="space-y-2 rounded-3xl border border-line bg-card p-4 text-sm">
+      {refundable && (
+        <p className="text-sage-deep">
+          You&apos;re in your first {REFUND_WINDOW_DAYS} days. Cancel before {momentLabel(refundWindowEnds(member.memberSince!))} for a full refund.
+        </p>
+      )}
+      {refundLostToCredit && <p className="text-shell">You&apos;ve used a treatment credit, so this membership can no longer be refunded.</p>}
     </section>
   );
 }
