@@ -8,10 +8,11 @@ import { TIERS } from "@/lib/data";
 import { useStore } from "@/lib/store";
 import { completedVisits } from "@/lib/stats";
 import {
-  BoardRow, CHALLENGE_PRIZE_CREDITS, Challenge, METRICS, PLUNGE_MAX_SECONDS, PLUNGE_MIN_SECONDS, PLUNGE_SCORE_CAP, challengeCalendar, challengeName, clock, daysLeft,
-  allTimeBoard, allTimeStats, demoAllTimeStats, displayName, isEntered, leaderboard, loggableSessions, scoreFor, waitlistCount,
+  BoardRow, CHALLENGE_PRIZE_CREDITS, Challenge, METRICS, PLUNGE_MAX_SECONDS, PLUNGE_MIN_SECONDS, PLUNGE_SCORE_CAP, TIE_BREAK_DAYS, challengeCalendar, challengeName, clock, daysLeft,
+  MEMBER_COUNT, allTimeBoard, allTimeStats, demoAllTimeStats, displayName, endedChallenges, isEntered, leaderboard, loggableSessions, scoreFor, tieBreakEnds, waitlistCount,
 } from "@/lib/community";
 import { SHOW_FINISHED_SPRINTS, SHOW_PLUNGE_CHALLENGE } from "@/lib/flags";
+import { dateKey } from "@/lib/schedule";
 import { dayLabel, shortDate } from "@/lib/format";
 import { Button, Sheet } from "@/components/Sheet";
 
@@ -20,6 +21,7 @@ import { Button, Sheet } from "@/components/Sheet";
 interface BoardBlock {
   rank: number;
   rows: BoardRow[];
+  tied: number; // everyone at this rank, even if only some are shown
 }
 
 // The first `limit` people as blocks, cutting a tie bracket short if it runs past the limit.
@@ -28,7 +30,7 @@ function boardBlocks(rows: BoardRow[], limit: number): BoardBlock[] {
   for (const r of rows.slice(0, limit)) {
     const last = blocks[blocks.length - 1];
     if (last && r.rank <= 3 && last.rank === r.rank) last.rows.push(r);
-    else blocks.push({ rank: r.rank, rows: [r] });
+    else blocks.push({ rank: r.rank, rows: [r], tied: rows.filter((x) => x.rank === r.rank).length });
   }
   return blocks;
 }
@@ -40,6 +42,7 @@ const CARD_TOP = 5; // people on a challenge card
 // Opens someone's all-time stats, from a row on any board.
 const OpenStats = createContext<(row: BoardRow) => void>(() => {});
 const SHEET_TOP = 10; // people in a challenge's details
+const TIE_RULE = `If first place ends in a tie, the first of them to scan in and finish one more visit that counts within ${TIE_BREAK_DAYS} days wins the credit.`;
 
 // Community: friendly challenges and their leaderboards. A row of chips at the top jumps to any
 // challenge; what's coming up comes first (with a waitlist to sign up early), then this week's
@@ -62,9 +65,14 @@ export default function CommunityPage() {
           <p className="text-sm text-muted">
             Friendly challenges each month. No pressure, and first place wins {CHALLENGE_PRIZE_CREDITS} treatment credit.
           </p>
+          <p className="mt-1 flex items-center gap-1.5 text-sm font-medium">
+            <Users size={15} /> {MEMBER_COUNT.toLocaleString()} members · {allTimeBoard(null).length} on the leaderboards
+          </p>
         </div>
         {tier.isMember ? <BoardSwitch /> : <MembersOnly />}
       </div>
+
+      <TieBreakers />
 
       <JumpBar upcoming={cal.upcoming} running={[...weekly, ...monthly]} />
 
@@ -82,7 +90,7 @@ export default function CommunityPage() {
       {cal.lastMonth.length > 0 && <Finished title="Last month's results" challenges={cal.lastMonth} />}
 
       <p className="px-2 text-center text-xs text-muted">
-        Classes and therapies count once you&apos;ve been to them. Treatments don&apos;t count. Ties for first each win the credit.
+        Classes and therapies count once you&apos;ve been to them. Treatments don&apos;t count. {TIE_RULE}
       </p>
       {viewing && <StatsSheet row={viewing} onClose={() => setViewing(null)} />}
     </div>
@@ -99,7 +107,8 @@ function AllTimeBoard() {
   const shown = TIERS[member.tier].isMember && !!member.communityJoined;
   const rows = allTimeBoard(shown ? me : null);
   const rank = allTimeBoard(me).find((r) => r.you)?.rank;
-  const standing = !rank ? "No visits yet. Your first one puts you on the board." : `${shown ? "You're" : "You'd be"} #${rank} with ${visits} visit${visits === 1 ? "" : "s"}${shown ? "" : ", just for you"}.`;
+  const total = rows.length + (rows.some((r) => r.you) ? 0 : 1);
+  const standing = !rank ? "No visits yet. Your first one puts you on the board." : `${shown ? "You're" : "You'd be"} #${rank} of ${total} with ${visits} visit${visits === 1 ? "" : "s"}${shown ? "" : ", just for you"}.`;
   return (
     <section id="all-time" className="scroll-mt-16 space-y-2">
       <h2 className="text-xs font-semibold uppercase tracking-widest text-muted">All-time leaderboard</h2>
@@ -342,7 +351,7 @@ function ChallengeSheet({ challenge: c, open, onClose }: { challenge: Challenge;
               </span>
             </Button>
           )}
-          <p className="text-xs text-muted">Classes and therapies count once you&apos;ve been to them. Treatments don&apos;t count. Ties for first each win the credit.</p>
+          <p className="text-xs text-muted">Classes and therapies count once you&apos;ve been to them. Treatments don&apos;t count. {TIE_RULE}</p>
         </div>
       </Sheet>
       {SHOW_PLUNGE_CHALLENGE && c.metric === "plunge" && <PlungeSheet challenge={c} open={logging} onClose={() => setLogging(false)} />}
@@ -365,7 +374,7 @@ function Board({ rows, limit, unit }: { rows: BoardRow[]; limit: number; unit: (
           <li className="py-0.5 text-center text-xs text-muted" aria-hidden>
             ⋯
           </li>
-          <Block block={{ rank: rows[mineIndex].rank, rows: [rows[mineIndex]] }} unit={unit} />
+          <Block block={{ rank: rows[mineIndex].rank, rows: [rows[mineIndex]], tied: 1 }} unit={unit} />
         </>
       )}
     </ol>
@@ -378,7 +387,7 @@ function Block({ block, unit }: { block: BoardBlock; unit: (n: number) => string
   if (block.rows.length === 1) return <Person row={block.rows[0]} unit={unit} />;
   return (
     <li className="rounded-xl border border-sage/60 bg-sage/10 px-2 pb-1 pt-1.5">
-      <p className="px-2 text-[10px] font-semibold uppercase tracking-widest text-sage-deep">Tied for {ordinal(block.rank)}</p>
+      <p className="px-2 text-[10px] font-semibold uppercase tracking-widest text-sage-deep">Tied for {ordinal(block.rank)}{block.tied > block.rows.length ? ` · ${block.tied} people` : ""}</p>
       <ol>
         {block.rows.map((r) => (
           <Person key={r.name + r.you} row={r} unit={unit} />
@@ -515,6 +524,58 @@ function PlungeSheet({ challenge: c, open, onClose }: { challenge: Challenge; op
   );
 }
 
+// Ties you're in, from a challenge that just ended: the race for the credit, then who won it.
+function TieBreakers() {
+  const { member, challengeResult } = useStore();
+  const today = dateKey(new Date());
+  const ties = endedChallenges().flatMap((c) => {
+    const outcome = TIERS[member.tier].isMember && today <= tieBreakEnds(c) ? challengeResult(c) : null;
+    return outcome && outcome.tied.length > 1 && outcome.tied.some((t) => t.id === member.id) ? [{ c, outcome }] : [];
+  });
+  if (ties.length === 0) return null;
+  return (
+    <section className="space-y-2">
+      <h2 className="text-xs font-semibold uppercase tracking-widest text-muted">Tie breaker</h2>
+      {ties.map(({ c, outcome }) => {
+        const info = METRICS[c.metric];
+        const others = outcome.tied.length - 1;
+        const tied = `You and ${others} ${others === 1 ? "other" : "others"} tied for first with ${info.unit(outcome.score)}.`;
+        const heading = (
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="min-w-0 font-serif text-xl leading-tight">{challengeName(c)}</h3>
+            {!outcome.closed && <span className="shrink-0 rounded-full bg-moss-soft px-2.5 py-0.5 text-xs text-moss">{leftLabel(daysLeft({ ends: tieBreakEnds(c) }))}</span>}
+          </div>
+        );
+        if (!outcome.closed) {
+          return (
+            <Link key={c.id} href={info.book} className="block rounded-3xl border border-sage bg-card p-4 transition-colors active:bg-sand">
+              {heading}
+              <p className="mt-2 text-sm">
+                {tied} The first of you to finish another {info.visit} wins {CHALLENGE_PRIZE_CREDITS} treatment credit.
+              </p>
+              <p className="mt-1 text-xs text-muted">Scan your QR code at the front desk so it counts.</p>
+              <p className="mt-1 flex items-center justify-end gap-0.5 text-sm font-medium text-moss">
+                Book it <ChevronRight size={16} />
+              </p>
+            </Link>
+          );
+        }
+        return (
+          <article key={c.id} className="rounded-3xl border border-line bg-card p-4">
+            {heading}
+            <p className="mt-2 text-sm">
+              {tied}{" "}
+              {outcome.winner?.id === member.id
+                ? `You finished first, so ${CHALLENGE_PRIZE_CREDITS} treatment credit was added to your account.`
+                : `${outcome.winner?.name} finished first and won the credit.`}
+            </p>
+          </article>
+        );
+      })}
+    </section>
+  );
+}
+
 // Earlier this month: each finished sprint's winner and where you ended up.
 function Finished({ title, challenges }: { title: string; challenges: Challenge[] }) {
   return (
@@ -530,10 +591,19 @@ function Finished({ title, challenges }: { title: string; challenges: Challenge[
 }
 
 function FinishedRow({ challenge: c }: { challenge: Challenge }) {
+  const { member, challengeResult } = useStore();
   const { rows } = useBoard(c);
   const unit = METRICS[c.metric].unit;
-  const winners = rows.filter((r) => r.rank === 1);
+  const outcome = challengeResult(c);
   const mine = rows.find((r) => r.you);
+  const tiedFor = outcome && `Tied for 1st · ${outcome.tied.length} people`;
+  const result = !outcome
+    ? "No entries"
+    : outcome.winner
+      ? `1st: ${outcome.winner.id === member.id ? "You" : outcome.winner.name} · ${unit(outcome.score)}${outcome.tied.length > 1 ? " · won the tie breaker" : ""}`
+      : outcome.closed
+        ? `${tiedFor} · no one won the tie breaker`
+        : `${tiedFor} · tie breaker open until ${shortDate(tieBreakEnds(c))}`;
   return (
     <div className="px-4 py-3">
       <p className="flex items-baseline justify-between gap-2">
@@ -543,7 +613,7 @@ function FinishedRow({ challenge: c }: { challenge: Challenge }) {
         </span>
       </p>
       <p className="text-sm text-muted">
-        {winners.length ? `1st: ${winners.map((w) => (w.you ? "You" : w.name)).join(", ")} · ${unit(winners[0].score)}` : "No entries"}
+        {result}
         {mine && mine.rank > 1 ? ` · you were #${mine.rank}` : ""}
       </p>
     </div>
@@ -573,7 +643,7 @@ function UpcomingDetails({ challenge: c }: { challenge: Challenge }) {
       </p>
       <p className="text-sm">{c.blurb}</p>
       <Prize />
-      <p className="text-xs text-muted">Classes and therapies count once you&apos;ve been to them. Ties for first each win the credit.</p>
+      <p className="text-xs text-muted">Classes and therapies count once you&apos;ve been to them. {TIE_RULE}</p>
       <p className="flex items-center gap-1.5 text-xs text-muted">
         <Users size={14} /> {count} on the waitlist
       </p>

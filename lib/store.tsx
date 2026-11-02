@@ -11,10 +11,10 @@ import { CancelTerms, canUseCredit, cancelTerms } from "./policy";
 import { TRIAL_BECOMES, firstMonthCharge, trialEndsAt } from "./trial";
 import { checkInDue } from "./checkin";
 import { endOfMonth, inRefundWindow, joinCharge, usesTreatmentCredit } from "./membership";
-import { money, timeLabel, timeRange } from "./format";
+import { money, shortDate, timeLabel, timeRange } from "./format";
 import { REFERRAL_CREDITS, ReferralResult, findReferrer } from "./referral";
 import {
-  CHALLENGE_PRIZE_CREDITS, PLUNGE_MAX_SECONDS, PLUNGE_MIN_SECONDS, challengeName, displayName, endedChallenges, isEntered, leaderboard, scoreFor,
+  CHALLENGE_PRIZE_CREDITS, Challenge, ChallengeResult, PLUNGE_MAX_SECONDS, PLUNGE_MIN_SECONDS, challengeName, displayName, endedChallenges, firstPlace, isEntered, runTieBreak, scoreFor, tieBreakEnds,
 } from "./community";
 import { TulipLogo } from "@/components/TulipLogo";
 
@@ -48,6 +48,7 @@ export interface Member {
   communityJoinedAt?: string; // ISO time it was last turned on; only challenges ending after it can be won that way
   challengeWaitlist?: string[]; // challenge ids signed up for before they started (enters you in that one)
   challengeWins?: string[]; // challenge ids won and already paid out as credits
+  challengeResults?: Record<string, ChallengeResult>; // ended challenges by id, saved so they can't change
 }
 
 // A cold plunge time a member clocked after a completed Contrast (sauna + plunge) session.
@@ -435,29 +436,59 @@ const LEAVE_COMMUNITY: Partial<Member> = { communityJoined: false, challengeWait
 // Adds a note to Home without losing one that hasn't been read yet.
 const addNotice = (current: string | undefined, text: string) => (current ? `${current}\n\n${text}` : text);
 
-// Challenge prizes: when a Community challenge ends, each member who was in it (isEntered: the
-// same rule the boards use) and finished first, ties included, gets CHALLENGE_PRIZE_CREDITS
-// treatment credit and a note on Home, once per challenge. Returns the same object when nothing is due.
+// How an ended challenge stands for an account: its own board, the demo members plus them. Saved
+// once it's first seen. A win paid before results were saved keeps standing.
+function challengeResultOf(c: Challenge, m: Member, s: State, now: Date): ChallengeResult | null {
+  const saved = m.challengeResults?.[c.id];
+  if (saved?.closed) return saved;
+  const me = { id: m.id, name: displayName(m), score: scoreFor(c, m.id, s.bookings, s.plunges ?? [], now) };
+  if (!saved && m.challengeWins?.includes(c.id)) return { score: me.score, tied: [me], winner: me, closed: true };
+  const result = saved ?? firstPlace(c, isEntered(c, m, TIERS[m.tier].isMember) ? [me] : [], now);
+  return result && runTieBreak(c, result, s.bookings, TIERS[m.tier].isMember, now);
+}
+
+// Challenge prizes: an account in an ended challenge has its result saved, and it changes only as
+// the tie breaker plays out (runTieBreak has the rules). A win gets CHALLENGE_PRIZE_CREDITS
+// treatment credit and a note on Home; a tied member also hears when the tie breaker starts and how
+// it ended. Returns the same object when nothing is due.
 function applyChallengePrizes(s: State, now = new Date()): State {
   const ended = endedChallenges(now);
   let changed = false;
   const members = s.members.map((m): Member => {
-    const tier = TIERS[m.tier];
-    if (!tier.isMember) return m;
-    const won = ended.filter((c) => {
-      if (m.challengeWins?.includes(c.id)) return false;
-      if (!isEntered(c, m, true)) return false;
-      const score = scoreFor(c, m.id, s.bookings, s.plunges ?? [], now);
-      return leaderboard(c, { name: displayName(m), score }, now).some((r) => r.you && r.rank === 1);
-    });
-    if (won.length === 0) return m;
+    const results = { ...m.challengeResults };
+    const won: string[] = [];
+    let notice = m.notice;
+    let moved = false;
+    for (const c of ended) {
+      const saved = results[c.id];
+      if (saved?.closed || (!saved && !isEntered(c, m, TIERS[m.tier].isMember))) continue;
+      const result = challengeResultOf(c, m, s, now);
+      if (!result || result === saved) continue;
+      results[c.id] = result;
+      moved = true;
+      const name = challengeName(c);
+      const tied = result.tied.length > 1;
+      if (result.winner?.id === m.id) {
+        if (m.challengeWins?.includes(c.id)) continue;
+        won.push(c.id);
+        notice = addNotice(notice, `You won ${tied ? `the tie breaker for ${name}` : name}! ${CHALLENGE_PRIZE_CREDITS} treatment credit was added to your account.`);
+      } else if (tied && result.tied.some((t) => t.id === m.id)) {
+        const text = !result.closed
+          ? `Tied for 1st in ${name}! Scan in and finish one more by ${shortDate(tieBreakEnds(c))} to win the credit.`
+          : result.winner
+            ? `${result.winner.name} finished first in the tie breaker for ${name}, so they won the credit.`
+            : `Nobody finished the tie breaker for ${name} in time, so no one won the credit.`;
+        notice = addNotice(notice, text);
+      }
+    }
+    if (!moved) return m;
     changed = true;
-    const credits = won.length * CHALLENGE_PRIZE_CREDITS;
     return {
       ...m,
-      credits: m.credits + credits,
-      challengeWins: [...(m.challengeWins ?? []), ...won.map((c) => c.id)],
-      notice: addNotice(m.notice, `You won ${won.map(challengeName).join(" and ")}! ${credits} treatment credit${credits === 1 ? " was" : "s were"} added to your account.`),
+      credits: m.credits + won.length * CHALLENGE_PRIZE_CREDITS,
+      challengeWins: [...(m.challengeWins ?? []), ...won],
+      challengeResults: results,
+      notice,
     };
   });
   return changed ? { ...s, members } : s;
@@ -496,9 +527,10 @@ function applyRenewals(s: State, now = new Date()): State {
 }
 
 // Everything that happens on its own: ended trials and memberships, renewals, then referral credits
-// and challenge prizes.
+// and challenge prizes. Prizes also go first, so a challenge's result is saved before anything
+// changes who was in it.
 function settle(s: State): State {
-  return applyChallengePrizes(applyReferralCredits(applyRenewals(applyScheduledChanges(s))));
+  return applyChallengePrizes(applyReferralCredits(applyRenewals(applyScheduledChanges(applyChallengePrizes(s)))));
 }
 
 function load(): State {
@@ -548,6 +580,7 @@ interface Store {
   endTrialNow: () => void; // demo only: jump to the end of the trial
   dismissNotice: () => void;
   plunges: PlungeLog[]; // every account's clocked plunge times
+  challengeResult: (c: Challenge) => ChallengeResult | null; // how an ended challenge stands
   joinCommunity: (joined: boolean) => void;
   setPhoto: (photo?: string) => void;
   toggleWaitlist: (challengeId: string) => void; // sign up for (or leave) a challenge before it starts
@@ -840,6 +873,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         update((s) => (member.tier !== "trial" ? s : applyScheduledChanges({ ...s, members: patchMember(s, { trialEndsAt: new Date(Date.now() - 1000).toISOString() }) }))),
       dismissNotice: () => update((s) => ({ ...s, members: patchMember(s, { notice: undefined }) })),
       plunges: state.plunges ?? [],
+      challengeResult: (c) => challengeResultOf(c, member, state, new Date()),
       // Only members can be on the boards; leaving keeps their history but hides them.
       setPhoto: (photo) => update((s) => ({ ...s, members: patchMember(s, { photo }) })),
       joinCommunity: (joined) =>

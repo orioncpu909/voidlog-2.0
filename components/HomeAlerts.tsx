@@ -32,6 +32,7 @@ export function HomeAlerts() {
   const today = dateKey(new Date());
   const dismissed = new Set(member.dismissedPromos ?? []);
   const promos = tier.isMember ? [] : currentPromos(today).filter((p) => !dismissed.has(p.id));
+  const note = member.notice?.split("\n\n").pop();
 
   return (
     <div className="shrink-0 space-y-2 empty:hidden">
@@ -47,7 +48,11 @@ export function HomeAlerts() {
         >
           {/* Several notes can stack up (a prize, a referral, a billing change): Home shows the
               newest and links to Account for the rest, so it still fits one screen. */}
-          <span className="line-clamp-2">{member.notice.split("\n\n").pop()}</span>
+          {note?.startsWith("Tied for 1st") ? (
+            <Link href="/community" className="line-clamp-2">{note}</Link>
+          ) : (
+            <span className="line-clamp-2">{note}</span>
+          )}
           {member.notice.includes("\n\n") && (
             <Link href="/membership" className="mt-0.5 block text-[11px] underline underline-offset-2">
               +{member.notice.split("\n\n").length - 1} more on Account

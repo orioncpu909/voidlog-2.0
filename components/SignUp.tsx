@@ -7,6 +7,7 @@ import { ArrowLeft, ChevronRight, Eye, EyeOff } from "lucide-react";
 import { TIERS } from "@/lib/data";
 import { SERVICE_IMAGE } from "@/lib/images";
 import { useStore } from "@/lib/store";
+import { MEMBER_COUNT, WELLNESS_COUNT, signupsThisWeek } from "@/lib/community";
 import { findReferrer } from "@/lib/referral";
 import { EMAIL_MAX, NAME_MAX, cleanEmail, cleanInstagram, cleanName, emailError, instagramError, nameError, phoneError, phoneNumber } from "@/lib/validate";
 import { checkPassword, PASSWORD_MIN_LENGTH, PASSWORD_MIN_SCORE, STRENGTH_LABELS, type PasswordCheck } from "@/lib/password";
@@ -41,6 +42,9 @@ function Start({ onCreate, onSignIn }: { onCreate: () => void; onSignIn: () => v
       <div className="relative -mt-6 flex flex-1 flex-col px-6 pb-10 text-center">
         <h1 className="font-serif text-4xl leading-tight">Move. Sweat. Freeze.</h1>
         <p className="mt-2 text-muted">Book classes, therapies and treatments at ARTHA West LA and Studio City.</p>
+        <p className="mt-2 text-sm font-medium">
+          Join {(MEMBER_COUNT + WELLNESS_COUNT).toLocaleString()} people. {signupsThisWeek()} joined this week.
+        </p>
         <div className="mt-8 space-y-2">
           <Button onClick={onCreate}>Create account</Button>
           <Button variant="secondary" onClick={onSignIn}>
