@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import { CalendarDays, Check, MapPin, Ticket, Users } from "lucide-react";
 import { LOCATIONS, LocationId, TIERS } from "@/lib/data";
@@ -10,6 +10,7 @@ import { useStore } from "@/lib/store";
 import { cancelTerms, policyLine } from "@/lib/policy";
 import { dayLabel, money, timeRange } from "@/lib/format";
 import { calendarHref } from "@/lib/flags";
+import { BlockedBanner } from "./BlockedBanner";
 import { Button, Sheet } from "./Sheet";
 
 function sessionFor(e: ArthaEvent) {
@@ -32,7 +33,7 @@ export function EventsSection() {
   return (
     <section className="shrink-0 space-y-2">
       <h2 className="font-serif text-lg leading-none">Upcoming events</h2>
-      <div className="no-scrollbar -mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-1">
+      <div className="no-scrollbar -mx-4 flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto px-4 pb-1">
         {upcoming.map((e) => {
           const d = sessionStart(e.date, e.time);
           const session = e.ticket ? sessionFor(e) : undefined;
@@ -42,26 +43,28 @@ export function EventsSection() {
             <button
               key={e.id}
               onClick={() => setOpen(e)}
-              className="flex w-56 shrink-0 snap-start gap-2.5 rounded-2xl border border-line bg-card p-3 text-left hover:border-muted"
+              className="w-[calc(50%-0.5rem)] shrink-0 snap-start rounded-2xl border border-line bg-card p-2.5 text-left hover:border-muted"
             >
-              <div className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-xl bg-moss-soft text-moss">
-                <span className="text-[9px] uppercase leading-none">{d.toLocaleDateString("en-US", { month: "short" })}</span>
-                <span className="font-serif text-lg leading-none">{d.getDate()}</span>
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium leading-tight">{e.title}</p>
-                <p className="mt-0.5 truncate text-[11px] text-muted">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 shrink-0 flex-col items-center justify-center rounded-xl bg-moss-soft text-moss">
+                  <span className="text-[9px] uppercase leading-none">{d.toLocaleDateString("en-US", { month: "short" })}</span>
+                  <span className="font-serif text-base leading-none">{d.getDate()}</span>
+                </div>
+                <p className="min-w-0 truncate text-[11px] text-muted">
                   {d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                  {offsite && ` · ${e.venue}`}
+                  {offsite && <span className="block truncate">{e.venue}</span>}
                 </p>
-                <div className="mt-1.5 flex items-center gap-1.5">
+              </div>
+              <div className="mt-1.5 min-w-0">
+                <p className="truncate text-sm font-medium leading-tight">{e.title}</p>
+                <div className="mt-1 flex min-w-0 items-center gap-1.5">
                   <HostTag host={e.host} />
                   {going ? (
                     <span className="whitespace-nowrap text-[11px] text-moss">✓ {e.ticket ? "Ticket" : "Going"}</span>
                   ) : session && spotsLeft(session) === 0 ? (
                     <span className="whitespace-nowrap text-[11px] text-muted">Sold out</span>
                   ) : (
-                    <span className="whitespace-nowrap text-[11px] font-medium">{ticketLabel(e, isMember)}</span>
+                    <span className="min-w-0 truncate text-[11px] font-medium">{ticketLabel(e, isMember)}</span>
                   )}
                 </div>
               </div>
@@ -126,6 +129,7 @@ function TicketPanel({ event, onLeave }: { event: ArthaEvent; onLeave: () => voi
   const { member, book, spotsLeft, myBookingFor, termsForBooking } = useStore();
   const [stage, setStage] = useState<"details" | "confirm">("details");
   const [error, setError] = useState<string | null>(null);
+  const clearError = useCallback(() => setError(null), []);
   const session = sessionFor(event);
   if (!session) return null;
 
@@ -170,7 +174,7 @@ function TicketPanel({ event, onLeave }: { event: ArthaEvent; onLeave: () => voi
           <span className="font-serif text-2xl">{money(price)}</span>
         </div>
         <p className="rounded-2xl bg-moss-soft p-4 font-medium text-moss">{policyLine(terms, false)}</p>
-        {error && <p className="rounded-2xl bg-clay-soft px-4 py-3 text-clay">{error}</p>}
+        {error && <BlockedBanner message={error} onClose={clearError} />}
         <Button
           onClick={() => {
             const r = book(session, false);

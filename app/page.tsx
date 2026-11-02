@@ -23,9 +23,9 @@ export default function HomePage() {
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
   return (
-    // Exactly one screen tall: the header (53px), top padding (12px) and tab-bar space (80px)
-    // take 145px. The calendar stretches or shrinks to fill whatever room is left.
-    <div className="flex h-[calc(100dvh-145px)] min-h-[560px] flex-col gap-2.5">
+    // At least one screen tall: the header (53px), top padding (12px) and tab-bar space (80px) take
+    // 145px. The calendar stretches to fill what's left, and the page scrolls if it needs more.
+    <div className="flex min-h-[max(560px,calc(100dvh-145px))] flex-col gap-2.5">
       <div className="flex shrink-0 items-end justify-between gap-3">
         <h1 className="font-serif text-3xl leading-none">
           <span className="block font-sans text-xs text-muted">{greeting},</span>

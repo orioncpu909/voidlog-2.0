@@ -46,13 +46,15 @@ function ProfilePhoto() {
             <Camera size={14} />
           </span>
         </button>
-        <button type="button" onClick={() => input.current?.click()} className="px-3 py-3 text-sm text-moss active:opacity-60">
-          {member.photo ? "Change photo" : "Add photo"}
-        </button>
         {member.photo && (
-          <button type="button" onClick={() => setPhoto(undefined)} className="px-3 py-3 text-sm text-muted active:opacity-60">
-            Remove
-          </button>
+          <>
+            <button type="button" onClick={() => input.current?.click()} className="px-3 py-3 text-sm text-moss active:opacity-60">
+              Change photo
+            </button>
+            <button type="button" onClick={() => setPhoto(undefined)} className="px-3 py-3 text-sm text-muted active:opacity-60">
+              Remove
+            </button>
+          </>
         )}
       </div>
       <input ref={input} type="file" accept="image/*" onChange={choose} className="hidden" aria-hidden tabIndex={-1} />

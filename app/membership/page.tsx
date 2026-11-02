@@ -8,9 +8,10 @@ import { LOCATIONS, MEMBERSHIP_ORDER, PERK_LABEL, ServiceId, TIERS, TierId } fro
 import { dateKey } from "@/lib/schedule";
 import { useStore } from "@/lib/store";
 import { money } from "@/lib/format";
+import { joinCharge } from "@/lib/membership";
 import { PriceList } from "@/components/PriceList";
 import { NoticeBanner, TrialCard } from "@/components/TrialCard";
-import { MembershipCard } from "@/components/MembershipCard";
+import { CancelMembership, MembershipCard } from "@/components/MembershipCard";
 import { StatsOverview } from "@/components/StatsOverview";
 import { SwitchToWellness } from "@/components/SwitchToWellness";
 import { EmailStudioButton } from "@/components/EmailStudio";
@@ -28,7 +29,7 @@ export default function AccountPage() {
   const options = MEMBERSHIP_ORDER.filter((id) => id !== member.tier && (id !== "trial" || canStartTrial));
 
   return (
-    <div className="space-y-4">
+    <div className="account-text space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="font-serif text-3xl">Account</h1>
         <HistoryButton />
@@ -176,10 +177,13 @@ export default function AccountPage() {
         </button>
       </Disclosure>
 
-      <Sheet open={!!joining} onClose={() => setJoining(null)} title={joining ? `Switch to ${TIERS[joining].name}` : ""}>
+      <CancelMembership />
+
+      <Sheet open={!!joining} onClose={() => setJoining(null)} title={joining ? `${tier.isMember ? "Switch" : "Upgrade"} to ${TIERS[joining].name}` : ""}>
         {joining && (
           <div className="space-y-4 text-sm">
             <p>{TIERS[joining].summary}</p>
+            <ChargeSummary tier={joining} />
             <p className="text-muted">
               {TIERS[joining].monthly
                 ? `${money(TIERS[joining].monthly!)}/month, month-to-month, valid at ${location.name}.`
@@ -189,17 +193,47 @@ export default function AccountPage() {
               <p className="mb-2 text-xs uppercase tracking-widest text-muted">You&apos;d pay</p>
               <PriceList tier={joining} location={member.home} />
             </div>
-            <Button
-              onClick={() => {
-                changeTier(joining);
-                setJoining(null);
-              }}
-            >
-              Confirm
-            </Button>
+            <div className="space-y-2">
+              <Button
+                onClick={() => {
+                  changeTier(joining);
+                  setJoining(null);
+                }}
+              >
+                {joinCharge(member.tier, joining).amount > 0 ? `Confirm and pay ${money(joinCharge(member.tier, joining).amount)}` : "Confirm"}
+              </Button>
+              <Button variant="secondary" onClick={() => setJoining(null)}>
+                Not now
+              </Button>
+            </div>
           </div>
         )}
       </Sheet>
+    </div>
+  );
+}
+
+// What the card is charged when changing plans, before they confirm.
+function ChargeSummary({ tier: tierId }: { tier: TierId }) {
+  const { member } = useStore();
+  const due = joinCharge(member.tier, tierId);
+  const nextMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return (
+    <div className="rounded-2xl border border-line p-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <span>You pay today</span>
+        <span className="stat-num text-2xl">{money(due.amount)}</span>
+      </div>
+      {due.days && (
+        <p className="mt-1 text-muted">
+          Prorated: {due.days.remaining} of {due.days.daysInMonth} days left this month.
+        </p>
+      )}
+      {due.monthly && (
+        <p className="mt-1 text-muted">
+          Then {money(due.monthly)}/month, billed the 1st, starting {nextMonth}.
+        </p>
+      )}
     </div>
   );
 }

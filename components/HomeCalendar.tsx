@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import clsx from "clsx";
@@ -24,6 +24,8 @@ const DAY = /^\d{4}-\d{2}-\d{2}$/;
 // details in place. "History" lists past visits. Links like /?day=2026-10-29 select that day.
 // The selected day is shared with the streak card (Home owns it), so picking a day in either one
 // shows it in both.
+const DAY_ROW_PX = 26; // the smallest a week can be; they grow into any spare room
+
 export function HomeCalendar({ selected, onSelect }: { selected: string | null; onSelect: (day: string | null) => void }) {
   const { bookings } = useStore();
   const router = useRouter();
@@ -37,6 +39,9 @@ export function HomeCalendar({ selected, onSelect }: { selected: string | null; 
   // Cancel asks right in the list, so the calendar stays in view.
   const [confirming, setConfirming] = useState<Booking | null>(null);
   const [viewing, setViewing] = useState<Booking | null>(null);
+  const list = useRef<HTMLDivElement>(null);
+  const [pageHeight, setPageHeight] = useState<number>();
+  const [page, setPage] = useState(0);
 
   // Opened from "See it on your calendar" elsewhere in the app.
   const dayParam = params.get("day");
@@ -82,15 +87,20 @@ export function HomeCalendar({ selected, onSelect }: { selected: string | null; 
   const dayList = (date: string) =>
     bookings.filter((b) => b.date === date && (b.status === "booked" || date < today)).sort((a, b) => bookingStart(a) - bookingStart(b));
   const shown = selected ? dayList(selected) : upcoming;
-  const groups: [string, Booking[]][] = [];
-  for (const b of shown) {
-    const last = groups[groups.length - 1];
-    if (last && last[0] === b.date) last[1].push(b);
-    else groups.push([b.date, [b]]);
-  }
+  const pages: Booking[][] = [];
+  for (let i = 0; i < shown.length; i += 2) pages.push(shown.slice(i, i + 2));
+  const openPage = pages.find((pair) => pair.some((b) => b.id === expanded)); // an open row shows on its own
+
+  // The list is as tall as its tallest pair, so a shorter pair never shows part of the next one.
+  const pageIds = pages.map((pair) => pair.map((b) => b.id).join()).join("|");
+  useLayoutEffect(() => {
+    setPage(0);
+    const pairs = list.current?.querySelectorAll<HTMLElement>("[data-pair]");
+    if (pairs?.length) setPageHeight(Math.max(...Array.from(pairs, (el) => el.offsetHeight)));
+  }, [pageIds, selected, !!openPage]);
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col rounded-3xl border border-line bg-card px-4 pb-2 pt-2.5">
+    <section className="flex flex-1 flex-col rounded-3xl border border-line bg-card px-4 pb-2 pt-2.5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-0.5">
           <h2 className="mr-1 font-serif text-xl">{month.toLocaleDateString("en-US", isThisMonth ? { month: "long" } : { month: "long", year: "numeric" })}</h2>
@@ -108,16 +118,68 @@ export function HomeCalendar({ selected, onSelect }: { selected: string | null; 
         )}
       </div>
 
-      {/* Rows are 42px, shrinking toward 26px only when Home is short on room (an alert row, a
-          six-week month), so the bookings list below always keeps space for at least one booking. */}
+      <div className="mt-1 border-b border-line pb-1.5 text-xs">
+        {confirming ? (
+          <CancelConfirm booking={confirming} onDone={() => setConfirming(null)} />
+        ) : (
+          <>
+            <div className="mb-0.5 flex items-center justify-between">
+              <span className="font-medium text-moss">
+                {selected ? dayLabel(selected, "long") : upcoming.length ? `Coming up (${upcoming.length})` : "Coming up"}
+              </span>
+              {pages.length > 1 && !openPage && (
+                <span className="text-[10px] text-muted">
+                  {page * 2 + 1}–{Math.min(page * 2 + 2, shown.length)} of {shown.length}, scroll for more
+                </span>
+              )}
+            </div>
+            {shown.length ? (
+              // Two appointments at a time: the list moves a whole pair at once, so no row is ever cut.
+              <div
+                key={selected ?? "upcoming"}
+                ref={list}
+                onScroll={(e) => pageHeight && setPage(Math.round(e.currentTarget.scrollTop / pageHeight))}
+                className={clsx("no-scrollbar", pages.length > 1 && !openPage && "snap-y snap-mandatory overflow-y-auto")}
+                style={pages.length > 1 && !openPage ? { height: pageHeight } : undefined}
+              >
+                {(openPage ? [openPage] : pages).map((pair) => (
+                  <div key={pair[0].id} className="snap-start snap-always" style={pages.length > 1 && !openPage ? { height: pageHeight } : undefined}>
+                    <div data-pair className="divide-y divide-line">
+                      {pair.map((b, i) => (
+                        <div key={b.id}>
+                          {!selected && (i === 0 || b.date !== pair[0].date) && (
+                            <p className="pt-0.5 text-[10px] font-medium uppercase tracking-wider text-muted">{dayLabel(b.date, "long")}</p>
+                          )}
+                          <BookingRow booking={b} upcoming={isUpcoming(b)} expanded={expanded === b.id} onToggle={() => toggle(b)} onCancel={() => setConfirming(b)} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center justify-between py-1">
+                <span className="text-muted">{selected ? "Nothing booked this day." : "Nothing booked yet."}</span>
+                {(!selected || selected >= today) && (
+                  <Link href="/book" className="font-medium text-moss">
+                    Book a visit →
+                  </Link>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Weeks take any spare room on Home, from 26px up to 42px, so the card fills a taller phone. */}
       <div className="mt-1 grid grid-cols-7 text-center text-[11px] text-muted">
         {WEEKDAYS.map((d, i) => (
           <span key={i}>{d}</span>
         ))}
       </div>
       <div
-        className="grid min-h-0 grid-cols-7 text-center"
-        style={{ gridTemplateRows: `repeat(${rows}, minmax(26px, 42px))`, flex: "0 1 auto", minHeight: rows * 26 }}
+        className="grid grid-cols-7 text-center"
+        style={{ gridTemplateRows: `repeat(${rows}, minmax(${DAY_ROW_PX}px, 42px))`, flex: "1 1 0", minHeight: rows * DAY_ROW_PX }}
       >
         {cells.map((day, i) => {
           if (!day) return <span key={`e${i}`} />;
@@ -150,43 +212,6 @@ export function HomeCalendar({ selected, onSelect }: { selected: string | null; 
             </button>
           );
         })}
-      </div>
-
-      <div className="mt-1 flex min-h-[76px] flex-1 flex-col border-t border-line pt-1.5 text-xs">
-        {confirming ? (
-          <CancelConfirm booking={confirming} onDone={() => setConfirming(null)} />
-        ) : (
-          <>
-            <div className="mb-0.5 flex items-center justify-between">
-              <span className="font-medium text-moss">
-                {selected ? dayLabel(selected, "long") : upcoming.length ? `Coming up (${upcoming.length})` : "Coming up"}
-              </span>
-            </div>
-            {shown.length ? (
-              <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto">
-                {groups.map(([date, list]) => (
-                  <div key={date}>
-                    {!selected && <p className="pt-0.5 text-[10px] font-medium uppercase tracking-wider text-muted">{dayLabel(date, "long")}</p>}
-                    <div className="divide-y divide-line">
-                      {list.map((b) => (
-                        <BookingRow key={b.id} booking={b} upcoming={isUpcoming(b)} expanded={expanded === b.id} onToggle={() => toggle(b)} onCancel={() => setConfirming(b)} />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex items-center justify-between py-1">
-                <span className="text-muted">{selected ? "Nothing booked this day." : "Nothing booked yet."}</span>
-                {(!selected || selected >= today) && (
-                  <Link href="/book" className="font-medium text-moss">
-                    Book a visit →
-                  </Link>
-                )}
-              </div>
-            )}
-          </>
-        )}
       </div>
 
       {history && (

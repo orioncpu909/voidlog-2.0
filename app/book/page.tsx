@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import clsx from "clsx";
@@ -12,6 +12,7 @@ import { canUseCredit, cancelTerms, policyLine } from "@/lib/policy";
 import { dayLabel, money, timeLabel, timeRange } from "@/lib/format";
 import { Therapist, therapistsFor } from "@/lib/therapists";
 import { addToPhoneCalendar } from "@/lib/ics";
+import { BlockedBanner } from "@/components/BlockedBanner";
 import { PriceTag, PromoNote } from "@/components/PriceTag";
 import { Button, Sheet } from "@/components/Sheet";
 import { EmailStudioButton } from "@/components/EmailStudio";
@@ -32,6 +33,9 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 const DAYS_AHEAD = 14;
 
+// The session just booked from a list, so its row can play the booked animation once.
+const JustBooked = createContext<string | null>(null);
+
 export default function BookPage() {
   return (
     <Suspense>
@@ -43,7 +47,7 @@ export default function BookPage() {
 function BookScreen() {
   const params = useSearchParams();
   const router = useRouter();
-  const { member, setLocation } = useStore();
+  const { member, setLocation, bookingConflict } = useStore();
   const tier = TIERS[member.tier];
   // A link can open one session's page directly (/book?session=…) or a tab (/book?category=therapy).
   const linked = useMemo(() => {
@@ -72,6 +76,13 @@ function BookScreen() {
   const [open, setOpen] = useState<Session | null>(linked ?? null);
   // Tapping Book or a time goes straight to the confirm sheet; the class page is only for details.
   const [quickBook, setQuickBook] = useState<Session | null>(null);
+  const [blocked, setBlocked] = useState<string | null>(null);
+  const clearBlocked = useCallback(() => setBlocked(null), []);
+  const tryBook = (s: Session) => {
+    const conflict = bookingConflict(s);
+    if (conflict) setBlocked(conflict);
+    else setQuickBook(s);
+  };
   const [toast, setToast] = useState<Booking | null>(null);
   useEffect(() => {
     if (!toast) return;
@@ -133,6 +144,7 @@ function BookScreen() {
   if (!section) return <BookFront onOpen={openSection} />;
 
   return (
+    <JustBooked.Provider value={toast?.sessionId ?? null}>
     <div className="space-y-5">
       {/* Pinned while you scroll: back to the boxes and the section's name, the location (and your
           price), then the date strip. */}
@@ -179,7 +191,7 @@ function BookScreen() {
           services={services.map((s) => s.id)}
           location={location}
           days={days}
-          onBook={setQuickBook}
+          onBook={tryBook}
           onAll={openService}
         />
       ) : (
@@ -191,7 +203,7 @@ function BookScreen() {
             {days.map((d) => (
               <section key={d} id={`day-${d}`} aria-label={dayLabel(d, "long")}>
                 <DayHeader date={d} />
-                <DayList date={d} serviceId={serviceId} location={location} therapist={shownTherapist} onOpen={setOpen} onBook={setQuickBook} first={d === days[0]} />
+                <DayList date={d} serviceId={serviceId} location={location} therapist={shownTherapist} onOpen={setOpen} onBook={tryBook} first={d === days[0]} />
               </section>
             ))}
           </div>
@@ -199,7 +211,7 @@ function BookScreen() {
         </>
       )}
 
-      {open && <SessionPage key={open.id} session={open} onClose={() => setOpen(null)} />}
+      {open && <SessionPage key={open.id} session={open} onClose={() => setOpen(null)} onBlocked={setBlocked} />}
       {quickBook && (
         <ConfirmBooking
           key={quickBook.id}
@@ -211,10 +223,11 @@ function BookScreen() {
           }}
         />
       )}
+      {blocked && <BlockedBanner message={blocked} onClose={clearBlocked} />}
       {toast && (
         <div role="status" className="fixed inset-x-4 bottom-24 z-[70] mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-line bg-card px-4 py-3 text-sm text-shell shadow-lg">
-          <Check size={18} className="shrink-0 text-sage" />
           <p className="min-w-0 flex-1 leading-tight">
+            <BookedCheck size={16} />
             <span className="font-medium">Booked</span> · {toast.title}, {dayLabel(toast.date, "short")} {timeLabel(toast.time)}
           </p>
           <Link href={calendarHref(toast.date)} className="shrink-0 font-medium text-sage">
@@ -223,6 +236,7 @@ function BookScreen() {
         </div>
       )}
     </div>
+    </JustBooked.Provider>
   );
 }
 
@@ -277,6 +291,7 @@ function ServiceMenu({
                 <ChevronRight size={16} />
               </span>
             </div>
+            <StudioLine location={location} className="mt-0.5" />
             {next ? (
               <div className="mt-1.5 flex items-center gap-2">
                 <span className="w-[58px] shrink-0 text-xs leading-tight text-muted">
@@ -363,6 +378,9 @@ function BookFront({ onOpen }: { onOpen: (id: Tab) => void }) {
         const next = nextOpen(id);
         const q = id === "therapy" ? cheapest(ids(id), quote, home, today) : quote(ids(id)[0], home, today);
         const credit = id !== "class" && member.credits > 0 && ids(id).some(canUseCredit);
+        // Classic includes just one therapy: name it, so "Included" doesn't read as all of them.
+        const free = ids(id).filter((s) => quote(s, home, today).price === 0);
+        const onlyIncluded = id === "therapy" && free.length === 1 ? free[0] : undefined;
         return (
           <button key={id} onClick={() => onOpen(id)} className="flex min-h-0 w-full flex-1 flex-col justify-between rounded-3xl border border-line bg-card p-5 text-left transition active:scale-[0.99] active:bg-line">
             <div className="flex items-center gap-3.5">
@@ -388,7 +406,13 @@ function BookFront({ onOpen }: { onOpen: (id: Tab) => void }) {
               </span>
               <span className="flex shrink-0 items-center gap-1.5">
                 {id === "therapy" && q.price > 0 && <span className="text-xs text-muted">from</span>}
-                <PriceTag quote={q} pill />
+                {onlyIncluded ? (
+                  <span className="whitespace-nowrap rounded-full bg-moss-soft px-2.5 py-0.5 text-xs text-moss">
+                    {SHORT_NAME[onlyIncluded] ?? SERVICES[onlyIncluded].name} included
+                  </span>
+                ) : (
+                  <PriceTag quote={q} pill />
+                )}
                 {credit && id === "treatment" && <span className="text-xs text-moss">or 1 credit</span>}
               </span>
             </div>
@@ -636,6 +660,7 @@ function ClassCard({ session, onOpen, onBook }: { session: Session; onOpen: () =
               <span className="truncate">{session.instructor ? `w/ ${session.instructor}` : "About this class"}</span>
               <ChevronDown size={15} className={clsx("shrink-0 rounded-full bg-line/70 transition", about && "rotate-180")} />
             </button>
+            <StudioLine location={session.location} className="mt-0.5" />
             <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm">
               <PriceTag quote={q} pill />
               {q.kind === "memberOff" && <PromoNote quote={q} />}
@@ -643,32 +668,49 @@ function ClassCard({ session, onOpen, onBook }: { session: Session; onOpen: () =
             </div>
           </div>
         </div>
-        <BookPill mine={mine} full={full} onBook={onBook} onOpen={onOpen} label={`${session.title} at ${timeLabel(session.time)}`} />
+        <BookPill id={session.id} mine={mine} full={full} onBook={onBook} onOpen={onOpen} label={`${session.title} at ${timeLabel(session.time)}`} />
       </div>
       {about && <p className="-mt-1 mb-3 ml-[84px] rounded-xl bg-card px-3 py-2 text-[13px] leading-snug text-shell">{classDescription(session.title)}</p>}
     </div>
   );
 }
 
+// Wellness Accounts book at either studio, so every bookable row says which one it's at.
+function StudioLine({ location, className }: { location: LocationId; className?: string }) {
+  const { member } = useStore();
+  if (TIERS[member.tier].isMember) return null;
+  return (
+    <p className={clsx("flex items-center gap-1 text-xs text-muted", className)}>
+      <MapPin size={12} className="shrink-0" /> {LOCATIONS[location].name}
+    </p>
+  );
+}
+
+// The check that pops in when something's just booked, then shrinks away and leaves "Booked".
+function BookedCheck({ size }: { size: number }) {
+  return (
+    <span className="booked-check" aria-hidden>
+      <Check size={size} />
+    </span>
+  );
+}
+
 // The row's action: Book (to the confirm sheet), Booked (to its page, to cancel or add to a calendar) or Full.
-function BookPill({ mine, full, onBook, onOpen, label }: { mine: boolean; full: boolean; onBook: () => void; onOpen: () => void; label: string }) {
+function BookPill({ id, mine, full, onBook, onOpen, label }: { id: string; mine: boolean; full: boolean; onBook: () => void; onOpen: () => void; label: string }) {
+  const justBooked = useContext(JustBooked) === id;
   if (full) return <span className="w-[80px] shrink-0 rounded-full bg-line py-2 text-center text-sm text-shell">Full</span>;
   return (
     <button
       onClick={mine ? onOpen : onBook}
       aria-label={`${mine ? "Booked" : "Book"} ${label}`}
       className={clsx(
-        "flex w-[80px] shrink-0 items-center justify-center gap-1 rounded-full py-2 text-sm font-semibold",
+        "flex w-[80px] shrink-0 items-center justify-center rounded-full py-2 text-sm font-semibold",
         mine ? "bg-moss text-sand" : "bg-sage text-ink active:bg-sage-light",
+        justBooked && "booked-pop",
       )}
     >
-      {mine ? (
-        <>
-          <Check size={14} /> Booked
-        </>
-      ) : (
-        "Book"
-      )}
+      {mine && justBooked && <BookedCheck size={14} />}
+      {mine ? "Booked" : "Book"}
     </button>
   );
 }
@@ -684,6 +726,9 @@ function SlotRow({ session, onOpen, onBook, showPrice }: { session: Session; onO
   const q = quote(session.serviceId, session.location, session.date);
   // HBOT: a credit can pay instead, and the confirm sheet uses one by default.
   const orCredit = canUseCredit(session.serviceId) && member.credits > 0 && q.price > 0;
+  const justBooked = useContext(JustBooked) === session.id;
+  const availability = mine ? "" : full ? "Full" : session.capacity === 1 ? "Available" : `${left} ${left === 1 ? "spot" : "spots"} left`;
+  const detail = [session.instructor && `with ${session.instructor}`, availability].filter(Boolean).join(" · ");
   return (
     <button
       onClick={mine ? onOpen : onBook}
@@ -692,10 +737,8 @@ function SlotRow({ session, onOpen, onBook, showPrice }: { session: Session; onO
     >
       <div className="min-w-0 flex-1">
         <p className="text-base">{session.durationMin >= 15 ? timeRange(session.time, session.durationMin) : timeLabel(session.time)}</p>
-        <p className={clsx("text-sm", mine ? "text-moss" : session.capacity > 3 && left > 0 && left <= 2 ? "text-clay" : "text-muted")}>
-          {session.instructor ? `with ${session.instructor} · ` : ""}
-          {mine ? "Booked" : full ? "Full" : session.capacity === 1 ? "Available" : `${left} ${left === 1 ? "spot" : "spots"} left`}
-        </p>
+        {detail && <p className={clsx("text-sm", !mine && session.capacity > 3 && left > 0 && left <= 2 ? "text-clay" : "text-muted")}>{detail}</p>}
+        <StudioLine location={session.location} className="mt-0.5" />
         {showPrice && (
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <PriceTag quote={q} pill />
@@ -709,7 +752,10 @@ function SlotRow({ session, onOpen, onBook, showPrice }: { session: Session; onO
         )}
       </div>
       {mine ? (
-        <Check size={18} className="text-moss" />
+        <span className={clsx("flex items-center rounded-full bg-moss px-3.5 py-1.5 text-sm font-semibold text-ink", justBooked && "booked-pop")}>
+          {justBooked && <BookedCheck size={14} />}
+          Booked
+        </span>
       ) : (
         !full && <span className="rounded-full bg-sage px-3.5 py-1.5 text-sm font-semibold text-ink">Book</span>
       )}
@@ -729,6 +775,7 @@ function HourGroups({
   expandFirst: boolean;
 }) {
   const { spotsLeft, myBookingFor, quote } = useStore();
+  const bookedNow = useContext(JustBooked);
   const byHour = new Map<string, Session[]>();
   for (const s of sessions) byHour.set(s.time.slice(0, 2), [...(byHour.get(s.time.slice(0, 2)) ?? []), s]);
   // Today's soonest hour with an open time starts expanded, so the next times are one tap away.
@@ -752,6 +799,7 @@ function HourGroups({
                 <p className="text-sm text-muted">
                   {free} {free === 1 ? "time" : "times"} open · every 5 min
                 </p>
+                <StudioLine location={list[0].location} className="mt-0.5" />
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <PriceTag quote={quote(list[0].serviceId, list[0].location, list[0].date)} pill />
                   <PromoNote quote={quote(list[0].serviceId, list[0].location, list[0].date)} />
@@ -772,6 +820,7 @@ function HourGroups({
                       className={clsx(
                         "rounded-lg py-2 text-sm",
                         mine ? "bg-moss text-ink" : full ? "bg-card text-muted line-through opacity-50" : "bg-card hover:bg-line",
+                        bookedNow === s.id && "booked-pop",
                       )}
                     >
                       {timeLabel(s.time).replace(/ [AP]M/, "")}
@@ -788,8 +837,8 @@ function HourGroups({
 }
 
 // Full-screen page for one class or time, like Open's class page: photo, details, and Reserve at the bottom.
-function SessionPage({ session, onClose }: { session: Session; onClose: () => void }) {
-  const { member, book, spotsLeft, quote, myBookingFor, termsForBooking } = useStore();
+function SessionPage({ session, onClose, onBlocked }: { session: Session; onClose: () => void; onBlocked: (reason: string) => void }) {
+  const { member, book, bookingConflict, spotsLeft, quote, myBookingFor, termsForBooking } = useStore();
   const tier = TIERS[member.tier];
   const service = SERVICES[session.serviceId];
   const location = LOCATIONS[session.location];
@@ -863,9 +912,10 @@ function SessionPage({ session, onClose }: { session: Session; onClose: () => vo
           </div>
 
           {booking && (
-            <div className="rounded-2xl bg-card p-4 text-sm">
-              <p className="flex items-center gap-2 font-medium text-moss">
-                <Check size={18} /> You&apos;re booked
+            <div className={clsx("rounded-2xl bg-card p-4 text-sm", justBooked && "booked-pop")}>
+              <p className="flex items-center font-medium text-moss">
+                {justBooked && <BookedCheck size={18} />}
+                You&apos;re booked
               </p>
               <p className="mt-1 text-shell">
                 {booking.usedCredit ? "Paid with 1 treatment credit" : booking.price > 0 ? `Paid ${money(booking.price)}` : "Included, nothing charged"}
@@ -938,7 +988,15 @@ function SessionPage({ session, onClose }: { session: Session; onClose: () => vo
               </Button>
             </>
           ) : (
-            <Button variant="primary" disabled={past || elsewhere || left === 0} onClick={() => setConfirming(true)}>
+            <Button
+              variant="primary"
+              disabled={past || elsewhere || left === 0}
+              onClick={() => {
+                const conflict = bookingConflict(session);
+                if (conflict) onBlocked(conflict);
+                else setConfirming(true);
+              }}
+            >
               {past ? (
                 "This time has passed"
               ) : elsewhere ? (
@@ -996,6 +1054,7 @@ function ConfirmBooking({ session, onClose, onBooked }: { session: Session; onCl
             {location.name}
             {session.instructor ? ` · ${session.serviceId === "class" ? "w/" : "with"} ${session.instructor}` : ""}
           </p>
+          {!tier.isMember && <p className="text-muted">{location.address}</p>}
           {/* A plain price already shows as "You pay today"; tags like Included or First visit add something. */}
           {q.kind !== "member" && q.kind !== "regular" && (
             <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -1017,8 +1076,8 @@ function ConfirmBooking({ session, onClose, onBooked }: { session: Session; onCl
             <span className="stat-num text-2xl">{money(total)}</span>
           </div>
         </div>
-        <p className={clsx("rounded-2xl bg-sand p-3 font-medium", terms.late ? "text-clay" : "text-shell")}>{policyLine(terms, credit)}</p>
-        {error && <p className="rounded-2xl bg-sand p-3 text-clay">{error}</p>}
+        <p className="rounded-2xl bg-sand p-3 font-medium text-shell">{policyLine(terms, credit)}</p>
+        {error && <p className="rounded-2xl bg-sand p-3 text-shell">{error}</p>}
         <div className="space-y-2">
           <Button
             variant="primary"
@@ -1082,7 +1141,7 @@ function Status({ left, mine, className }: { left: number; mine: boolean; classN
         className,
       )}
     >
-      {mine ? "Booked ✓" : left === 0 ? "Full" : `${left} ${left === 1 ? "spot" : "spots"} left`}
+      {mine ? "Booked" : left === 0 ? "Full" : `${left} ${left === 1 ? "spot" : "spots"} left`}
     </span>
   );
 }

@@ -32,6 +32,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { member } = useStore();
   const [landing, setLanding] = useState<string | null>(null); // a swipe's destination, while it finishes
   const current = landing ?? path;
+  const isActive = (href: string) => (href === "/" ? current === "/" : current.startsWith(href));
+  const activeTab = TABS.findIndex((t) => isActive(t.href));
 
   // A fresh download creates an account first, then sees the welcome walkthrough.
   if (member.signedUp === false) return <SignUp />;
@@ -58,11 +60,21 @@ export function AppShell({ children }: { children: ReactNode }) {
         </SwipeTabs>
       </PullToRefresh>
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-sand">
-        <div className={clsx("mx-auto grid max-w-md", TABS.length === 5 ? "grid-cols-5" : TABS.length === 4 ? "grid-cols-4" : "grid-cols-3")}>
+        <div className={clsx("relative mx-auto grid max-w-md", TABS.length === 5 ? "grid-cols-5" : TABS.length === 4 ? "grid-cols-4" : "grid-cols-3")}>
+          {/* The soft highlight behind the current tab, which glides from tab to tab. */}
+          {activeTab >= 0 && (
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 left-0 p-1 transition-transform duration-200 ease-out"
+              style={{ width: `${100 / TABS.length}%`, transform: `translateX(${activeTab * 100}%)` }}
+            >
+              <span className="block h-full rounded-2xl bg-shell/10" />
+            </span>
+          )}
           {TABS.map(({ href, label, icon: Icon }) => {
-            const active = href === "/" ? current === "/" : current.startsWith(href);
+            const active = isActive(href);
             return (
-              <Link key={href} href={href} className={clsx("flex flex-col items-center gap-1 py-2.5 text-[11px]", active ? "font-medium text-shell" : "text-muted")}>
+              <Link key={href} href={href} className={clsx("relative flex flex-col items-center gap-1 py-2.5 text-[11px]", active ? "font-medium text-shell" : "text-muted")}>
                 <Icon size={20} strokeWidth={active ? 2.2 : 1.6} />
                 {label}
               </Link>

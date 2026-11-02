@@ -4,6 +4,7 @@
 //   (Restore, Classic or Gold). Classic if they never pick. Cancelling stops it.
 // - The $29 is subtracted from the first month, which is prorated to the end of that month.
 import { TIERS, TierId } from "./data";
+import { monthLeft } from "./membership";
 
 export const TRIAL_DAYS = 7;
 export const TRIAL_BECOMES: TierId = "classic"; // the default when the member doesn't choose
@@ -21,8 +22,7 @@ export function daysLeft(endsAt: Date, now = new Date()): number {
 // membership rate, minus the trial fee already paid.
 export function firstMonthCharge(endsAt: Date, becomes: TierId = TRIAL_BECOMES): number {
   const monthly = TIERS[becomes].monthly ?? 0;
-  const daysInMonth = new Date(endsAt.getFullYear(), endsAt.getMonth() + 1, 0).getDate();
-  const remaining = daysInMonth - endsAt.getDate() + 1;
+  const { remaining, daysInMonth } = monthLeft(endsAt);
   const amount = (monthly * remaining) / daysInMonth - TIERS.trial.joinFee;
   return Math.max(0, Math.round(amount * 100) / 100);
 }

@@ -13,6 +13,14 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* The Account page is mostly small print, so its secondary text and links run brighter. */
+.account-text .text-muted {
+  color: #e9e2d6;
+}
+.account-text .text-moss {
+  color: #efd0ae;
+}
+
 /* Numbers on the stats views: the app font with even-width digits, so figures line up. */
 .stat-num {
   @apply font-sans font-semibold tabular-nums tracking-tight;
@@ -68,6 +76,84 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .tl-spin {
     animation-duration: 1.8s;
+  }
+}
+
+/* Just booked: the pill gives a small bounce while a check pops in, holds, then shrinks away. */
+.booked-pop {
+  animation: booked-pop 0.36s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes booked-pop {
+  0% {
+    transform: scale(0.9);
+  }
+  55% {
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.booked-check {
+  display: inline-flex;
+  overflow: hidden;
+  vertical-align: text-bottom;
+  animation: booked-check 1.3s ease-in-out forwards;
+}
+@keyframes booked-check {
+  0% {
+    max-width: 20px;
+    margin-right: 4px;
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  20% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  32% {
+    transform: scale(1);
+  }
+  78% {
+    max-width: 20px;
+    margin-right: 4px;
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    max-width: 0;
+    margin-right: 0;
+    opacity: 0;
+    transform: scale(0.5);
+  }
+}
+/* With Reduce Motion on: no bounce, and the check only fades in and out. */
+@keyframes booked-check-fade {
+  0% {
+    max-width: 20px;
+    margin-right: 4px;
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  80% {
+    max-width: 20px;
+    margin-right: 4px;
+    opacity: 1;
+  }
+  100% {
+    max-width: 0;
+    margin-right: 0;
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .booked-pop {
+    animation: none;
+  }
+  .booked-check {
+    animation-name: booked-check-fade;
   }
 }
 

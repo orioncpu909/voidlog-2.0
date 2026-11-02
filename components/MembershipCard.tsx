@@ -9,11 +9,10 @@ import { momentLabel, shortDate } from "@/lib/format";
 import { dateKey } from "@/lib/schedule";
 import { Button, Sheet } from "./Sheet";
 
-// Paid membership status and the Cancel button. On Home it only appears once a cancellation is
-// scheduled, so members always see when their access ends.
+// Paid membership status. On Home it only appears once a cancellation is scheduled, so members
+// always see when their access ends.
 export function MembershipCard({ statusOnly = false }: { statusOnly?: boolean }) {
-  const { member, refundWindowOpen, cancelMembership, keepMembership } = useStore();
-  const [confirming, setConfirming] = useState(false);
+  const { member, refundWindowOpen, keepMembership } = useStore();
   const tier = TIERS[member.tier];
   if (!tier.isMember || tier.id === "trial") return null;
 
@@ -36,7 +35,6 @@ export function MembershipCard({ statusOnly = false }: { statusOnly?: boolean })
 
   const now = new Date();
   const renews = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
   return (
     <section className="rounded-3xl border border-line bg-card p-4">
@@ -54,9 +52,25 @@ export function MembershipCard({ statusOnly = false }: { statusOnly?: boolean })
           )}
         </div>
       </div>
+    </section>
+  );
+}
+
+// At the bottom of the Account tab, once there's a paid membership to cancel.
+export function CancelMembership() {
+  const { member, refundWindowOpen, cancelMembership } = useStore();
+  const [confirming, setConfirming] = useState(false);
+  const tier = TIERS[member.tier];
+  if (!tier.isMember || tier.id === "trial" || member.membershipEndsAt) return null;
+
+  const now = new Date();
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+  return (
+    <>
       <button
         onClick={() => setConfirming(true)}
-        className="mt-3 w-full rounded-full py-2 text-sm font-medium border border-clay-deep text-clay active:bg-clay-soft"
+        className="w-full rounded-full py-2 text-sm font-medium border border-clay-deep text-clay active:bg-clay-soft"
       >
         Cancel membership
       </button>
@@ -89,6 +103,6 @@ export function MembershipCard({ statusOnly = false }: { statusOnly?: boolean })
           </div>
         </div>
       </Sheet>
-    </section>
+    </>
   );
 }

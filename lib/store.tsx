@@ -4,13 +4,13 @@
 // No real payments; charges are a ledger of what the card on file would be billed.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { LocationId, PERK_LABEL, Quote, ServiceId, TIERS, TierId, bookableAt, priceFor } from "./data";
+import { LocationId, PERK_LABEL, Quote, SERVICES, ServiceId, TIERS, TierId, bookableAt, priceFor } from "./data";
 import { Session, dateKey, eventSessions, sessionStart, slotsFor } from "./schedule";
 import { EVENTS, eventAt, eventTicketPrice, eventVisibleTo } from "./events";
 import { CancelTerms, canUseCredit, cancelTerms } from "./policy";
 import { TRIAL_BECOMES, firstMonthCharge, trialEndsAt } from "./trial";
-import { endOfMonth, inRefundWindow } from "./membership";
-import { money } from "./format";
+import { endOfMonth, inRefundWindow, joinCharge } from "./membership";
+import { money, timeLabel, timeRange } from "./format";
 import { REFERRAL_CREDITS, ReferralResult, findReferrer } from "./referral";
 import {
   CHALLENGE_PRIZE_CREDITS, PLUNGE_MAX_SECONDS, PLUNGE_MIN_SECONDS, challengeName, displayName, endedChallenges, isEntered, leaderboard, scoreFor,
@@ -475,6 +475,7 @@ interface Store {
   spotsLeft: (session: Session) => number;
   myBookingFor: (sessionId: string) => Booking | undefined;
   book: (session: Session, useCredit: boolean) => BookResult;
+  bookingConflict: (session: Session) => string | null;
   quote: (serviceId: ServiceId, location: LocationId, date: string) => Quote;
   perksLeft: (serviceId: ServiceId, date: string) => number; // monthly perks (Restore) still free that month
   firstVisitEligible: boolean;
@@ -577,6 +578,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return priceFor(tierOn(date), serviceId, location, date, firstVisitEligible);
     };
 
+    // Why this account can't take this time, if it can't: one of each therapy a day, and no overlaps.
+    const bookingConflict: Store["bookingConflict"] = (session) => {
+      const mine = active.filter((b) => b.memberId === member.id && b.sessionId !== session.id);
+      const repeat = SERVICES[session.serviceId].category === "therapy" && mine.find((b) => b.serviceId === session.serviceId && b.date === session.date);
+      if (repeat) return `You already have ${repeat.title} at ${timeLabel(repeat.time)} that day. Each therapy can be booked once a day.`;
+      const start = sessionStart(session.date, session.time).getTime();
+      const end = start + session.durationMin * 60000;
+      const clash = mine.find((b) => {
+        const bStart = sessionStart(b.date, b.time).getTime();
+        return bStart < end && start < bStart + b.durationMin * 60000;
+      });
+      if (clash) return `This overlaps with your ${clash.title} booking, ${timeRange(clash.time, clash.durationMin)}. Please pick a time that doesn't overlap.`;
+      return null;
+    };
+
     const book: Store["book"] = (session, useCredit) => {
       const start = sessionStart(session.date, session.time);
       if (start.getTime() <= Date.now()) return { ok: false, error: "This time has already started. Please pick a later time." };
@@ -588,13 +604,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (myBookingFor(session.id)) return { ok: false, error: "You're already booked for this time." };
       if (spotsLeft(session) <= 0) return { ok: false, error: "This time just filled up. Please pick another." };
 
-      const end = start.getTime() + session.durationMin * 60000;
-      const clash = active.find((b) => {
-        if (b.memberId !== member.id) return false;
-        const bStart = sessionStart(b.date, b.time).getTime();
-        return bStart < end && start.getTime() < bStart + b.durationMin * 60000;
-      });
-      if (clash) return { ok: false, error: `This overlaps with your ${clash.title} booking at the same time.` };
+      const conflict = bookingConflict(session);
+      if (conflict) return { ok: false, error: conflict };
 
       const credit = useCredit && member.credits > 0 && canUseCredit(session.serviceId);
       const q = quote(session.serviceId, session.location, session.date);
@@ -645,6 +656,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       spotsLeft,
       myBookingFor,
       book,
+      bookingConflict,
       quote,
       perksLeft,
       firstVisitEligible,
@@ -690,8 +702,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               charges: [...s.charges, charge(`${next.name} membership fee`, next.joinFee)],
             };
           }
-          const fee = next.monthly ?? next.joinFee;
-          const label = next.monthly ? `${next.name} membership · first month` : `${next.name} fee`;
+          const due = joinCharge(member.tier, tierId);
           return {
             ...s,
             members: patchMember(s, {
@@ -701,8 +712,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               memberSince: tier.isMember && tier.id !== "trial" ? member.memberSince : new Date().toISOString(),
               // Keep what you have when switching plans; a trial's only credits are Community prizes.
               credits: tier.isMember && tier.id !== "trial" ? member.credits : next.welcomeCredits + next.monthlyCredits + (tier.id === "trial" ? member.credits : 0),
+              ...(!tier.isMember && {
+                notice: addNotice(
+                  member.notice,
+                  `You're now a ${next.name} member. ${money(due.amount)} was charged today${due.days ? " for the rest of this month" : ""}, then ${money(next.monthly ?? 0)}/month from the 1st.`,
+                ),
+              }),
             }),
-            charges: fee > 0 ? [...s.charges, { ...charge(label, fee), ...(next.monthly && { kind: "membership" as const }) }] : s.charges,
+            charges: due.amount > 0 ? [...s.charges, { ...charge(due.label, due.amount), ...(next.monthly && { kind: "membership" as const }) }] : s.charges,
           };
         }),
       canStartTrial: !tier.isMember && !member.trialUsed,
