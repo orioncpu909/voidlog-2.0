@@ -75,7 +75,7 @@ The full trial and membership cards are on Account. Booking is in the Book tab.
 
 ## Streaks and stats (lib/stats.ts, app/stats)
 - **Profile photo** (`lib/photo.ts`, `components/Avatar.tsx`): tap the picture on Profile to choose one from the phone. It's cropped to a 256px square and saved on this device; the header shows it too.
-- **Profile** (`app/profile`, `lib/profile.ts`): tap the round initial at the top right of every tab, or **Profile ›** on the Account card. Laid out like a fitness-app profile: initial, name, Instagram and home studio, then "member since" and "visiting since". What it shows depends on the account:
+- **Profile** (`app/profile`, `lib/profile.ts`): tap the round initial at the top right of every tab, or **Profile ›** on the Account card. The plan badge at the top right of Profile opens what's included and when the account is next billed (`components/PlanSheet.tsx`, `lib/billing.ts`). Laid out like a fitness-app profile: initial, name, Instagram and home studio, then "member since" and "visiting since". What it shows depends on the account:
   - **Wellness accounts (basic stats):** total visits and hours, the day streak (opens Stats), an **Activity summary** (visits by service with time spent and bars, for 1M, 3M or All time; top 5 with Show all), and a "Members see more" row that opens Account.
   - **Members (Trial, Restore, Classic, Gold):**
     - **Header tiles:** a visit **level** (levels at 10, 25, 50, 100, 250, 500 and 1,000 visits), and next to it Restore's perks left this month, the trial's days left, or treatment credits (Classic, Gold).

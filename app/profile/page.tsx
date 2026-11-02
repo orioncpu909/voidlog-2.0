@@ -8,6 +8,7 @@ import {
   Music, Repeat, Share2, Snowflake, Sparkles, Sun, Sunrise, ThermometerSun, Ticket, Timer, Trophy, UserRound, Waves, Wind, Zap,
 } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
+import { PlanSheet } from "@/components/PlanSheet";
 import { StreakFlame } from "@/components/StreakFlame";
 import { LOCATIONS, PERK_LABEL, ServiceId, TIERS } from "@/lib/data";
 import { dateKey, sessionStart } from "@/lib/schedule";
@@ -104,6 +105,7 @@ const monthYear = (iso: string) => new Date(iso).toLocaleDateString("en-US", { m
 // credits or perks, achievements and data highlights; Wellness accounts see what a membership adds.
 export default function ProfilePage() {
   const { member, bookings } = useStore();
+  const [showPlan, setShowPlan] = useState(false);
   const tier = TIERS[member.tier];
   const s = computeStats(bookings);
   const done = completedVisits(bookings);
@@ -124,10 +126,13 @@ export default function ProfilePage() {
           <ArrowLeft size={20} />
         </Link>
         <h1 className="text-xs font-semibold uppercase tracking-[0.25em]">Profile</h1>
-        <span className="rounded-md border border-line bg-card px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-moss">
-          {tier.isMember && tier.id !== "trial" ? tier.name : tier.id === "trial" ? "Trial" : "Wellness"}
-        </span>
+        <button onClick={() => setShowPlan(true)} aria-label="Your plan and next bill" className="group -my-2 -mr-2 flex min-h-[44px] items-center p-2">
+          <span className="rounded-md border border-line bg-card px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-moss transition-colors group-active:bg-sand">
+            {tier.isMember && tier.id !== "trial" ? tier.name : tier.id === "trial" ? "Trial" : "Wellness"}
+          </span>
+        </button>
       </div>
+      {showPlan && <PlanSheet onClose={() => setShowPlan(false)} />}
 
       <section>
         <ProfilePhoto />
