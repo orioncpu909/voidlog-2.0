@@ -10,6 +10,7 @@ import { EVENTS, eventAt, eventTicketPrice, eventVisibleTo } from "./events";
 import { CancelTerms, canUseCredit, cancelTerms } from "./policy";
 import { TRIAL_BECOMES, firstMonthCharge, trialEndsAt } from "./trial";
 import { checkInDue } from "./checkin";
+import type { CardOnFile } from "./card";
 import { endOfMonth, inRefundWindow, joinCharge, usesTreatmentCredit } from "./membership";
 import { money, shortDate, timeLabel, timeRange } from "./format";
 import { REFERRAL_CREDITS, ReferralResult, findReferrer } from "./referral";
@@ -48,6 +49,7 @@ export interface Member {
   communityJoined?: boolean; // shows on the Community leaderboards (members only, opt-in)
   communityJoinedAt?: string; // ISO time it was last turned on; only challenges ending after it can be won that way
   challengeWaitlist?: string[]; // challenge ids signed up for before they started (enters you in that one)
+  card?: CardOnFile; // what's billed: never the full number or security code
   challengeWins?: string[]; // challenge ids won and already paid out as credits
   challengeResults?: Record<string, ChallengeResult>; // ended challenges by id, saved so they can't change
 }
@@ -121,8 +123,12 @@ const daysAgo = (n: number) => new Date(Date.now() - n * 864e5).toISOString();
 // The brand-new download: no account yet, so the app opens on the create-account screens.
 const NEW_DOWNLOAD: Member = { id: "m-new", name: "Karan", tier: "wellness", home: "weho", credits: 0, onboarded: false, signedUp: false };
 
+// The sample accounts' made-up card. Sign-up doesn't ask for one, so a new account starts without.
+const SAMPLE_CARD: CardOnFile = { brand: "Visa", last4: "4242", expMonth: 12, expYear: 2029 };
+const withSampleCard = (m: Member): Member => (m.card || m.id === NEW_DOWNLOAD.id ? m : { ...m, card: SAMPLE_CARD });
+
 function seedMembers(): Member[] {
-  return [
+  const members: Member[] = [
     { ...NEW_DOWNLOAD },
     { id: "m-wellness", name: "Karan", tier: "wellness", home: "weho", credits: 0, onboarded: true, trialUsed: true, firstVisitUsed: true },
     { id: "m-classic", name: "Karan", tier: "classic", home: "weho", credits: 4, onboarded: true, firstVisitUsed: true, memberSince: daysAgo(20), communityJoined: true, communityJoinedAt: daysAgo(40) },
@@ -141,6 +147,7 @@ function seedMembers(): Member[] {
       trialEndsAt: trialEndsAt(new Date(Date.now() - 4 * 864e5)).toISOString(),
     },
   ];
+  return members.map(withSampleCard);
 }
 
 function makeBooking(member: Member, session: Session, price: number, usedCredit: boolean): Booking {
@@ -540,7 +547,7 @@ function load(): State {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as State;
-      if (parsed.version === 2) return settle(parsed);
+      if (parsed.version === 2) return settle({ ...parsed, members: parsed.members.map(withSampleCard) });
     }
   } catch {
     // Storage unavailable or corrupt; start fresh.
@@ -585,6 +592,7 @@ interface Store {
   challengeResult: (c: Challenge) => ChallengeResult | null; // how an ended challenge stands
   joinCommunity: (joined: boolean) => void;
   setPhoto: (photo?: string) => void;
+  setCard: (card: CardOnFile) => void;
   toggleWaitlist: (challengeId: string) => void; // sign up for (or leave) a challenge before it starts
   logPlunge: (bookingId: string, seconds: number) => { ok: true } | { ok: false; error: string };
   dismissPromos: (ids: string[]) => void;
@@ -878,6 +886,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       challengeResult: (c) => challengeResultOf(c, member, state, new Date()),
       // Only members can be on the boards; leaving keeps their history but hides them.
       setPhoto: (photo) => update((s) => ({ ...s, members: patchMember(s, { photo }) })),
+      setCard: (card) => update((s) => ({ ...s, members: patchMember(s, { card }) })),
       joinCommunity: (joined) =>
         update((s) =>
           joined && !tier.isMember

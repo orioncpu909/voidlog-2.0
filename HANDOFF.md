@@ -198,6 +198,13 @@ README.md                   Rules and where to change them
   - Cold Plunge Clock + Log a plunge (`SHOW_PLUNGE_CHALLENGE`; plunge times in `State.plunges`, scored up to 3:00).
 - **Demo data:** the rest of each board is 14 made-up demo members from a seeded generator, and waitlist counts are seeded too. With a backend, boards would rank real opted-in members.
 
+### Card on file
+
+- A row on Account (`components/CardOnFileRow.tsx`) shows the card and opens a sheet to change or add it. Checks are in `lib/card.ts`: brand, length, check digit, expiry, security code, ZIP.
+- `Member.card` holds only the brand, last 4 and expiry. The full number and security code stay in the form and are dropped when it closes.
+- Sample accounts get a made-up Visa ending in 4242 (`withSampleCard`, also applied to saved data). Sign-up and joining don't ask for a card, so a new account shows "No card yet", even after joining a membership.
+- With a backend, replace the form with the payment provider's hosted fields, so card numbers never pass through the app.
+
 ### Stats
 
 - **Streak:** consecutive days with a completed visit, ending today or yesterday.

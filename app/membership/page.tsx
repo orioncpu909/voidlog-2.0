@@ -17,6 +17,7 @@ import { SwitchToWellness } from "@/components/SwitchToWellness";
 import { EmailStudioButton } from "@/components/EmailStudio";
 import { Disclosure } from "@/components/Disclosure";
 import { CreditsInfoButton } from "@/components/CreditsInfo";
+import { CardOnFileRow } from "@/components/CardOnFileRow";
 import { HistoryButton } from "@/components/BookingHistory";
 import { Button, Sheet } from "@/components/Sheet";
 
@@ -75,6 +76,7 @@ export default function AccountPage() {
       <NoticeBanner />
       <TrialCard />
       <MembershipCard />
+      <CardOnFileRow />
 
       <StatsOverview />
 
