@@ -1,15 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { createContext, useContext, useState } from "react";
 import Link from "next/link";
 import clsx from "clsx";
-import { Check, ChevronRight, Gift, Lock, Minus, Plus, Snowflake, Timer, Users } from "lucide-react";
+import { Check, ChevronRight, Gift, Lock, Minus, Plus, Snowflake, Timer, Trophy, Users } from "lucide-react";
 import { TIERS } from "@/lib/data";
 import { useStore } from "@/lib/store";
 import { completedVisits } from "@/lib/stats";
 import {
   BoardRow, CHALLENGE_PRIZE_CREDITS, Challenge, METRICS, PLUNGE_MAX_SECONDS, PLUNGE_MIN_SECONDS, PLUNGE_SCORE_CAP, challengeCalendar, challengeName, clock, daysLeft,
-  displayName, isEntered, leaderboard, loggableSessions, scoreFor, waitlistCount,
+  allTimeBoard, allTimeStats, demoAllTimeStats, displayName, isEntered, leaderboard, loggableSessions, scoreFor, waitlistCount,
 } from "@/lib/community";
 import { SHOW_FINISHED_SPRINTS, SHOW_PLUNGE_CHALLENGE } from "@/lib/flags";
 import { dayLabel, shortDate } from "@/lib/format";
@@ -34,7 +34,11 @@ function boardBlocks(rows: BoardRow[], limit: number): BoardBlock[] {
 }
 
 const ordinal = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
+const ALL_TIME_TOP = 10;
 const CARD_TOP = 5; // people on a challenge card
+
+// Opens someone's all-time stats, from a row on any board.
+const OpenStats = createContext<(row: BoardRow) => void>(() => {});
 const SHEET_TOP = 10; // people in a challenge's details
 
 // Community: friendly challenges and their leaderboards. A row of chips at the top jumps to any
@@ -45,14 +49,16 @@ export default function CommunityPage() {
   const { member } = useStore();
   const tier = TIERS[member.tier];
   const cal = challengeCalendar();
+  const [viewing, setViewing] = useState<BoardRow | null>(null);
   const monthly = cal.active.filter((c) => c.kind === "month");
   const weekly = cal.active.filter((c) => c.kind === "week");
 
   return (
+    <OpenStats.Provider value={setViewing}>
     <div className="space-y-5 pb-4">
       <div className="space-y-2.5">
         <div>
-          <h1 className="font-serif text-3xl">Community</h1>
+          <h1 className="font-serif text-3xl font-bold">Community</h1>
           <p className="text-sm text-muted">
             Friendly challenges each month. No pressure, and first place wins {CHALLENGE_PRIZE_CREDITS} treatment credit.
           </p>
@@ -70,13 +76,87 @@ export default function CommunityPage() {
         ))}
       </section>
 
+      <AllTimeBoard />
+
       {SHOW_FINISHED_SPRINTS && cal.ended.length > 0 && <Finished title="Earlier this month" challenges={cal.ended} />}
       {cal.lastMonth.length > 0 && <Finished title="Last month's results" challenges={cal.lastMonth} />}
 
       <p className="px-2 text-center text-xs text-muted">
         Classes and therapies count once you&apos;ve been to them. Treatments don&apos;t count. Ties for first each win the credit.
       </p>
+      {viewing && <StatsSheet row={viewing} onClose={() => setViewing(null)} />}
     </div>
+    </OpenStats.Provider>
+  );
+}
+
+// Everyone's visits since their first booking, across every service. It never resets. Anyone on the
+// leaderboards appears here too; everyone else still sees where they'd stand, just for themselves.
+function AllTimeBoard() {
+  const { member, bookings } = useStore();
+  const visits = allTimeStats(bookings).visits;
+  const me = { name: displayName(member), score: visits };
+  const shown = TIERS[member.tier].isMember && !!member.communityJoined;
+  const rows = allTimeBoard(shown ? me : null);
+  const rank = allTimeBoard(me).find((r) => r.you)?.rank;
+  const standing = !rank ? "No visits yet. Your first one puts you on the board." : `${shown ? "You're" : "You'd be"} #${rank} with ${visits} visit${visits === 1 ? "" : "s"}${shown ? "" : ", just for you"}.`;
+  return (
+    <section id="all-time" className="scroll-mt-16 space-y-2">
+      <h2 className="text-xs font-semibold uppercase tracking-widest text-muted">All-time leaderboard</h2>
+      <div className="rounded-3xl border border-line bg-card p-4">
+        <p className="text-sm text-muted">Every visit since a member&apos;s first booking. This never resets. Tap anyone for their stats.</p>
+        <p className="mt-2 rounded-xl bg-sand px-3 py-2 text-sm font-medium">{standing}</p>
+        <Board rows={rows} limit={ALL_TIME_TOP} unit={(n) => `${n} visit${n === 1 ? "" : "s"}`} />
+      </div>
+    </section>
+  );
+}
+
+function StatsSheet({ row, onClose }: { row: BoardRow; onClose: () => void }) {
+  const { bookings } = useStore();
+  const s = row.you ? allTimeStats(bookings) : demoAllTimeStats(row.name);
+  const rank = allTimeBoard(row.you ? { name: row.name, score: s.visits } : null).find((r) => r.name === row.name)?.rank;
+  const tiles = [
+    { label: "Classes", value: s.classes },
+    { label: "Therapies", value: s.therapies },
+    { label: "Treatments", value: s.treatments },
+    { label: "Hours", value: s.hours },
+  ];
+  const first = s.firstVisit && new Date(`${s.firstVisit}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return (
+    <Sheet open onClose={onClose} title={row.you ? `${row.name} (you)` : row.name}>
+      <div className="space-y-3 text-sm">
+        <div className="flex items-baseline justify-between gap-3 rounded-2xl bg-sand px-4 py-3">
+          <span className="stat-num text-3xl">{s.visits}</span>
+          <span className="text-right text-muted">
+            all-time visits
+            {rank ? ` · #${rank}` : ""}
+            {first && <span className="block text-xs">Since {first}</span>}
+          </span>
+        </div>
+        <div className="grid grid-cols-4 gap-2 text-center">
+          {tiles.map((t) => (
+            <div key={t.label} className="rounded-xl bg-sand px-1 py-2">
+              <p className="stat-num text-lg">{t.value}</p>
+              <p className="text-[10px] uppercase tracking-wide text-muted">{t.label}</p>
+            </div>
+          ))}
+        </div>
+        {s.services.length > 0 && (
+          <div>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted">By service</p>
+            <ul className="divide-y divide-line">
+              {s.services.map((x) => (
+                <li key={x.name} className="flex items-center justify-between gap-3 py-1.5">
+                  <span className="min-w-0 truncate">{x.name}</span>
+                  <span className="stat-num">{x.count}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </Sheet>
   );
 }
 
@@ -95,7 +175,7 @@ function JumpBar({ upcoming, running }: { upcoming: Challenge[]; running: Challe
           <button
             key={c.id}
             onClick={() => setOpen(c)}
-            className="shrink-0 rounded-2xl border border-sage bg-sage/20 px-3 py-2 text-left active:bg-sage/40"
+            className="shrink-0 rounded-2xl border border-sage bg-card px-3 py-2 text-left active:bg-line"
           >
             <span className="block whitespace-nowrap text-[10px] font-semibold uppercase tracking-widest text-sage-deep">Coming up</span>
             <span className="block whitespace-nowrap text-sm font-medium">{challengeName(c)}</span>
@@ -109,6 +189,16 @@ function JumpBar({ upcoming, running }: { upcoming: Challenge[]; running: Challe
             <span className="block whitespace-nowrap text-[11px] text-muted">{leftLabel(daysLeft(c))}</span>
           </button>
         ))}
+        <button
+          onClick={() => document.getElementById("all-time")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+          className="shrink-0 rounded-2xl border border-line bg-card px-3 py-2 text-left active:bg-line"
+        >
+          <span className="block whitespace-nowrap text-[10px] font-semibold uppercase tracking-widest text-muted">Never resets</span>
+          <span className="flex items-center gap-1 whitespace-nowrap text-sm font-medium">
+            <Trophy size={13} /> All time
+          </span>
+          <span className="block whitespace-nowrap text-[11px] text-muted">Leaderboard</span>
+        </button>
       </nav>
       <Sheet open={!!open} onClose={() => setOpen(null)} title={open ? challengeName(open) : ""}>
         {open && <UpcomingDetails challenge={open} />}
@@ -126,7 +216,7 @@ function BoardSwitch() {
   const joined = !!member.communityJoined;
   return (
     <button onClick={() => joinCommunity(!joined)} role="switch" aria-checked={joined} aria-label="Show me on the leaderboards" className="-mx-1 flex w-[calc(100%+0.5rem)] items-center gap-3 rounded-xl px-1 py-1 text-left active:bg-line">
-      <span className={clsx("relative h-7 w-12 shrink-0 rounded-full transition-colors", joined ? "bg-moss" : "bg-line")}>
+      <span className={clsx("relative h-7 w-12 shrink-0 rounded-full transition-colors", joined ? "bg-moss-deep" : "bg-line")}>
         <span className={clsx("absolute top-1 h-5 w-5 rounded-full bg-card shadow transition-all", joined ? "left-6" : "left-1")} />
       </span>
       <span className="min-w-0 flex-1 text-sm leading-snug">
@@ -299,14 +389,25 @@ function Block({ block, unit }: { block: BoardBlock; unit: (n: number) => string
 }
 
 function Person({ row, unit }: { row: BoardRow; unit: (n: number) => string }) {
+  const openStats = useContext(OpenStats);
   return (
-    <li className={clsx("flex items-center gap-3 rounded-lg px-2 py-1.5", row.you && "bg-sage/25")}>
-      <span className="stat-num w-6 shrink-0 text-center text-sm font-semibold">{row.rank}</span>
-      <span className={clsx("min-w-0 flex-1 truncate text-sm", row.you && "font-semibold")}>
-        {row.name}
-        {row.you && <span className="font-normal text-muted"> (you)</span>}
-      </span>
-      <span className="stat-num shrink-0 text-sm">{unit(row.score)}</span>
+    <li>
+      <button
+        onClick={(e) => {
+          e.stopPropagation(); // not the challenge card it sits on
+          openStats(row);
+        }}
+        aria-label={`${row.name}, see stats`}
+        className={clsx("flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left active:bg-line", row.you && "bg-sage/25")}
+      >
+        <span className="stat-num w-6 shrink-0 text-center text-sm font-semibold">{row.rank}</span>
+        <span className={clsx("min-w-0 flex-1 truncate text-sm", row.you && "font-semibold")}>
+          {row.name}
+          {row.you && <span className="font-normal text-muted"> (you)</span>}
+        </span>
+        <span className="stat-num shrink-0 text-sm">{unit(row.score)}</span>
+        <ChevronRight size={14} className="shrink-0 text-muted" />
+      </button>
     </li>
   );
 }

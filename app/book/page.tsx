@@ -234,7 +234,7 @@ function BookScreen() {
             <BookedCheck size={16} />
             <span className="font-medium">Booked</span> · {toast.title}, {dayLabel(toast.date, "short")} {timeLabel(toast.time)}
           </p>
-          <Link href={calendarHref(toast.date)} className="shrink-0 font-medium text-sage">
+          <Link href={calendarHref(toast.date)} className="shrink-0 font-medium text-sage-deep">
             View
           </Link>
         </div>
@@ -442,7 +442,7 @@ function DayHeader({ date }: { date: string }) {
   return (
     <h2 className="-mx-4 flex items-baseline justify-between bg-card px-4 py-2.5 text-shell">
       <span className="text-lg font-semibold tracking-tight">{relative ? label : weekday}</span>
-      <span className="text-sm text-sage">{relative ? `${weekday}, ${monthDay}` : monthDay}</span>
+      <span className="text-sm text-sage-deep">{relative ? `${weekday}, ${monthDay}` : monthDay}</span>
     </h2>
   );
 }
@@ -644,7 +644,7 @@ function ClassCard({ session, onOpen, onBook }: { session: Session; onOpen: () =
   const q = quote(session.serviceId, session.location, session.date);
   const [about, setAbout] = useState(false);
   return (
-    <div className={clsx(full && "opacity-50")}>
+    <div className={clsx(full && "opacity-90")}>
       <div className="flex items-center gap-3 py-3">
         <div className="flex min-w-0 flex-1 items-start gap-3">
           <button onClick={onOpen} className="w-[72px] shrink-0 text-left">
@@ -737,7 +737,7 @@ function SlotRow({ session, onOpen, onBook, showPrice }: { session: Session; onO
     <button
       onClick={mine ? onOpen : onBook}
       disabled={full}
-      className={clsx("flex w-full items-center gap-3 py-2.5 text-left", full && "opacity-50")}
+      className={clsx("flex w-full items-center gap-3 py-2.5 text-left", full && "opacity-90")}
     >
       <div className="min-w-0 flex-1">
         <p className="text-base">{session.durationMin >= 15 ? timeRange(session.time, session.durationMin) : timeLabel(session.time)}</p>
@@ -796,7 +796,7 @@ function HourGroups({
             <button
               onClick={() => setOpenHour(expanded ? null : hour)}
               aria-expanded={expanded}
-              className={clsx("flex w-full items-center gap-3 py-2.5 text-left", free === 0 && "opacity-50")}
+              className={clsx("flex w-full items-center gap-3 py-2.5 text-left", free === 0 && "opacity-90")}
             >
               <div className="flex-1">
                 <p className="text-base">{timeLabel(`${hour}:00`).replace(":00", "")}</p>
@@ -823,7 +823,7 @@ function HourGroups({
                       disabled={full}
                       className={clsx(
                         "rounded-lg py-2 text-sm",
-                        mine ? "bg-moss text-ink" : full ? "bg-card text-muted line-through opacity-50" : "bg-card hover:bg-line",
+                        mine ? "bg-moss text-ink" : full ? "bg-card text-muted line-through opacity-90" : "bg-card hover:bg-line",
                         bookedNow === s.id && "booked-pop",
                       )}
                     >
@@ -1116,7 +1116,7 @@ function Section({ label, children }: { label: string; children: React.ReactNode
 
 function IconButton({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button onClick={onClick} aria-label={label} title={label} className="flex h-10 w-10 items-center justify-center rounded-full border border-line hover:bg-card">
+    <button onClick={onClick} aria-label={label} title={label} className="flex h-10 w-10 items-center justify-center rounded-full border border-line hover:bg-line">
       {children}
     </button>
   );

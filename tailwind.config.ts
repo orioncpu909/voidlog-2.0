@@ -5,18 +5,20 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // ARTHA's dark theme, from the brand's warm near-black: cream text, gold buttons and selected
-        // items, warm tan links and accents. Layout follows the Open app. Token names are the app's
-        // roles, not literal colors (see docs/artha-brand-palette.md).
-        sand: "#000000", // page background: black
-        card: "#261F1B", // cards and sheets: ARTHA's near-black
-        line: "#463B32", // borders and dividers
-        shell: "#F6F1E7", // main text: cream (the name is historical)
-        ink: "#15110E", // text on gold and other light fills
-        muted: "#BDB0A0", // secondary text: warm gray
-        clay: { DEFAULT: "#F0859F", soft: "#43202B", deep: "#9F2747" }, // warnings, late cancels: ARTHA burgundy, lifted for dark; deep = Cancel button outlines
-        moss: { DEFAULT: "#D9AE85", soft: "#3A2C20" }, // warm tan: links, icons, chart bars, credits
-        sage: { DEFAULT: "#D9AE4F", deep: "#E6C477", light: "#C99A3B" }, // gold fill (ink text); deep = gold text; light = streak flame
+        // ARTHA's palette, taken from the brand mood photos: deep umber pages, sand cards, shoji amber
+        // buttons and selected items.
+        // Most colors are CSS variables (app/globals.css) so they flip inside a card, where the text
+        // has to be dark. Token names are the app's roles, not literal colors (see
+        // docs/artha-brand-palette.md).
+        sand: "rgb(var(--sand) / <alpha-value>)", // page background; inside a card, a deeper sand panel
+        card: "rgb(var(--card) / <alpha-value>)", // cards and sheets: light sand
+        line: "rgb(var(--line) / <alpha-value>)", // borders and dividers
+        shell: "rgb(var(--shell) / <alpha-value>)", // main text (the name is historical)
+        ink: "#0A0401", // text on gold and other light fills
+        muted: "rgb(var(--muted) / <alpha-value>)", // secondary text
+        clay: { DEFAULT: "rgb(var(--clay) / <alpha-value>)", soft: "rgb(var(--clay-soft) / <alpha-value>)", deep: "#A3401C" }, // warnings, late cancels: terracotta
+        moss: { DEFAULT: "rgb(var(--moss) / <alpha-value>)", soft: "rgb(var(--moss-soft) / <alpha-value>)", deep: "#855D37" }, // tan and brown: links, icons, chart bars, credits
+        sage: { DEFAULT: "rgb(var(--sage) / <alpha-value>)", deep: "rgb(var(--sage-deep) / <alpha-value>)", light: "#C08442" }, // amber fill (ink text); deep = amber text; light = pressed
         copper: "#D68D51", // ARTHA copper: the Studio City dot
       },
       fontFamily: {

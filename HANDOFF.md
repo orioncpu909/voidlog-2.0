@@ -221,6 +221,7 @@ Every account is named "Karan". Switch between them in **Account → Demo** (tap
 - **L2N Run and Industry Night** (`lib/events.ts`): dates, times, and which studio hosts Industry Night (assumed West LA).
 - **Community challenges** (`lib/community.ts`): the challenge list and names are demo choices, as are the 1-credit prize (including for ties) and the 3:00 plunge cap (parked). Confirm them, and decide how members' names show. Demo competitors are invented names, not real members.
 - **Profile levels, achievements and Refer a friend** (`lib/profile.ts`, `app/profile/page.tsx`): demo milestones and badge names, not an ARTHA program. The referral link (`artha.la/join?ref=KARANMN45`, a code made from the account) is a demo format; artha.la doesn't read `?ref=` yet.
+- **All-time stats** (`lib/community.ts`): the other people are made-up demo members whose totals grow from a seeded rate. With a backend, this needs every member's real history. CONFIRM how much members can see of each other (visit counts by service are shown today), whether hiding from the leaderboards should hide all-time too (it does), and whether Wellness visits before joining count (they do).
 - **Check-in QR** (`lib/checkin.ts`): each account has a fixed code. Needs the studio's check-in scanner linked to a backend, plus a short-lived signed code, since a screenshot of a fixed code works for anyone. Open from 1 hour before until the service ends. CONFIRM the opening time.
 - **Renewals** (`applyRenewals` in `lib/store.tsx`): on the 1st each paid membership is charged and gets its monthly credits. There's no real card, so this is only a ledger entry; a failed payment isn't modeled.
 - **Sign-up checks** (`lib/validate.ts`, `accountTaken`): format and duplicates only. A real email or phone needs a code sent by a server. Welcome credits are once per account, even after a refund. Open question: should a deleted account's email be free to sign up again? It stays taken today.
@@ -258,7 +259,7 @@ Every account is named "Karan". Switch between them in **Account → Demo** (tap
 
 ## 8. Gotchas (learned the hard way)
 
-- **One dark theme everywhere:** black pages, near-black cards, cream text, gold buttons and selected items, warm tan accents. Colors live in `tailwind.config.ts`; `docs/artha-brand-palette.md` has the roles and contrast. The tulip PNG is black, so `TulipLogo` inverts it. If Tailwind colors change while the dev server runs, restart it.
+- **One theme everywhere, from the brand mood photos:** deep umber pages, sand cards, shoji amber buttons and selected items. Colors live in `tailwind.config.ts` and `app/globals.css`, where `.bg-card` flips them so text is dark inside a card. `docs/artha-brand-palette.md` has the roles and contrast. The tulip PNG is black, so `TulipLogo` inverts it. If Tailwind colors change while the dev server runs, restart it.
 - **Colors:** the app uses ARTHA's brand palette (see `docs/artha-brand-palette.md`). Token names like `moss` and `sage` are app roles, not the actual colors anymore; the comments in `tailwind.config.ts` say which brand color each one holds.
 - **New Tailwind colors:** after adding a color to `tailwind.config.ts`, **restart the dev server**, or the class won't apply.
 - **`next build` while the dev server runs:** it breaks the dev server's `.next` folder. Stop dev, run `rm -rf .next`, then restart.

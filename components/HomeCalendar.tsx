@@ -325,7 +325,7 @@ function CancelConfirm({ booking: b, onDone }: { booking: Booking; onDone: () =>
             cancel(b.id);
             onDone();
           }}
-          className={clsx("flex-1 rounded-full py-1.5 font-medium", t.late ? "border border-clay-deep text-clay active:bg-clay-soft" : "bg-sage text-ink")}
+          className={clsx("flex-1 rounded-full py-1.5 font-medium", t.late ? "bg-sage text-ink active:bg-sage-light" : "bg-sage text-ink")}
         >
           {t.late ? "Cancel anyway" : "Yes, cancel"}
         </button>
@@ -336,7 +336,7 @@ function CancelConfirm({ booking: b, onDone }: { booking: Booking; onDone: () =>
 
 function CancelButton({ onClick }: { onClick: () => void }) {
   return (
-    <button onClick={onClick} className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium border border-clay-deep text-clay active:bg-clay-soft">
+    <button onClick={onClick} className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium bg-sage text-ink active:bg-sage-light">
       Cancel
     </button>
   );

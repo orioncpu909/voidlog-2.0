@@ -29,7 +29,7 @@ export default function AccountPage() {
   const options = MEMBERSHIP_ORDER.filter((id) => id !== member.tier && (id !== "trial" || canStartTrial));
 
   return (
-    <div className="account-text space-y-4">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="font-serif text-3xl">Account</h1>
         <HistoryButton />

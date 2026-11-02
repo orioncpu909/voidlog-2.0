@@ -71,7 +71,7 @@ export function CancelMembership() {
     <>
       <button
         onClick={() => setConfirming(true)}
-        className="w-full rounded-full py-2 text-sm font-medium border border-clay-deep text-clay active:bg-clay-soft"
+        className="w-full rounded-full py-2 text-sm font-medium bg-sage text-ink active:bg-sage-light"
       >
         Cancel membership
       </button>

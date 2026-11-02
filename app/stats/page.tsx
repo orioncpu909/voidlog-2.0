@@ -4,7 +4,8 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import clsx from "clsx";
-import { ArrowLeft, Flame, Heart, Sparkles, Timer, Trophy, UserRound } from "lucide-react";
+import { ArrowLeft, Heart, Sparkles, Timer, Trophy, UserRound } from "lucide-react";
+import { StreakFlame } from "@/components/StreakFlame";
 import { LOCATIONS, SERVICES } from "@/lib/data";
 import { useStore } from "@/lib/store";
 import { computeStats } from "@/lib/stats";
@@ -44,7 +45,7 @@ function StatsScreen() {
   }
 
   const tiles = [
-    { icon: Flame, label: "Current streak", value: `${s.currentStreak} day${s.currentStreak === 1 ? "" : "s"}` },
+    { icon: StreakFlame, label: "Current streak", value: `${s.currentStreak} day${s.currentStreak === 1 ? "" : "s"}` },
     { icon: Trophy, label: "Longest streak", value: `${s.longestStreak} day${s.longestStreak === 1 ? "" : "s"}` },
     { icon: Heart, label: "Total visits", value: String(s.visits) },
     { icon: Timer, label: "Time in sanctuary", value: `${hours} hr` },
@@ -181,7 +182,7 @@ function Header() {
   const back = BACK[useSearchParams().get("from") ?? ""] ?? { href: "/", label: "Back to Home" };
   return (
     <div className="flex items-center gap-2">
-      <Link href={back.href} aria-label={back.label} className="-ml-2 rounded-full p-2 hover:bg-card">
+      <Link href={back.href} aria-label={back.label} className="-ml-2 rounded-full p-2 hover:bg-line">
         <ArrowLeft size={20} />
       </Link>
       <h1 className="font-serif text-3xl">Your stats</h1>

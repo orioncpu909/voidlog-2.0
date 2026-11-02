@@ -2,23 +2,56 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Taken from the brand mood photos: deep umber, sand and shoji amber. Text comes in one tone per
+   surface, near white on the page and near black on sand, so it holds up on a dimmed phone.
+   Hierarchy comes from size and weight, not from more shades of brown.
+   Space-separated so Tailwind's opacity classes work. */
+:root {
+  --sand: 18 7 2;
+  --card: 213 189 155;
+  --line: 83 55 31;
+  --shell: 255 248 238;
+  --muted: 255 248 238;
+  --clay: 255 196 174;
+  --clay-soft: 74 31 18;
+  --moss: 255 248 238;
+  --moss-soft: 60 35 18;
+  --sage: 236 173 98;
+  --sage-deep: 255 198 125;
+}
+
+/* Inside a sand card and everything in it. */
+@layer components {
+  .bg-card {
+    --sand: 196 167 127;
+    --line: 150 120 86;
+    --shell: 10 4 1;
+    --muted: 10 4 1;
+    --clay: 74 14 3;
+    --clay-soft: 227 199 177;
+    --moss: 10 4 1;
+    --moss-soft: 191 162 121;
+    --sage: 208 140 53; /* the amber deepens so it still stands out on sand */
+    --sage-deep: 10 4 1;
+    color: rgb(var(--shell));
+  }
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgb(var(--muted));
+  opacity: 0.7;
+}
+
 html,
 body {
-  background: #000000;
-  color: #f6f1e7;
+  background: #120702;
+  color: #fff8ee;
   color-scheme: dark;
 }
 
 body {
   -webkit-tap-highlight-color: transparent;
-}
-
-/* The Account page is mostly small print, so its secondary text and links run brighter. */
-.account-text .text-muted {
-  color: #e9e2d6;
-}
-.account-text .text-moss {
-  color: #efd0ae;
 }
 
 /* Numbers on the stats views: the app font with even-width digits, so figures line up. */

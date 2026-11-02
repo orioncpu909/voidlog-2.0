@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import clsx from "clsx";
-import { ChevronRight, Flame } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { completedVisits, computeStats } from "@/lib/stats";
 import { dateKey } from "@/lib/schedule";
 import { dayLabel } from "@/lib/format";
+import { StreakFlame } from "./StreakFlame";
 
 const WEEK_LETTERS = ["M", "T", "W", "T", "F", "S", "S"];
 
@@ -41,7 +42,7 @@ export function StreakCard({ picked, onPick }: { picked: string | null; onPick: 
     <section className="shrink-0 rounded-3xl border border-line bg-card p-4">
       <div className="flex items-center justify-between gap-3">
         <p className="stat-num flex items-center gap-1.5 text-2xl leading-none">
-          <Flame size={20} className="text-sage-light" />
+          <StreakFlame size={22} />
           {s.currentStreak}-day streak
         </p>
         <Link href="/stats" className="flex shrink-0 items-center text-xs text-moss">

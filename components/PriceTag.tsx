@@ -11,7 +11,7 @@ export function PriceTag({ quote, size = "sm", pill = false }: { quote: Quote; s
   if (pill && quote.kind !== "included" && quote.kind !== "perk") {
     return (
       <span className="inline-flex items-baseline gap-1 rounded-full bg-moss-soft px-2.5 py-0.5 text-xs text-moss">
-        {discounted && <span className="line-through opacity-60">{money(quote.regular)}</span>}
+        {discounted && <span className="line-through">{money(quote.regular)}</span>}
         <span className={clsx("font-medium", discounted && "text-sage-deep")}>{money(quote.price)}</span>
       </span>
     );

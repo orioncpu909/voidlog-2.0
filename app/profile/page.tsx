@@ -8,6 +8,7 @@ import {
   Music, Repeat, Share2, Snowflake, Sparkles, Sun, Sunrise, ThermometerSun, Ticket, Timer, Trophy, UserRound, Waves, Wind, Zap,
 } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
+import { StreakFlame } from "@/components/StreakFlame";
 import { LOCATIONS, PERK_LABEL, ServiceId, TIERS } from "@/lib/data";
 import { dateKey, sessionStart } from "@/lib/schedule";
 import { useStore } from "@/lib/store";
@@ -119,7 +120,7 @@ export default function ProfilePage() {
   return (
     <div className="space-y-4 pb-4">
       <div className="flex items-center justify-between">
-        <Link href="/" aria-label="Back to Home" className="-ml-2 rounded-full p-2 hover:bg-card">
+        <Link href="/" aria-label="Back to Home" className="-ml-2 rounded-full p-2 hover:bg-line">
           <ArrowLeft size={20} />
         </Link>
         <h1 className="text-xs font-semibold uppercase tracking-[0.25em]">Profile</h1>
@@ -143,7 +144,7 @@ export default function ProfilePage() {
       <Link href="/stats?from=profile" className="flex items-center justify-between rounded-2xl border border-line bg-card px-4 py-3 hover:border-muted">
         <span className="text-xs font-semibold uppercase tracking-widest">Day streak</span>
         <span className="flex items-center gap-1.5">
-          <Flame size={18} className="text-sage-light" />
+          <StreakFlame size={20} />
           <span className="stat-num">
             {s.currentStreak} day{s.currentStreak === 1 ? "" : "s"}
           </span>
@@ -244,7 +245,7 @@ function Achievements() {
           const Icon = ACHIEVEMENT_ICON[a.id];
           const got = a.count > 0;
           return (
-            <div key={a.id} className={clsx("w-[84px] shrink-0 text-center", !got && "opacity-45")}>
+            <div key={a.id} className={clsx("w-[84px] shrink-0 text-center", !got && "opacity-90")}>
               <span
                 className={clsx(
                   "mx-auto flex h-16 w-16 items-center justify-center rounded-full",

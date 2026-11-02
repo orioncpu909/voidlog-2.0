@@ -4,7 +4,7 @@ import { AppShell } from "@/components/AppShell";
 import { StoreProvider } from "@/lib/store";
 import "./globals.css";
 
-const serif = Cormorant_Garamond({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-serif" });
+const serif = Cormorant_Garamond({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-serif" });
 
 export const metadata: Metadata = {
   title: "ARTHA, a Wellness Sanctuary",
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#000000",
+  themeColor: "#120702",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

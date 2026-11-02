@@ -214,6 +214,83 @@ export function leaderboard(c: Challenge, you: { name: string; score: number } |
   });
 }
 
+// All time: every visit on an account since its first booking, across every service and every
+// plan it has been on. It never resets. A demo member's numbers grow steadily from a made-up first
+// visit, so they're the same on every reload and only ever go up.
+export interface AllTimeStats {
+  visits: number;
+  hours: number;
+  firstVisit: string | null; // YYYY-MM-DD
+  classes: number;
+  therapies: number;
+  treatments: number;
+  events: number;
+  services: { name: string; count: number }[]; // most visited first
+}
+
+const AVERAGE_VISIT_MIN = 50; // for a demo member's hours
+
+export function allTimeStats(bookings: Booking[], now = new Date()): AllTimeStats {
+  const visits = completedVisits(bookings, now);
+  const count = (category: string) => visits.filter((b) => SERVICES[b.serviceId].category === category).length;
+  const byService = new Map<string, number>();
+  for (const b of visits) {
+    const name = b.serviceId === "class" ? "Classes" : b.serviceId === "event" ? "Events" : SERVICES[b.serviceId].name;
+    byService.set(name, (byService.get(name) ?? 0) + 1);
+  }
+  return {
+    visits: visits.length,
+    hours: Math.round(visits.reduce((sum, b) => sum + b.durationMin, 0) / 6) / 10,
+    firstVisit: visits.map((b) => b.date).sort()[0] ?? null,
+    classes: count("class"),
+    therapies: count("therapy"),
+    treatments: count("treatment"),
+    events: count("event"),
+    services: [...byService].map(([name, n]) => ({ name, count: n })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)),
+  };
+}
+
+export function demoAllTimeStats(name: string, now = new Date()): AllTimeStats {
+  const rand = seeded(`all-time|${name}`);
+  const first = new Date(2025, 0, 1 + Math.floor(rand() * 420));
+  const perDay = 0.2 + rand() * 0.6;
+  const visits = Math.max(1, Math.floor(perDay * Math.max(1, (now.getTime() - first.getTime()) / 864e5)));
+  const treatments = Math.floor(visits * (0.03 + rand() * 0.07));
+  const classes = Math.floor((visits - treatments) * (0.45 + rand() * 0.3));
+  const therapies = visits - treatments - classes;
+  const split = (category: string, total: number) => {
+    const ids = Object.values(SERVICES).filter((s) => s.category === category);
+    const weights = ids.map(() => rand() ** 2 + 0.05);
+    const sum = weights.reduce((a, b) => a + b, 0);
+    const counts = weights.map((w) => Math.floor((total * w) / sum));
+    counts[0] += total - counts.reduce((a, b) => a + b, 0); // what rounding left over
+    return ids.map((s, i) => ({ name: s.name, count: counts[i] }));
+  };
+  return {
+    visits,
+    hours: Math.round((visits * AVERAGE_VISIT_MIN) / 6) / 10,
+    firstVisit: dateKey(first),
+    classes,
+    therapies,
+    treatments,
+    events: 0,
+    services: [{ name: "Classes", count: classes }, ...split("therapy", therapies), ...split("treatment", treatments)]
+      .filter((s) => s.count > 0)
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)),
+  };
+}
+
+// Ranked the same way as a challenge board: ties share a number.
+export function allTimeBoard(you: { name: string; score: number } | null, now = new Date()): BoardRow[] {
+  const rows = [...DEMO_MEMBERS.map((name) => ({ name, score: demoAllTimeStats(name, now).visits, you: false })), ...(you && you.score > 0 ? [{ ...you, you: true }] : [])];
+  rows.sort((a, b) => b.score - a.score || Number(b.you) - Number(a.you) || a.name.localeCompare(b.name));
+  let rank = 0;
+  return rows.map((r, i) => {
+    if (i === 0 || r.score !== rows[i - 1].score) rank = i + 1;
+    return { ...r, rank };
+  });
+}
+
 // Whether a member is in a challenge: the one rule for the boards, the results and the prize.
 // - Members only, and only for challenges that ended after their membership started (so time on
 //   a Wellness Account never counts).

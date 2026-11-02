@@ -15,7 +15,7 @@ import { TrialCancelSheet } from "./TrialCard";
 // (trial choices, membership details) live on the Account tab.
 
 function Row({ icon: Icon, tone, children, action }: { icon: typeof Info; tone: "dark" | "sage" | "soft"; children: React.ReactNode; action?: React.ReactNode }) {
-  const tones = { dark: "bg-line text-shell", sage: "bg-sage text-ink", soft: "bg-moss-soft text-shell" };
+  const tones = { dark: "bg-card text-shell", sage: "bg-sage text-ink", soft: "bg-card text-shell" };
   return (
     <div className={`flex items-center gap-2.5 rounded-2xl px-3 py-2 text-xs ${tones[tone]}`}>
       <Icon size={15} className="shrink-0" />
@@ -66,7 +66,7 @@ export function HomeAlerts() {
                 Keep trial
               </button>
             ) : (
-              <button onClick={() => setCancelling(true)} className="shrink-0 rounded-full px-2.5 py-1 font-medium border border-clay-deep text-clay active:bg-clay-soft">
+              <button onClick={() => setCancelling(true)} className="shrink-0 rounded-full px-2.5 py-1 font-medium bg-sage text-ink active:bg-sage-light">
                 Cancel
               </button>
             )

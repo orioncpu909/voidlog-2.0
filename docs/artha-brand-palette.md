@@ -34,25 +34,20 @@ Collected Oct 26, 2026. I read the colors from the live site's computed styles a
 ## Type
 Headlines are a bold, condensed, all-caps sans serif (a custom font uploaded to Wix). Body text is a clean sans; Wix also loads Proxima Nova.
 
-## Applied in the app (tailwind.config.ts)
+## Applied in the app (tailwind.config.ts, app/globals.css)
 
-A dark theme built on ARTHA's warm near-black: **cream** text, **gold** buttons and selected items, and **warm tan** links and accents.
+Sampled from the five brand mood photos: deep umber, sand and the amber glow of a shoji screen. Text is one tone per surface, near white on the page and near black on sand, so it holds up on a dimmed phone. Hierarchy comes from size and weight, not shades of brown. Tokens are CSS variables that flip inside a card (the `.bg-card` rule in `app/globals.css`).
 
-| App role | Token | Color | Notes |
+| App role | Token | On the page | Inside a card |
 |---|---|---|---|
-| Page background, header, tab bar | `sand` | `#000000` | Black, ARTHA's main site color |
-| Cards and sheets | `card` | `#261F1B` | ARTHA's warm near-black |
-| Borders and dividers | `line` | `#463B32` | Warm brown |
-| Main text and headings | `shell` | `#F6F1E7` | Cream, 14.4:1 on cards (the token name is historical) |
-| Text on gold and other light fills | `ink` | `#15110E` | 9:1 on gold |
-| Buttons, selected day, tab underline, account badge, specials | `sage` | `#D9AE4F` | Gold |
-| Special prices, gold text | `sage-deep` | `#E6C477` | Light gold, 9.7:1 on cards |
-| Streak flame | `sage-light` | `#C99A3B` | |
-| Secondary text | `muted` | `#BDB0A0` | Warm gray, 7.6:1 on cards |
-| Links, icons, chart bars, credits, "Booked" | `moss` | `#D9AE85` | Warm tan, 8:1 on cards. Soft tint `#3A2C20` |
-| Warnings, late cancels, Cancel buttons | `clay` | `#F0859F` | ARTHA burgundy, lifted for dark, 6.6:1 on cards. Soft tint `#43202B` |
-| Cancel button outlines | `clay-deep` | `#9F2747` | ARTHA burgundy border only; the button text stays `clay` so it reads on dark |
-| Studio City dot | `copper` | `#D68D51` | Never behind text |
+| Background | `sand` | `#120702` deep umber | `#C4A77F` deeper sand panel |
+| Cards and sheets | `card` | `#D5BD9B` sand | same |
+| All normal text | `shell`, `muted`, `moss` | `#FFF8EE`, 18.8:1 | `#0A0401`, 11.2:1 |
+| Amber text | `sage-deep` | `#FFC67D` | `#0A0401` |
+| Warnings | `clay` | `#FFC4AE` | `#4A0E03` |
+| Borders | `line` | `#53371F` | `#967856` |
+| Buttons, Cancel, selected items | `sage` | `#ECAD62` shoji amber with `ink` text | `#D08C35` deeper amber |
+| Studio City dot | `copper` | `#D68D51` | same |
 
 The earlier light theme used cream `#F6F1E7` pages, white cards, black text, brown `#7A4E2D` and burgundy `#9F2747`. It's in git history before this change.
 

@@ -78,7 +78,7 @@ export function TrialCard() {
       </div>
       <button
         onClick={() => setConfirming(true)}
-        className="mt-4 w-full rounded-full py-2.5 text-sm font-medium border border-clay-deep text-clay active:bg-clay-soft"
+        className="mt-4 w-full rounded-full py-2.5 text-sm font-medium bg-sage text-ink active:bg-sage-light"
       >
         Cancel trial
       </button>
@@ -142,7 +142,7 @@ export function NoticeBanner() {
   const { member, dismissNotice } = useStore();
   if (!member.notice) return null;
   return (
-    <div className="flex items-start gap-3 rounded-2xl bg-line p-4 text-sm text-shell">
+    <div className="flex items-start gap-3 rounded-2xl bg-card p-4 text-sm text-shell">
       <p className="flex-1 whitespace-pre-line">{member.notice}</p>
       <button onClick={dismissNotice} aria-label="Dismiss" className="shrink-0">
         <X size={16} />

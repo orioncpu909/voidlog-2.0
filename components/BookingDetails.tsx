@@ -50,7 +50,7 @@ export function UpcomingBookingCard({ booking: b, onCancel }: { booking: Booking
         <button onClick={() => addToPhoneCalendar(b, policyLine(t, b.usedCredit))} className="flex items-center gap-1.5 text-xs text-moss hover:underline">
           <CalendarPlus size={14} /> Add to phone calendar
         </button>
-        <button onClick={onCancel} className="shrink-0 rounded-full px-3 py-1 text-sm border border-clay-deep text-clay active:bg-clay-soft">
+        <button onClick={onCancel} className="shrink-0 rounded-full px-3 py-1 text-sm bg-sage text-ink active:bg-sage-light">
           Cancel
         </button>
       </div>
@@ -63,7 +63,7 @@ export function PastVisitRow({ booking: b, onOpen }: { booking: Booking; onOpen:
   return (
     <button
       onClick={onOpen}
-      className="flex w-full items-center gap-3 rounded-2xl border border-line bg-card/60 px-4 py-3 text-left text-sm hover:border-muted"
+      className="flex w-full items-center gap-3 rounded-2xl border border-line bg-card px-4 py-3 text-left text-sm hover:border-muted"
     >
       <div className="min-w-0 flex-1">
         <p className="truncate">{b.title}</p>
