@@ -12,10 +12,9 @@ import { StreakFlame } from "./StreakFlame";
 const WEEK_LETTERS = ["M", "T", "W", "T", "F", "S", "S"];
 
 // Home, top: the current streak and this week (Monday to Sunday) at a glance. Visited days are
-// filled, today is ringed, the rest of the week is faint. Tap a day to pick it in the Home calendar
-// below, which lists what you did (or have booked) that day; tap it again to clear it. Home owns the
-// picked day, so picking it in either place rings it in both. Everything else is on Stats.
-export function StreakCard({ picked, onPick }: { picked: string | null; onPick: (day: string | null) => void }) {
+// filled, today is ringed, the rest of the week is faint, and a day picked in the Home calendar
+// below is ringed here too. The whole card opens Stats.
+export function StreakCard({ picked }: { picked: string | null }) {
   const { bookings } = useStore();
   const s = computeStats(bookings);
   const visited = new Set(completedVisits(bookings).map((b) => b.date));
@@ -39,15 +38,15 @@ export function StreakCard({ picked, onPick }: { picked: string | null; onPick: 
           : "Visit today to start a new streak.";
 
   return (
-    <section className="shrink-0 rounded-3xl border border-line bg-card p-4">
+    <Link href="/stats" className="block shrink-0 rounded-3xl border border-line bg-card p-4 transition-colors active:bg-sand">
       <div className="flex items-center justify-between gap-3">
         <p className="stat-num flex items-center gap-1.5 text-2xl leading-none">
           <StreakFlame size={22} />
           {s.currentStreak}-day streak
         </p>
-        <Link href="/stats" className="flex shrink-0 items-center text-xs text-moss">
+        <span className="flex shrink-0 items-center text-xs text-moss">
           Stats <ChevronRight size={14} />
-        </Link>
+        </span>
       </div>
       <p className="mt-1 text-xs text-muted">{hint}</p>
 
@@ -58,13 +57,7 @@ export function StreakCard({ picked, onPick }: { picked: string | null; onPick: 
           const future = d > today;
           const isPicked = picked === d;
           return (
-            <button
-              key={d}
-              onClick={() => onPick(isPicked ? null : d)}
-              aria-pressed={isPicked}
-              aria-label={`${dayLabel(d, "long")}${done ? ", visited" : ""}`}
-              className="flex flex-col items-center gap-1"
-            >
+            <span key={d} aria-label={`${dayLabel(d, "long")}${done ? ", visited" : ""}`} className="flex flex-col items-center gap-1">
               <span className={clsx("text-[10px]", isToday || isPicked ? "font-semibold text-shell" : "text-muted")}>{WEEK_LETTERS[i]}</span>
               <span
                 className={clsx(
@@ -74,10 +67,10 @@ export function StreakCard({ picked, onPick }: { picked: string | null; onPick: 
                   isPicked && "ring-2 ring-moss ring-offset-2 ring-offset-card",
                 )}
               />
-            </button>
+            </span>
           );
         })}
       </div>
-    </section>
+    </Link>
   );
 }

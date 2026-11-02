@@ -9,7 +9,7 @@ npm run dev   # http://localhost:3100
 
 ## Home
 Home fits on one phone screen with no scrolling. Top to bottom:
-1. **Streak:** the current streak and this week, Monday to Sunday (visited days filled, today ringed). **Tap a day** to pick it in the calendar below, which lists what you did or have booked that day (switching month if the day is in the next one); tap it again to clear it. Tapping a day in the calendar rings it in the streak card too. **Stats ›** opens the Stats page.
+1. **Streak:** the current streak and this week, Monday to Sunday (visited days filled, today ringed). Tap anywhere on it to open Stats. **Tap a day in the calendar below** to list what you did or have booked that day (switching month if the day is in the next one); tap it again to clear it. Tapping a day in the calendar rings it in the streak card too. **Stats ›** opens the Stats page.
 2. **The calendar (your bookings live here):** a compact month grid (short rows, ‹ › to change month) with one dot per booking under each day: gold coming up, faint for past visits. The space below is a **Coming up** list of every upcoming booking, grouped by day: time, name, then instructor, studio, length and price, with a **Cancel** button. Tap a day to list that day instead (past days show what happened); tap the same day again to go back to Coming up. Cancel asks right in the list (free, or what a late cancel costs) with Keep it / Yes, cancel. Tap a booking to open the cancellation deadline and Add to phone calendar, or for a past visit, Book again. Nothing slides over the calendar except **History**, the full list of past and cancelled visits.
 3. **Upcoming events.**
 
@@ -139,7 +139,7 @@ A tab of friendly, opt-in challenges and leaderboards among members. No pressure
 - Demo: Account → Demo → "Open the app as a new download", open `/?ref=CODE` with a code from another account's profile, sign up, then join a membership. Switch back to the referrer to see the credit.
 - **History (Account, top right)** (`components/BookingHistory.tsx`): every previous booking on one full-screen page, newest first, grouped by month, with filters for Classes, Therapies, Treatments and Events. Each row shows the date, what it was, its type (Class, Therapy, Treatment, Event), the teacher or therapist, the time, length and studio, plus Cancelled or Late cancel when it didn't happen. Tap one for the full details and Book again.
 - **Account tab (condensed):** a compact account card (plan, price, where you can book, credits and Restore perks), a one-row stats strip (streak, best, visits, hours) that opens the full dashboard, prices in a two-column grid, short plan rows, and Contact us (with the cancellation policy inside it) and Demo folded into tap-to-open rows (`components/Disclosure.tsx`).
-- **Home streak card:** current streak (consecutive days with a visit, ending today or yesterday) and this Monday-to-Sunday week; each day is tappable and shows that day in the Home calendar. Best streak, monthly and total visits are on the Stats page. All calendars and the weekly chart start the week on Monday.
+- **Home streak card:** current streak (consecutive days with a visit, ending today or yesterday) and this Monday-to-Sunday week; the whole card opens Stats. Best streak, monthly and total visits are on the Stats page. All calendars and the weekly chart start the week on Monday.
 - **Your stats:** reached from the streak card or Account. Shows:
   - Current and longest streak, total visits and hours.
   - Visits per week for the last 8 weeks (Monday to Sunday).

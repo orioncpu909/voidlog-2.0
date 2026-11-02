@@ -47,7 +47,7 @@ export default function HomePage() {
         </div>
       </div>
       <HomeAlerts />
-      <StreakCard picked={day} onPick={setDay} />
+      <StreakCard picked={day} />
       <EventsSection />
       {/* Suspense: the calendar reads ?day= links from elsewhere in the app. */}
       <Suspense>
