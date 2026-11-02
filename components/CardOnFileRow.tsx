@@ -6,21 +6,18 @@ import { ChevronRight, CreditCard } from "lucide-react";
 import { TIERS } from "@/lib/data";
 import { useStore } from "@/lib/store";
 import {
-  CardOnFile, cardBrand, cardExpiry, cardLabel, cardNumberError, cvcError, digitsOnly, expiryError, formatCardNumber, formatExpiry, isExpired, toCardOnFile, zipError,
+  CardOnFile, cardBrand, cardDeclines, cardExpiry, cardLabel, cardNumberError, cvcError, digitsOnly, expiryError, formatCardNumber, formatExpiry, toCardOnFile, zipError,
 } from "@/lib/card";
+import { BlockedBanner } from "@/components/BlockedBanner";
 import { Button, Sheet } from "@/components/Sheet";
 
 // The card on file on Account. The whole row opens the sheet to change it (or add one).
 export function CardOnFileRow() {
-  const { member, setCard } = useStore();
+  const { member } = useStore();
   const [open, setOpen] = useState(false);
-  const [saved, setSaved] = useState<CardOnFile | null>(null);
   const card = member.card;
-  const expired = !!card && isExpired(card);
-  const close = () => {
-    setOpen(false);
-    setSaved(null);
-  };
+  const problem = !!card && cardDeclines(card);
+  const status = !card ? null : card.declining ? "Declined. Update it to book." : `${problem ? "Expired" : "Expires"} ${cardExpiry(card)}`;
   return (
     <>
       <button onClick={() => setOpen(true)} className="flex min-h-[64px] w-full items-center gap-3 rounded-2xl border border-line bg-card px-4 py-3 text-left transition-colors active:bg-sand">
@@ -28,31 +25,58 @@ export function CardOnFileRow() {
         <span className="min-w-0 flex-1">
           <span className="block text-xs text-muted">Card on file</span>
           <span className="block truncate text-sm font-medium">{card ? cardLabel(card) : "No card yet"}</span>
-          {card && <span className={clsx("block text-xs", expired ? "font-medium text-clay" : "text-muted")}>{expired ? `Expired ${cardExpiry(card)}` : `Expires ${cardExpiry(card)}`}</span>}
+          {status && <span className={clsx("block text-xs", problem ? "font-medium text-clay" : "text-muted")}>{status}</span>}
         </span>
         <span className="flex shrink-0 items-center text-sm font-medium text-moss">
           {card ? "Change" : "Add"} <ChevronRight size={16} />
         </span>
       </button>
-      <Sheet open={open} onClose={close} title={saved ? "Card saved" : card ? "Change card" : "Add a card"}>
-        {saved ? (
-          <div className="space-y-4">
-            <p className="text-sm">
-              {TIERS[member.tier].monthly ? "Your next payment and any new bookings" : "New bookings"} will use your {cardLabel(saved)}. Refunds on earlier payments still go back to the card you paid with.
-            </p>
-            <Button onClick={close}>Done</Button>
-          </div>
-        ) : (
-          <CardForm
-            current={card}
-            onSave={(next) => {
-              setCard(next);
-              setSaved(next);
-            }}
-          />
-        )}
-      </Sheet>
+      <CardSheet open={open} onClose={() => setOpen(false)} />
     </>
+  );
+}
+
+// When a charge fails while booking: stays up until dismissed, and updating the card happens right
+// here, so the booking underneath is still there to confirm.
+export function CardDeclinedBanner({ onClose }: { onClose: () => void }) {
+  const [updating, setUpdating] = useState(false);
+  if (updating) return <CardSheet open onClose={onClose} />;
+  return (
+    <BlockedBanner title="Your card was declined" message="You weren't charged. You must update your card to book." onClose={onClose} persist>
+      <button onClick={() => setUpdating(true)} className="mt-2 min-h-[44px] w-full rounded-full bg-sage px-4 py-2.5 text-sm font-medium text-ink active:bg-sage-light">
+        Update card
+      </button>
+    </BlockedBanner>
+  );
+}
+
+function CardSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { member, setCard } = useStore();
+  const [saved, setSaved] = useState<CardOnFile | null>(null);
+  const card = member.card;
+  const close = () => {
+    setSaved(null);
+    onClose();
+  };
+  return (
+    <Sheet open={open} onClose={close} title={saved ? "Card saved" : card ? "Change card" : "Add a card"}>
+      {saved ? (
+        <div className="space-y-4">
+          <p className="text-sm">
+            {TIERS[member.tier].monthly ? "Your next payment and any new bookings" : "New bookings"} will use your {cardLabel(saved)}. Refunds on earlier payments still go back to the card you paid with.
+          </p>
+          <Button onClick={close}>Done</Button>
+        </div>
+      ) : (
+        <CardForm
+          current={card}
+          onSave={(next) => {
+            setCard(next);
+            setSaved(next);
+          }}
+        />
+      )}
+    </Sheet>
   );
 }
 

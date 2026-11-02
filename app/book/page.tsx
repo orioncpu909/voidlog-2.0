@@ -13,6 +13,7 @@ import { dayLabel, money, timeLabel, timeRange } from "@/lib/format";
 import { Therapist, therapistsFor } from "@/lib/therapists";
 import { addToPhoneCalendar } from "@/lib/ics";
 import { BlockedBanner } from "@/components/BlockedBanner";
+import { CardDeclinedBanner } from "@/components/CardOnFileRow";
 import { InPreview } from "@/lib/gesture";
 import { PriceTag, PromoNote } from "@/components/PriceTag";
 import { Button, Sheet } from "@/components/Sheet";
@@ -1044,6 +1045,7 @@ function ConfirmBooking({ session, onClose, onBooked }: { session: Session; onCl
   const total = credit ? 0 : q.price;
   const terms = cancelTerms(tier, { ...session, price: total, usedCredit: credit, perk: !credit && q.kind === "perk" });
   const [error, setError] = useState<string | null>(null);
+  const [declined, setDeclined] = useState(false);
 
   return (
     <Sheet open onClose={onClose} title="Confirm your booking">
@@ -1087,6 +1089,7 @@ function ConfirmBooking({ session, onClose, onBooked }: { session: Session; onCl
             onClick={() => {
               const r = book(session, credit);
               if (r.ok) onBooked(r.booking);
+              else if (r.declined) setDeclined(true);
               else setError(r.error);
             }}
           >
@@ -1097,6 +1100,7 @@ function ConfirmBooking({ session, onClose, onBooked }: { session: Session; onCl
           </Button>
         </div>
       </div>
+      {declined && <CardDeclinedBanner onClose={() => setDeclined(false)} />}
     </Sheet>
   );
 }

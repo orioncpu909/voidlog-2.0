@@ -6,6 +6,7 @@ export interface CardOnFile {
   last4: string;
   expMonth: number; // 1–12
   expYear: number; // e.g. 2029
+  declining?: boolean; // demo: the bank turns this card down. A real decline comes from the payment provider
 }
 
 interface Brand {
@@ -64,6 +65,9 @@ const parseExpiry = (input: string) => {
 };
 
 export const isExpired = (c: Pick<CardOnFile, "expMonth" | "expYear">, now = new Date()) => c.expYear * 12 + c.expMonth < now.getFullYear() * 12 + now.getMonth() + 1;
+
+// Whether a charge to this card fails. No card isn't a decline: see "Card on file" in HANDOFF.md.
+export const cardDeclines = (c: CardOnFile | undefined, now = new Date()) => !!c && (!!c.declining || isExpired(c, now));
 
 export function expiryError(input: string, now = new Date()): string {
   const expiry = parseExpiry(input);

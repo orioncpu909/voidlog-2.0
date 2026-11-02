@@ -205,6 +205,8 @@ README.md                   Rules and where to change them
 - `Member.card` holds only the brand, last 4 and expiry. The full number and security code stay in the form and are dropped when it closes.
 - Sample accounts get a made-up Visa ending in 4242 (`withSampleCard`, also applied to saved data). Sign-up and joining don't ask for a card, so a new account shows "No card yet", even after joining a membership.
 - With a backend, replace the form with the payment provider's hosted fields, so card numbers never pass through the app.
+- **Declines:** `book` stops a charge over $0 on a card that declines (`cardDeclines`: expired, or `card.declining` from Account → Demo) and shows `CardDeclinedBanner`, which stays up and opens the card sheet in place. With a backend, set this from the provider's charge result.
+- **Not covered:** an account with no card still books; membership joins, renewals and late-cancel fees don't check the card.
 
 ### Stats
 

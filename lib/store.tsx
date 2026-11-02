@@ -10,7 +10,7 @@ import { EVENTS, eventAt, eventTicketPrice, eventVisibleTo } from "./events";
 import { CancelTerms, canUseCredit, cancelTerms } from "./policy";
 import { TRIAL_BECOMES, firstMonthCharge, trialEndsAt } from "./trial";
 import { checkInDue } from "./checkin";
-import type { CardOnFile } from "./card";
+import { CardOnFile, cardDeclines } from "./card";
 import { endOfMonth, inRefundWindow, joinCharge, membershipUsed } from "./membership";
 import { money, shortDate, timeLabel, timeRange } from "./format";
 import { REFERRAL_CREDITS, ReferralResult, findReferrer } from "./referral";
@@ -555,7 +555,7 @@ function load(): State {
   return settle(seedState());
 }
 
-export type BookResult = { ok: true; booking: Booking } | { ok: false; error: string };
+export type BookResult = { ok: true; booking: Booking } | { ok: false; error: string; declined?: boolean };
 
 interface Store {
   member: Member;
@@ -593,6 +593,7 @@ interface Store {
   joinCommunity: (joined: boolean) => void;
   setPhoto: (photo?: string) => void;
   setCard: (card: CardOnFile) => void;
+  setCardDeclines: (declining: boolean) => void; // demo only
   toggleWaitlist: (challengeId: string) => void; // sign up for (or leave) a challenge before it starts
   logPlunge: (bookingId: string, seconds: number) => { ok: true } | { ok: false; error: string };
   dismissPromos: (ids: string[]) => void;
@@ -751,6 +752,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const firstVisit = !credit && q.kind === "firstVisit";
       const perk = !credit && q.kind === "perk";
       const price = credit ? 0 : event ? eventTicketPrice(event, tier.isMember) : q.price;
+      if (price > 0 && cardDeclines(member.card)) return { ok: false, declined: true, error: "Your card was declined." };
       const booking = { ...makeBooking(member, session, price, credit), firstVisit, perk };
       bookingNow.current.add(session.id);
 
@@ -885,6 +887,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // Only members can be on the boards; leaving keeps their history but hides them.
       setPhoto: (photo) => update((s) => ({ ...s, members: patchMember(s, { photo }) })),
       setCard: (card) => update((s) => ({ ...s, members: patchMember(s, { card }) })),
+      setCardDeclines: (declining) => update((s) => (member.card ? { ...s, members: patchMember(s, { card: { ...member.card, declining } }) } : s)),
       joinCommunity: (joined) =>
         update((s) =>
           joined && !tier.isMember

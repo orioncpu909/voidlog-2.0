@@ -22,7 +22,7 @@ import { HistoryButton } from "@/components/BookingHistory";
 import { Button, Sheet } from "@/components/Sheet";
 
 export default function AccountPage() {
-  const { member, members, spentThisMonth, switchMember, changeTier, canStartTrial, endTrialNow, endMembershipNow, restartAsNewDownload, reset } = useStore();
+  const { member, members, spentThisMonth, switchMember, changeTier, canStartTrial, endTrialNow, endMembershipNow, restartAsNewDownload, setCardDeclines, reset } = useStore();
   const [joining, setJoining] = useState<TierId | null>(null);
   const tier = TIERS[member.tier];
   const location = LOCATIONS[member.home];
@@ -169,6 +169,11 @@ export default function AccountPage() {
         {member.membershipEndsAt && (
           <button onClick={endMembershipNow} className="mt-2 block text-xs text-moss underline-offset-2 hover:underline">
             Jump to the end of this month (demo)
+          </button>
+        )}
+        {member.card && (
+          <button onClick={() => setCardDeclines(!member.card?.declining)} className="mt-2 block text-xs text-moss underline-offset-2 hover:underline">
+            {member.card.declining ? "Stop this card declining (demo)" : "Make this card decline (demo)"}
           </button>
         )}
         <button onClick={restartAsNewDownload} className="mt-2 block text-xs text-moss underline-offset-2 hover:underline">
