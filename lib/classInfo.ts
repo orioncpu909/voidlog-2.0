@@ -1,4 +1,5 @@
-import { SERVICES } from "./data";
+import { LOCATIONS, SERVICES } from "./data";
+import { weekTaughtBy } from "./schedule";
 
 // Short descriptions for each class on the schedule, matched from the class title: what the class
 // is, then whether it's heated and who it's for. CONFIRM: demo copy written from the class names,
@@ -29,6 +30,27 @@ const LEVELS: [RegExp, string][] = [
   [/\(Int\)/, "For students with some experience."],
   [/\(Beg\)/, "Beginner friendly."],
 ];
+
+// A short bio for a class's instructor, built only from the schedule: what they teach, where and how
+// often. CONFIRM: no real bios yet, so this says nothing the schedule doesn't. Replace it with each
+// instructor's own words (add them to INSTRUCTOR_BIOS by full name).
+const INSTRUCTOR_BIOS: Record<string, string> = {};
+
+export function instructorBio(name: string): string {
+  if (INSTRUCTOR_BIOS[name]) return INSTRUCTOR_BIOS[name];
+  const week = weekTaughtBy(name);
+  const first = name.split(" ")[0];
+  if (!week.length) return `${first} teaches at ARTHA.`;
+  // "Infrared Heated Power Yoga (All Levels)" → "Power Yoga"; heat is mentioned once, after.
+  const style = (t: string) => t.replace(/\s*\((All Levels|Int|Beg)\)/, "").replace(/^Infrared Heated\s+/, "").replace(/\s+With Weights$/, " with weights");
+  const styles = [...new Set(week.map((c) => style(c.title)))];
+  const shown = styles.slice(0, 3);
+  const list = styles.length > 3 ? `${shown.join(", ")} and more` : shown.length > 1 ? `${shown.slice(0, -1).join(", ")} and ${shown[shown.length - 1]}` : shown[0];
+  const studios = [...new Set(week.map((c) => c.location))];
+  const where = studios.length > 1 ? "both studios" : LOCATIONS[studios[0]].short;
+  const heated = week.some((c) => /Infrared Heated/.test(c.title)) ? ", including infrared heated classes" : "";
+  return `${first} teaches ${list} at ${where}${heated}: ${week.length} class${week.length === 1 ? "" : "es"} a week.`;
+}
 
 export function classDescription(title: string): string {
   const style = STYLES.find(([re]) => re.test(title))?.[1] ?? SERVICES.class.description;

@@ -1,9 +1,18 @@
-// Service photos. Book no longer shows them (it's text only); the sign-up screen uses the event photo. Free Unsplash photos
-// (unsplash.com/license), loaded from Unsplash. Swap in ARTHA's own photos by dropping files in
-// /public/images and pointing these at "/images/<file>".
+// Service photos. Book's three section boxes show one each; the sign-up screen uses the event
+// photo. Free Unsplash photos (unsplash.com/license), loaded from Unsplash. They're real
+// photographs, not AI-generated: the number in each id is its upload time, and all of these were
+// uploaded 2016 to 2020. Swap in ARTHA's own photos by dropping files in /public/images and
+// pointing these at "/images/<file>".
 import { ServiceId } from "./data";
 
 const unsplash = (id: string, w = 1200) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${w}&q=70`;
+
+// Book's section boxes, with where to center each crop.
+export const SECTION_IMAGE: Record<"class" | "therapy" | "treatment", { src: string; position: string }> = {
+  class: { src: unsplash("photo-1544367567-0f2fcb009e0b", 900), position: "50% 60%" }, // yoga at sunset (2018)
+  therapy: { src: unsplash("photo-1572168400468-62e1b3209d7d", 900), position: "50% 65%" }, // lit sauna benches (2019)
+  treatment: { src: unsplash("photo-1544161515-4ab6ce6db874", 900), position: "50% 55%" }, // massage (2018)
+};
 
 // One photo per therapy and treatment, kept in case photos come back to Book.
 export const SERVICE_IMAGE: Partial<Record<ServiceId, string>> = {

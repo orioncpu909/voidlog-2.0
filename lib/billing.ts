@@ -7,7 +7,7 @@ import { TRIAL_BECOMES, firstMonthCharge } from "./trial";
 
 const day = (d: Date) => shortDate(dateKey(d));
 
-export function nextBill(m: Pick<Member, "tier" | "membershipEndsAt" | "trialEndsAt" | "trialBecomes" | "trialCancel">, now = new Date()): { headline: string; detail: string } {
+export function nextBill(m: Pick<Member, "tier" | "membershipEndsAt" | "membershipCancel" | "trialEndsAt" | "trialBecomes" | "trialCancel">, now = new Date()): { headline: string; detail: string } {
   const tier = TIERS[m.tier];
   if (m.tier === "trial" && m.trialEndsAt) {
     const ends = new Date(m.trialEndsAt);
@@ -22,6 +22,9 @@ export function nextBill(m: Pick<Member, "tier" | "membershipEndsAt" | "trialEnd
     };
   }
   if (!tier.monthly) return { headline: "No monthly bill", detail: "You pay for each visit when you book it." };
-  if (m.membershipEndsAt) return { headline: "You won't be billed again", detail: `You keep ${tier.name} until ${day(new Date(m.membershipEndsAt))}.` };
+  if (m.membershipEndsAt) {
+    const then = m.membershipCancel === "delete" ? "this account is deleted" : "you're on a free Wellness Account";
+    return { headline: "You won't be billed again", detail: `You keep ${tier.name} until ${day(new Date(m.membershipEndsAt))}, then ${then}.` };
+  }
   return { headline: `${day(new Date(now.getFullYear(), now.getMonth() + 1, 1))} · ${money(tier.monthly)}`, detail: "Billed on the 1st of every month." };
 }

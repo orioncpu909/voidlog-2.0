@@ -9,6 +9,7 @@ import { EventsSection } from "@/components/EventsSection";
 import { CreditsInfoButton } from "@/components/CreditsInfo";
 import { HomeAlerts } from "@/components/HomeAlerts";
 import { HomeCalendar } from "@/components/HomeCalendar";
+import { RateLastClass } from "@/components/RateClass";
 import { StreakCard } from "@/components/StreakCard";
 
 // Home fits on one phone screen: your streak, upcoming events, and this month's calendar (which also
@@ -34,19 +35,20 @@ export default function HomePage() {
         <div className="flex flex-col items-end gap-1">
           <Link
             href="/membership"
-            className="flex items-center gap-1.5 rounded-full bg-sage px-3.5 py-1.5 text-sm font-semibold text-ink"
+            className="-mr-3 flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold active:opacity-60"
           >
             <BadgeCheck size={16} />
             {tier.isMember && tier.id !== "trial" ? `${tier.name} Member` : tier.name}
           </Link>
           {member.credits > 0 && (
-            <CreditsInfoButton className="rounded-full bg-moss-soft px-2.5 py-0.5 text-xs hover:no-underline">
+            <CreditsInfoButton className="-mr-3 px-3 py-0.5 text-xs hover:no-underline active:opacity-60">
               <Ticket size={12} /> {member.credits} credits
             </CreditsInfoButton>
           )}
         </div>
       </div>
       <HomeAlerts />
+      <RateLastClass />
       <StreakCard picked={day} />
       <EventsSection />
       {/* Suspense: the calendar reads ?day= links from elsewhere in the app. */}

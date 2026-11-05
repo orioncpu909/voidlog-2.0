@@ -28,8 +28,8 @@ export function SwitchToWellness() {
       : refundWindowOpen
         ? undefined
         : dateKey(endOfMonth(new Date()));
-  const scheduled = isTrial ? member.trialCancel === "downgrade" : !!member.membershipEndsAt;
-  const deleting = isTrial && member.trialCancel === "delete";
+  const deleting = isTrial ? member.trialCancel === "delete" : member.membershipCancel === "delete";
+  const scheduled = isTrial ? member.trialCancel === "downgrade" : !!member.membershipEndsAt && !deleting;
   const loses = [member.credits > 0 && "treatment credits", tier.monthlyPerks && "monthly perks"].filter(Boolean).join(" and ");
   const refund = [...charges].reverse().find((c) => c.label.includes("membership") && c.amount > 0)?.amount ?? 0;
 
@@ -50,7 +50,7 @@ export function SwitchToWellness() {
           <p className="font-heading text-xl">Wellness Account</p>
           <p className="text-xs text-muted">
             {deleting
-              ? "Your trial is cancelled and the account is set to be deleted."
+              ? `Your ${isTrial ? "trial" : "membership"} is cancelled and the account is set to be deleted.`
               : scheduled
                 ? `You're switching to pay as you go on ${shortDate(switchDate!)}.`
                 : "No monthly fee. Pay as you go at both locations, and stay up to date on future promotions."}

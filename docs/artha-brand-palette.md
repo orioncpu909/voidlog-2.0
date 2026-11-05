@@ -48,10 +48,11 @@ Sampled from the five brand mood photos: deep umber, sand and the amber glow of 
 | Borders | `line` | `#53371F` | `#967856` |
 | Buttons, Cancel, selected items | `sage` | `#ECAD62` shoji amber with `ink` text | `#D08C35` deeper amber |
 | Studio City dot | `copper` | `#D68D51` | same |
+| Specials (Home banner, "special · until" tags) | `promo` | `#B0926A` darker sand with `ink` text | same |
 
 The earlier light theme used cream `#F6F1E7` pages, white cards, black text, brown `#7A4E2D` and burgundy `#9F2747`. It's in git history before this change.
 
-History: specials went copper, then gold at Miguel's request, and are never red, so the warning role took the burgundy family. On Oct 26 the browns were warmed to sienna; then the Book tab was rebuilt like the Open app in dark colors, and at Miguel's request the rest of the app (Home, Calendar, Account) moved to the same dark palette. He then asked for more contrast: pure black pages, white text, brighter accents and borders, and no faded (semi-transparent) text. Then he asked to keep black, gold and earthy brown as the main colors (brown cards, gold buttons). That read as too dark, so the app moved to a light cream theme that keeps the same three colors: black text, gold buttons and selections, brown accents.
+History: specials went copper, then gold, then (Nov 3) a darker sand at Miguel's request, and are never red, so the warning role took the burgundy family. On Oct 26 the browns were warmed to sienna; then the Book tab was rebuilt like the Open app in dark colors, and at Miguel's request the rest of the app (Home, Calendar, Account) moved to the same dark palette. He then asked for more contrast: pure black pages, white text, brighter accents and borders, and no faded (semi-transparent) text. Then he asked to keep black, gold and earthy brown as the main colors (brown cards, gold buttons). That read as too dark, so the app moved to a light cream theme that keeps the same three colors: black text, gold buttons and selections, brown accents.
 
 ## Fonts in the app
 - Headings: Futura PT Cond Bold (`app/fonts`, class `font-heading`). Body text: Futura PT Book (`font-sans`). The ARTHA name in the header stays Cormorant Garamond (`font-wordmark`).

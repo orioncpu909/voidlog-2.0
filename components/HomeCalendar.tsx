@@ -11,6 +11,7 @@ import { Booking, useStore } from "@/lib/store";
 import { dayLabel, money, timeLabel } from "@/lib/format";
 import { policyLine } from "@/lib/policy";
 import { addToPhoneCalendar } from "@/lib/ics";
+import { useReveal } from "@/lib/reveal";
 import { Sheet, useTapGuard } from "./Sheet";
 import { PAST_LABEL, PastVisitRow, PastVisitSheet, bookingStart, nextSameSession } from "./BookingDetails";
 
@@ -247,8 +248,9 @@ function BookingRow({
   // Only what you actually paid or used; nothing for an included visit.
   const paid = b.usedCredit ? "1 credit" : b.perk ? "Perk" : b.price > 0 ? money(b.price) : null;
   const facts = [b.checkedInAt && "Checked in", b.instructor?.split(" ")[0], LOCATIONS[b.location].short, `${b.durationMin} min`, paid].filter(Boolean).join(" · ");
+  const ref = useReveal<HTMLDivElement>(expanded);
   return (
-    <div className="flex gap-2 py-1">
+    <div ref={ref} className="flex gap-2 py-1">
       <span className="stat-num w-[56px] shrink-0 whitespace-nowrap pt-0.5 font-medium">{timeLabel(b.time)}</span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">

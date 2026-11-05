@@ -10,6 +10,8 @@ import { Session, sessionStart, slotsFor, upcomingDays } from "@/lib/schedule";
 import { Booking, useStore } from "@/lib/store";
 import { dayLabel, shortDate, timeLabel, timeRange } from "@/lib/format";
 import { Button, Sheet, useTapGuard } from "@/components/Sheet";
+import { RateClass } from "@/components/RateClass";
+import { canRate } from "@/lib/ratings";
 
 const DAYS_AHEAD = 14;
 const MAX_TIMES = 24; // past this (cryo starts every 5 minutes), pick an hour first
@@ -84,7 +86,7 @@ function OpenService({ id, onOpen }: { id: ServiceId; onOpen: () => void }) {
 }
 
 function BookedService({ pass, booking: b }: { pass: GuestPass; booking: Booking }) {
-  const { guestCancel } = useStore();
+  const { guestCancel, rateClass } = useStore();
   const [cancelling, setCancelling] = useState(false);
   const started = hasStarted(b);
   return (
@@ -100,6 +102,12 @@ function BookedService({ pass, booking: b }: { pass: GuestPass; booking: Booking
         {LOCATIONS[b.location].name}
         {b.instructor ? ` · w/ ${b.instructor}` : ""}
       </p>
+      {/* After the class: 1 to 5 stars, for the ARTHA team only (lib/ratings.ts). */}
+      {b.serviceId === "class" && (b.rating || canRate(b)) && (
+        <div className="-mx-4 -mb-4 mt-3 border-t border-line">
+          <RateClass booking={b} details={false} onRate={(stars, comment) => rateClass(b.id, stars, pass, comment)} />
+        </div>
+      )}
       {!started &&
         (cancelling ? (
           <CancelBooking onKeep={() => setCancelling(false)} onCancel={() => guestCancel(pass, b.id)} />

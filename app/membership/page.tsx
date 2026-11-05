@@ -6,7 +6,7 @@ import clsx from "clsx";
 import { ChevronRight, RotateCcw, Ticket } from "lucide-react";
 import { LOCATIONS, MEMBERSHIP_ORDER, PERK_LABEL, ServiceId, TIERS, TierId } from "@/lib/data";
 import { dateKey } from "@/lib/schedule";
-import { useStore } from "@/lib/store";
+import { INTRO_DEMO_ID, useStore } from "@/lib/store";
 import { money } from "@/lib/format";
 import { joinCharge } from "@/lib/membership";
 import { PriceList } from "@/components/PriceList";
@@ -106,9 +106,7 @@ export default function AccountPage() {
       )}
 
       <section className="space-y-2">
-        <h2 className="font-heading text-xl">
-          {tier.isMember ? <>What&apos;s included with your {tier.id === "trial" ? tier.name : `${tier.name} membership`}</> : tier.name}
-        </h2>
+        <h2 className="font-heading text-xl">{tier.name}</h2>
         <PriceList tier={member.tier} location={member.home} />
       </section>
 
@@ -171,7 +169,7 @@ export default function AccountPage() {
               onClick={() => switchMember(m.id)}
               className={clsx("rounded-full border px-3 py-1 text-xs", m.id === member.id ? "border-sage bg-sage text-ink" : "border-line bg-card")}
             >
-              {m.signedUp === false ? "New download" : m.onboarded ? `${m.name.split(" ")[0]} · ${TIERS[m.tier].name}` : "New user (first visit)"}
+              {m.id === INTRO_DEMO_ID ? "App intro (new account)" : m.signedUp === false ? "New download" : m.onboarded ? `${m.name.split(" ")[0]} · ${TIERS[m.tier].name}` : "New user (first visit)"}
             </button>
           ))}
         </div>
@@ -190,6 +188,9 @@ export default function AccountPage() {
             {member.card.declining ? "Stop this card declining (demo)" : "Make this card decline (demo)"}
           </button>
         )}
+        <Link href="/admin" className="mt-2 block text-xs text-moss underline-offset-2 hover:underline">
+          Open the staff admin (class ratings)
+        </Link>
         <button onClick={restartAsNewDownload} className="mt-2 block text-xs text-moss underline-offset-2 hover:underline">
           Open the app as a new download (sign-up)
         </button>

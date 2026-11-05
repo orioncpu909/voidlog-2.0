@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Hourglass, Info, Sparkles, X } from "lucide-react";
+import { ChevronRight, Hourglass, Info, Sparkles, X } from "lucide-react";
 import { PriceGroup, TIERS, currentPromos, priceFor } from "@/lib/data";
 import { SHOW_COMMUNITY } from "@/lib/flags";
 import { dateKey } from "@/lib/schedule";
 import { useStore } from "@/lib/store";
 import { TRIAL_BECOMES, daysLeft } from "@/lib/trial";
 import { money, shortDate } from "@/lib/format";
-import { PROMO_LABELS } from "./PromoBanner";
+import { PROMO_LABELS, promoHref } from "./PromoBanner";
 import { TrialCancelSheet } from "./TrialCard";
 
 // Slim one-line versions of the account alerts, so Home fits on one screen. The full cards
@@ -33,6 +33,7 @@ export function HomeAlerts() {
   const today = dateKey(new Date());
   const dismissed = new Set(member.dismissedPromos ?? []);
   const promos = tier.isMember ? [] : currentPromos(today).filter((p) => !dismissed.has(p.id));
+  const specials = promos.flatMap((p) => (Object.keys(p.prices) as PriceGroup[]).map((group) => ({ group, ends: p.ends })));
   const note = member.notice?.split("\n\n").pop();
 
   return (
@@ -106,28 +107,34 @@ export function HomeAlerts() {
         </Row>
       )}
 
-      {promos.length > 0 && (
-        <Row
-          icon={Sparkles}
-          tone="sage"
-          action={
-            <button onClick={() => dismissPromos(promos.map((p) => p.id))} aria-label="Hide specials" className="shrink-0">
-              <X size={14} />
-            </button>
-          }
-        >
-          <Link href="/book" className="line-clamp-2 block">
-            <span className="font-medium">Specials:</span>{" "}
-            {promos
-              .flatMap((p) =>
-                (Object.keys(p.prices) as PriceGroup[]).map((g) => {
-                  const q = priceFor(member.tier, PROMO_LABELS[g].sample, member.home, today);
-                  return `${PROMO_LABELS[g].label} ${money(q.price)} until ${shortDate(p.ends)}`;
-                }),
-              )
-              .join(" · ")}
-          </Link>
-        </Row>
+      {/* One row per special, each opening that service on Book. */}
+      {specials.length > 0 && (
+        <div className="flex rounded-2xl bg-promo text-xs text-ink">
+          <div className="min-w-0 flex-1 divide-y divide-ink/15">
+            {specials.map(({ group, ends }) => {
+              const q = priceFor(member.tier, PROMO_LABELS[group].sample, member.home, today);
+              return (
+                <Link
+                  key={group}
+                  href={promoHref(group)}
+                  className="flex items-center gap-2.5 py-3 pl-3 pr-1 leading-snug first:rounded-tl-2xl last:rounded-bl-2xl active:bg-ink/10"
+                >
+                  <Sparkles size={15} className="shrink-0" />
+                  <span className="min-w-0 flex-1">
+                    <span className="font-medium">Special:</span> {PROMO_LABELS[group].label} {money(q.price)}{" "}
+                    {q.regular > q.price && <span className="line-through">{money(q.regular)}</span>} until {shortDate(ends)}
+                  </span>
+                  <span className="flex shrink-0 items-center font-medium">
+                    Book <ChevronRight size={14} />
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+          <button onClick={() => dismissPromos(promos.map((p) => p.id))} aria-label="Hide specials" className="shrink-0 rounded-r-2xl px-3 active:bg-ink/10">
+            <X size={14} />
+          </button>
+        </div>
       )}
 
       <TrialCancelSheet open={cancelling} onClose={() => setCancelling(false)} />

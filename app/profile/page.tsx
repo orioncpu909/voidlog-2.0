@@ -18,6 +18,7 @@ import { AchievementId, PERIODS, Period, computeAchievements, computeHighlights,
 import { timeLabel } from "@/lib/format";
 import { shrinkPhoto } from "@/lib/photo";
 import { REFERRAL_CREDITS, referralLink } from "@/lib/referral";
+import { useReveal } from "@/lib/reveal";
 
 type Icon = typeof Flame;
 
@@ -387,6 +388,7 @@ function ActivitySummary() {
   const { bookings } = useStore();
   const [period, setPeriod] = useState<Period>("all");
   const [all, setAll] = useState(false);
+  const listRef = useReveal<HTMLDivElement>(all);
   const h = computeHighlights(bookings, period);
   const max = Math.max(1, ...h.activity.map((a) => a.count));
   const rows = all ? h.activity : h.activity.slice(0, ACTIVITY_PREVIEW);
@@ -394,7 +396,7 @@ function ActivitySummary() {
   return (
     <section>
       <h2 className="font-heading text-2xl">Activity summary</h2>
-      <div className="mt-2 rounded-3xl border border-line bg-card p-4">
+      <div ref={listRef} className="mt-2 rounded-3xl border border-line bg-card p-4">
         <PeriodToggle value={period} onChange={setPeriod} />
         <p className="stat-num mt-4 text-3xl leading-none">{h.visits}×</p>
         <p className="text-[11px] font-semibold uppercase tracking-widest text-muted">Total visits</p>

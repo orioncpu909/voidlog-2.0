@@ -3,7 +3,7 @@
 import { useState } from "react";
 import clsx from "clsx";
 import { Hourglass, X } from "lucide-react";
-import { TIERS } from "@/lib/data";
+import { TIERS, TierId } from "@/lib/data";
 import { TrialCancelChoice, useStore } from "@/lib/store";
 import { TRIAL_BECOMES, TRIAL_CHOICES, daysLeft } from "@/lib/trial";
 import { momentLabel, money } from "@/lib/format";
@@ -19,6 +19,8 @@ const CHOICES: { id: TrialCancelChoice; title: string; text: string }[] = [
 export function TrialCard() {
   const { member, keepTrial, setTrialBecomes } = useStore();
   const [confirming, setConfirming] = useState(false);
+  const [picking, setPicking] = useState<TierId | null>(null); // another plan tapped, not confirmed yet
+  const [switched, setSwitched] = useState<TierId | null>(null); // just confirmed, for the "Done" note
   if (member.tier !== "trial" || !member.trialEndsAt) return null;
 
   const ends = new Date(member.trialEndsAt);
@@ -54,27 +56,62 @@ export function TrialCard() {
           </p>
         </div>
       </div>
+      {/* Picking another plan only preselects it; the switch happens when they confirm. They can
+          pick again and confirm again any time before the trial ends. */}
       <div className="mt-4">
         <p className="text-xs uppercase tracking-widest text-moss">After your trial</p>
         <div className="mt-2 grid grid-cols-3 gap-2" role="radiogroup" aria-label="Membership after your trial">
           {TRIAL_CHOICES.map((id) => {
             const t = TIERS[id];
-            const on = next.id === id;
+            const current = next.id === id;
+            const preselected = picking === id;
             return (
               <button
                 key={id}
                 role="radio"
-                aria-checked={on}
-                onClick={() => setTrialBecomes(id)}
-                className={clsx("rounded-2xl border px-2 py-2.5 text-center", on ? "border-sage bg-sage text-ink" : "border-line bg-card")}
+                aria-checked={preselected || (current && !picking)}
+                onClick={() => {
+                  setPicking(current ? null : id);
+                  setSwitched(null);
+                }}
+                className={clsx(
+                  "min-h-[64px] rounded-2xl border px-2 py-2.5 text-center transition active:scale-[0.98]",
+                  current ? "border-sage bg-sage text-ink" : preselected ? "border-2 border-dashed border-sage bg-card" : "border-line bg-card",
+                )}
               >
                 <span className="block font-heading text-lg leading-none">{t.name}</span>
                 <span className="mt-1 block text-[11px]">{money(t.monthly!)}/mo</span>
-                {id === TRIAL_BECOMES && <span className="block text-[10px]">default</span>}
+                <span className="block text-[10px] font-medium">{current ? "After trial" : preselected ? "Picked" : id === TRIAL_BECOMES ? "default" : " "}</span>
               </button>
             );
           })}
         </div>
+        {picking && (
+          <div className="mt-3 rounded-2xl border border-line bg-card p-3 text-sm">
+            <p>
+              You picked <span className="font-medium">{TIERS[picking].name}</span> ({money(TIERS[picking].monthly!)}/month). You&apos;ll be switched to {TIERS[picking].name}{" "}
+              instead of {next.name} when your trial ends {momentLabel(ends)}.
+            </p>
+            <Button
+              className="mt-2.5"
+              onClick={() => {
+                setTrialBecomes(picking);
+                setSwitched(picking);
+                setPicking(null);
+              }}
+            >
+              Switch to {TIERS[picking].name} after my trial
+            </Button>
+            <button onClick={() => setPicking(null)} className="mt-1 min-h-[44px] w-full text-sm font-medium text-moss active:opacity-60">
+              Keep {next.name}
+            </button>
+          </div>
+        )}
+        {!picking && switched && (
+          <p className="mt-3 rounded-2xl bg-card p-3 text-sm" role="status">
+            Done. You&apos;ll be switched to <span className="font-medium">{TIERS[switched].name}</span> after your trial. You can still pick another plan until {momentLabel(ends)}.
+          </p>
+        )}
       </div>
       <button
         onClick={() => setConfirming(true)}

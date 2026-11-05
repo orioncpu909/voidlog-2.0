@@ -1,11 +1,14 @@
+"use client";
+
 import type { ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
+import { reveal } from "@/lib/reveal";
 
 // A section that stays folded to a single row until tapped, for secondary information (policies,
-// contact details, demo controls) so the page stays short.
+// contact details, demo controls) so the page stays short. Opening it scrolls the whole section into view.
 export function Disclosure({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <details className="group rounded-2xl border border-line bg-card">
+    <details className="group rounded-2xl border border-line bg-card" onToggle={(e) => e.currentTarget.open && reveal(e.currentTarget)}>
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-heading text-xl [&::-webkit-details-marker]:hidden">
         {title}
         <ChevronDown size={18} className="shrink-0 text-muted transition group-open:rotate-180" />

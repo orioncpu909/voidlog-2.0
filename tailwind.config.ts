@@ -20,6 +20,7 @@ const config: Config = {
         moss: { DEFAULT: "rgb(var(--moss) / <alpha-value>)", soft: "rgb(var(--moss-soft) / <alpha-value>)", deep: "#855D37" }, // tan and brown: links, icons, chart bars, credits
         sage: { DEFAULT: "rgb(var(--sage) / <alpha-value>)", deep: "rgb(var(--sage-deep) / <alpha-value>)", light: "#C08442" }, // amber fill (ink text); deep = amber text; light = pressed
         copper: "#D68D51", // ARTHA copper: the Studio City dot
+        promo: "#B0926A", // specials: a darker sand than the cards (ink text)
       },
       // A step up from Tailwind's defaults: Futura PT runs small and thin next to a phone's own font.
       fontSize: {

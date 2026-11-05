@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Sparkles, X } from "lucide-react";
-import { PriceGroup, ServiceId, TIERS, currentPromos, priceFor } from "@/lib/data";
+import { PriceGroup, SERVICES, ServiceId, TIERS, currentPromos, priceFor } from "@/lib/data";
 import { dateKey } from "@/lib/schedule";
 import { useStore } from "@/lib/store";
 import { money, shortDate } from "@/lib/format";
@@ -17,6 +17,15 @@ export const PROMO_LABELS: Record<PriceGroup, { label: string; sample: ServiceId
   hbot: { label: "HBOT", sample: "hbot" },
   treatment: { label: "Treatments", sample: "massage" },
 };
+
+// Where a special's link goes: straight to that service's times on Book. Classes and treatments
+// cover several services, so they open their section's list instead.
+export function promoHref(group: PriceGroup): string {
+  if (group === "class") return "/book?category=class";
+  if (group === "treatment") return "/book?category=treatment";
+  const id = PROMO_LABELS[group].sample;
+  return `/book?category=${SERVICES[id].category}&service=${id}`;
+}
 
 // The specials Wellness Accounts get right now. Sits under the user's name on Home until the
 // specials end or the person closes it. A new special brings the banner back.

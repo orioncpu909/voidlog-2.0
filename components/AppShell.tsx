@@ -39,8 +39,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isActive = (href: string) => (href === "/" ? current === "/" : current.startsWith(href));
   const activeTab = TABS.findIndex((t) => isActive(t.href));
 
-  // A guest's page: they have no account, so no sign-up and no tabs.
-  if (path === "/guest") return <>{children}</>;
+  // A guest's page: they have no account, so no sign-up and no tabs. The staff admin isn't part of
+  // the member app either.
+  if (path === "/guest" || path === "/admin") return <>{children}</>;
 
   // A fresh download creates an account first, then sees the welcome walkthrough.
   if (member.signedUp === false) return <SignUp />;
@@ -48,7 +49,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col bg-sand text-shell">
-      <header className="sticky top-0 z-20 flex items-center justify-between border-b border-line bg-sand px-4 py-3">
+      <header data-top-bar className="sticky top-0 z-20 flex items-center justify-between border-b border-line bg-sand px-4 py-3">
         <Link href="/" className="font-wordmark text-xl tracking-[0.35em]">
           ARTHA
         </Link>
@@ -73,7 +74,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <main className="flex-1 px-4 pb-20 pt-3">{children}</main>
         </SwipeTabs>
       </PullToRefresh>
-      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-sand">
+      <nav data-bottom-bar className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-sand">
         <div className={clsx("relative mx-auto grid max-w-md", TABS.length === 5 ? "grid-cols-5" : TABS.length === 4 ? "grid-cols-4" : "grid-cols-3")}>
           {/* The soft highlight behind the current tab, which glides from tab to tab. */}
           {activeTab >= 0 && (

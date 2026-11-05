@@ -11,7 +11,7 @@ import { cancelTerms, policyLine } from "@/lib/policy";
 import { dayLabel, money, timeRange } from "@/lib/format";
 import { calendarHref } from "@/lib/flags";
 import { BlockedBanner } from "./BlockedBanner";
-import { CardDeclinedBanner } from "./CardOnFileRow";
+import { CardDeclinedPanel } from "./CardOnFileRow";
 import { Button, Sheet } from "./Sheet";
 
 function sessionFor(e: ArthaEvent) {
@@ -175,6 +175,22 @@ function TicketPanel({ event, onLeave }: { event: ArthaEvent; onLeave: () => voi
     );
   }
 
+  if (stage === "confirm" && declined) {
+    // A declined card replaces the confirm step right here; saving a new card comes back to it.
+    return (
+      <div className="space-y-3 border-t border-line pt-4">
+        <p className="font-heading text-xl">Confirm your ticket</p>
+        <CardDeclinedPanel
+          onSaved={() => setDeclined(false)}
+          onBack={() => {
+            setDeclined(false);
+            setStage("details");
+          }}
+        />
+      </div>
+    );
+  }
+
   if (stage === "confirm") {
     return (
       <div className="space-y-3 border-t border-line pt-4 text-sm">
@@ -185,11 +201,6 @@ function TicketPanel({ event, onLeave }: { event: ArthaEvent; onLeave: () => voi
         </div>
         <p className="rounded-2xl bg-moss-soft p-4 font-medium text-moss">{policyLine(terms, false)}</p>
         {error && <BlockedBanner message={error} onClose={clearError} />}
-        {declined && (
-          <div className="!mt-0">
-            <CardDeclinedBanner onClose={() => setDeclined(false)} />
-          </div>
-        )}
         <Button
           onClick={() => {
             const r = book(session, false);

@@ -15,6 +15,7 @@ import { endOfMonth, inRefundWindow, joinCharge, membershipUsed } from "./member
 import { money, shortDate, timeLabel, timeRange } from "./format";
 import { REFERRAL_CREDITS, ReferralResult, findReferrer } from "./referral";
 import { GuestPass, emailKey, guestBookerId, guestPassBlock, passesLeft } from "./guest";
+import { COMMENT_MAX, canRate, commentOk, needsComment, ratingDue, seedRatingComments, seedRatings } from "./ratings";
 import {
   CHALLENGE_PRIZE_CREDITS, Challenge, ChallengeResult, PLUNGE_MAX_SECONDS, PLUNGE_MIN_SECONDS, challengeName, displayName, endedChallenges, firstPlace, isEntered, runTieBreak, scoreFor, tieBreakEnds,
 } from "./community";
@@ -45,6 +46,7 @@ export interface Member {
   lastRenewal?: string; // "YYYY-MM" of the latest month paid; missing means the month they joined
   welcomeCreditsGiven?: boolean; // welcome credits are once per account, even after leaving and rejoining
   membershipEndsAt?: string; // set when a paid membership is cancelled after the refund window
+  membershipCancel?: "delete"; // the member chose to delete the account when the membership ends, not keep a Wellness Account
   referredBy?: string; // id of the account whose referral code was used at sign-up
   referralResult?: ReferralResult; // set once this account's first monthly payment went through
   communityJoined?: boolean; // shows on the Community leaderboards (members only, opt-in)
@@ -87,6 +89,10 @@ export interface Booking {
   status: BookingStatus;
   createdAt: string;
   checkedInAt?: string; // set when the front desk scans the account's QR code
+  rating?: number; // 1 to 5 stars after a class, seen only by staff (lib/ratings.ts, app/admin)
+  ratedAt?: string;
+  ratingComment?: string; // why, required for 3 stars or fewer; private to staff, no name (lib/ratings.ts)
+  ratingSkipped?: boolean; // "Not now" on the rating question
 }
 
 export interface Charge {
@@ -102,12 +108,14 @@ interface State {
   version: 2;
   activeMemberId: string;
   goodbye?: string; // first name of the active account if it was just deleted
+  goodbyeNote?: string; // why it was deleted, shown under the goodbye
   members: Member[];
   bookings: Booking[];
   charges: Charge[];
   plunges?: PlungeLog[]; // missing in data saved before Community existed
   guestPasses?: GuestPass[]; // every account's, since a guest can only ever claim one
   accounts?: AccountDetails[]; // details used to sign up, kept when the demo restarts as a new download
+  ratingsSeeded?: boolean; // demo class ratings were added (data saved before ratings existed gets them once)
 }
 
 export interface AccountDetails {
@@ -125,13 +133,24 @@ const daysAgo = (n: number) => new Date(Date.now() - n * 864e5).toISOString();
 // The brand-new download: no account yet, so the app opens on the create-account screens.
 const NEW_DOWNLOAD: Member = { id: "m-new", name: "Karan", tier: "wellness", home: "weho", credits: 0, onboarded: false, signedUp: false };
 
+// A just-created account, for seeing the welcome walkthrough and app intro without signing up.
+// Switching to it from Account → Demo always starts the walkthrough again.
+export const INTRO_DEMO_ID = "m-intro";
+const INTRO_DEMO: Member = { id: INTRO_DEMO_ID, name: "Karan", tier: "wellness", home: "weho", credits: 0, onboarded: false };
+// Saved data from before this account existed gets it too.
+const withIntroDemo = (members: Member[]): Member[] => (members.some((m) => m.id === INTRO_DEMO_ID) ? members : [members[0], { ...INTRO_DEMO }, ...members.slice(1)]);
+
+// Where a demo sign-up lands: the Wellness sample account, since a new sign-up is a free account.
+const SIGNUP_DEMO_ID = "m-wellness";
+
 // The sample accounts' made-up card. Sign-up doesn't ask for one, so a new account starts without.
 const SAMPLE_CARD: CardOnFile = { brand: "Visa", last4: "4242", expMonth: 12, expYear: 2029 };
-const withSampleCard = (m: Member): Member => (m.card || m.id === NEW_DOWNLOAD.id ? m : { ...m, card: SAMPLE_CARD });
+const withSampleCard = (m: Member): Member => (m.card || m.id === NEW_DOWNLOAD.id || m.id === INTRO_DEMO_ID ? m : { ...m, card: SAMPLE_CARD });
 
 function seedMembers(): Member[] {
   const members: Member[] = [
     { ...NEW_DOWNLOAD },
+    { ...INTRO_DEMO },
     { id: "m-wellness", name: "Karan", tier: "wellness", home: "weho", credits: 0, onboarded: true, trialUsed: true, firstVisitUsed: true },
     { id: "m-classic", name: "Karan", tier: "classic", home: "weho", credits: 4, onboarded: true, firstVisitUsed: true, memberSince: daysAgo(20), communityJoined: true, communityJoinedAt: daysAgo(40) },
     // Joined 2 days ago with visits since, so the 5-day refund has ended.
@@ -315,7 +334,7 @@ function seedState(): State {
   const taken = new Map<string, number>();
   const bookings: Booking[] = [...members.flatMap(pastBookings), ...members.flatMap((m) => upcomingBookings(m, taken))];
   const charges: Charge[] = [{ id: uid(), memberId: "m-gold", at: daysAgo(2), label: "Gold membership · first month", amount: TIERS.gold.monthly!, kind: "membership" }];
-  return { version: 2, activeMemberId: "m-new", members, bookings, charges, plunges: seedPlunges(members, bookings) };
+  return withSeedRatings({ version: 2, activeMemberId: "m-new", members, bookings, charges, plunges: seedPlunges(members, bookings) });
 }
 
 // Demo plunge times: members on the Community boards have clocked every past Contrast session
@@ -336,14 +355,15 @@ function seedPlunges(members: Member[], bookings: Booking[]): PlungeLog[] {
 // Runs on open and once a minute:
 // - Trials whose 7 days are up become Classic (with the prorated first month charged), or, if the
 //   member cancelled, switch to a free Wellness Account or delete the account as they chose.
-// - Cancelled memberships whose paid-for month is over become a free Wellness Account.
+// - Cancelled memberships whose paid-for month is over become a free Wellness Account, or the
+//   account is deleted if the member chose that.
 // Returns the same object when nothing changed, so it is cheap to run often.
 function applyScheduledChanges(s: State, now = new Date()): State {
   const ended = (m: Member) => m.tier === "trial" && !!m.trialEndsAt && new Date(m.trialEndsAt) <= now;
   const membershipEnded = (m: Member) => !!m.membershipEndsAt && new Date(m.membershipEndsAt) <= now;
   if (!s.members.some((m) => ended(m) || membershipEnded(m))) return s;
 
-  const deleted = s.members.filter((m) => ended(m) && m.trialCancel === "delete");
+  const deleted = s.members.filter((m) => (ended(m) && m.trialCancel === "delete") || (membershipEnded(m) && m.membershipCancel === "delete"));
   const deletedIds = new Set(deleted.map((m) => m.id));
   const charges = [...s.charges];
 
@@ -411,6 +431,11 @@ function applyScheduledChanges(s: State, now = new Date()): State {
     charges,
     bookings,
     goodbye: activeDeleted ? activeDeleted.name.split(" ")[0] : s.goodbye,
+    goodbyeNote: activeDeleted
+      ? activeDeleted.tier === "trial"
+        ? "Your trial has ended and your account has been deleted, as you asked. You weren't charged for a membership."
+        : "Your membership has ended and your account has been deleted, as you asked. You won't be charged again."
+      : s.goodbyeNote,
     activeMemberId: activeDeleted ? members[0].id : s.activeMemberId,
   };
 }
@@ -546,6 +571,13 @@ function applyRenewals(s: State, now = new Date()): State {
   return { ...s, members, charges };
 }
 
+const withSeedRatings = (s: State): State => {
+  const seeded = s.ratingsSeeded ? s : { ...s, bookings: seedRatings(s.bookings), ratingsSeeded: true };
+  // Low demo ratings saved before comments were required get a demo comment.
+  const bookings = seedRatingComments(seeded.bookings);
+  return bookings === seeded.bookings ? seeded : { ...seeded, bookings };
+};
+
 // Everything that happens on its own: ended trials and memberships, renewals, then referral credits
 // and challenge prizes. Prizes also go first, so a challenge's result is saved before anything
 // changes who was in it.
@@ -558,7 +590,7 @@ function load(): State {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as State;
-      if (parsed.version === 2) return settle({ ...parsed, members: parsed.members.map(withSampleCard) });
+      if (parsed.version === 2) return settle(withSeedRatings({ ...parsed, members: withIntroDemo(parsed.members).map(withSampleCard) }));
     }
   } catch {
     // Storage unavailable or corrupt; start fresh.
@@ -572,6 +604,7 @@ interface Store {
   member: Member;
   members: Member[];
   bookings: Booking[];
+  allBookings: Booking[]; // every account's and guest's, for the staff admin page
   charges: Charge[];
   spentThisMonth: number;
   spotsLeft: (session: Session) => number;
@@ -586,8 +619,9 @@ interface Store {
   firstVisitEligible: boolean;
   refundWindowOpen: boolean;
   refundLostToUse: boolean; // inside the first 5 days, but the membership has been used
-  cancelMembership: () => void;
+  cancelMembership: (choice?: TrialCancelChoice) => void; // "downgrade" (the default) keeps a free Wellness Account
   keepMembership: () => void;
+  keepAccount: () => void; // undo a scheduled delete: the membership still ends, then it's a Wellness Account
   endMembershipNow: () => void; // demo only: jump to the end of the paid-for month
   termsForBooking: (booking: Booking) => CancelTerms;
   cancel: (bookingId: string) => void;
@@ -605,6 +639,10 @@ interface Store {
   setPhoto: (photo?: string) => void;
   setCard: (card: CardOnFile) => void;
   guestPasses: GuestPass[];
+  ratingDue?: Booking; // the member's last class, if they haven't rated or skipped it
+  // Rate a class 1 to 5 stars, or skip it. With a pass, it's that guest's booking.
+  rateClass: (bookingId: string, stars: number, pass?: GuestPass, comment?: string) => void; // 3 stars or fewer needs a comment
+  skipRating: (bookingId: string, pass?: GuestPass) => void;
   sendGuestPass: (name: string, email: string) => { ok: true; pass: GuestPass } | { ok: false; error: string };
   cancelGuestPass: (id: string) => void; // only until it's claimed; gives the pass back
   guestBookings: (pass: GuestPass) => Booking[]; // what's booked on a pass and still on
@@ -812,6 +850,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       member,
       members: state.members,
       bookings: state.bookings.filter((b) => b.memberId === member.id),
+      allBookings: state.bookings,
       charges: mine,
       spentThisMonth,
       spotsLeft,
@@ -826,12 +865,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       firstVisitEligible,
       refundWindowOpen: inRefundWindow(member.memberSince) && !used,
       refundLostToUse: inRefundWindow(member.memberSince) && used,
-      cancelMembership: () =>
+      cancelMembership: (choice = "downgrade") =>
         update((s) => {
           if (!tier.isMember || tier.id === "trial") return s;
           if (inRefundWindow(member.memberSince) && !used) {
             const fee = [...s.charges].reverse().find((c) => c.memberId === member.id && c.label.includes("membership") && c.amount > 0);
             const refund = fee?.amount ?? 0;
+            const charges = refund ? [...s.charges, charge(`Refund: ${tier.name} membership (cancelled within 5 days)`, -refund)] : s.charges;
+            if (choice === "delete") {
+              // Ends now, so the account goes now: the same path as a delete at the end of the month.
+              const gone = applyScheduledChanges({
+                ...s,
+                charges,
+                members: patchMember(s, { membershipEndsAt: new Date(Date.now() - 1000).toISOString(), membershipCancel: "delete" }),
+              });
+              return {
+                ...gone,
+                goodbyeNote: `Your ${tier.name} membership is cancelled${refund ? ` and ${money(refund)} is being refunded` : ""}, since you cancelled within your first 5 days. Your account has been deleted, as you asked.`,
+              };
+            }
             return {
               ...s,
               members: patchMember(s, {
@@ -843,19 +895,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 membershipEndsAt: undefined,
                 notice: `Your ${tier.name} membership is cancelled${refund ? ` and ${money(refund)} is being refunded` : ""}, since you cancelled within your first 5 days. You're on a free Wellness Account, and your calendar and bookings are still here.`,
               }),
-              charges: refund ? [...s.charges, charge(`Refund: ${tier.name} membership (cancelled within 5 days)`, -refund)] : s.charges,
+              charges,
             };
           }
-          return { ...s, members: patchMember(s, { membershipEndsAt: endOfMonth(new Date()).toISOString() }) };
+          return {
+            ...s,
+            members: patchMember(s, { membershipEndsAt: endOfMonth(new Date()).toISOString(), membershipCancel: choice === "delete" ? "delete" : undefined }),
+          };
         }),
-      keepMembership: () => update((s) => ({ ...s, members: patchMember(s, { membershipEndsAt: undefined }) })),
+      keepMembership: () => update((s) => ({ ...s, members: patchMember(s, { membershipEndsAt: undefined, membershipCancel: undefined }) })),
+      keepAccount: () => update((s) => ({ ...s, members: patchMember(s, { membershipCancel: undefined }) })),
       endMembershipNow: () =>
         update((s) =>
           member.membershipEndsAt ? applyScheduledChanges({ ...s, members: patchMember(s, { membershipEndsAt: new Date(Date.now() - 1000).toISOString() }) }) : s,
         ),
       termsForBooking,
       cancel,
-      switchMember: (id) => update((s) => ({ ...s, activeMemberId: id })),
+      switchMember: (id) =>
+        update((s) => ({
+          ...s,
+          activeMemberId: id,
+          // The intro account replays the walkthrough every time it's picked.
+          members: id === INTRO_DEMO_ID ? s.members.map((m) => (m.id === id ? { ...m, onboarded: false } : m)) : s.members,
+        })),
       changeTier: (tierId) =>
         update((s) => {
           const next = TIERS[tierId];
@@ -907,6 +969,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setPhoto: (photo) => update((s) => ({ ...s, members: patchMember(s, { photo }) })),
       setCard: (card) => update((s) => ({ ...s, members: patchMember(s, { card }) })),
       guestPasses: state.guestPasses ?? [],
+      ratingDue: ratingDue(state.bookings.filter((b) => b.memberId === member.id)),
+      rateClass: (bookingId, stars, pass, comment) =>
+        update((s) => ({
+          ...s,
+          bookings: s.bookings.map((b) =>
+            b.id === bookingId &&
+            b.memberId === (pass ? guestBookerId(pass) : member.id) &&
+            Number.isInteger(stars) &&
+            stars >= 1 &&
+            stars <= 5 &&
+            (!needsComment(stars) || commentOk(comment)) &&
+            canRate(b)
+              ? {
+                  ...b,
+                  rating: stars,
+                  ratedAt: new Date().toISOString(),
+                  ...(needsComment(stars) && { ratingComment: comment!.trim().slice(0, COMMENT_MAX) }),
+                }
+              : b,
+          ),
+        })),
+      skipRating: (bookingId, pass) =>
+        update((s) => ({
+          ...s,
+          bookings: s.bookings.map((b) => (b.id === bookingId && b.memberId === (pass ? guestBookerId(pass) : member.id) && !b.rating ? { ...b, ratingSkipped: true } : b)),
+        })),
       sendGuestPass: (name, email) => {
         const passes = state.guestPasses ?? [];
         if (!tier.monthly) return { ok: false, error: "Guest passes are for members." };
@@ -981,12 +1069,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }),
       finishOnboarding: () => update((s) => ({ ...s, members: patchMember(s, { onboarded: true }) })),
       // Demo sign-up: keeps the name, email and phone on this device. The password is never stored.
+      // The new person then lands in the Wellness sample account (history, streak, bookings) under
+      // their own details, after the welcome walkthrough, so the demo isn't an empty account. The
+      // new-download account stays as it was, so the sign-up demo can run again.
       signUp: ({ firstName, lastName, email, phone, instagram, referralCode }) =>
         update((s) => {
-          const referrer = referralCode ? findReferrer(referralCode, s.members.filter((m) => m.id !== member.id)) : undefined;
+          const demo = s.members.find((m) => m.id === SIGNUP_DEMO_ID);
+          const target = demo?.id ?? member.id;
+          const referrer = referralCode ? findReferrer(referralCode, s.members.filter((m) => m.id !== member.id && m.id !== target)) : undefined;
+          const details = { name: `${firstName} ${lastName}`.trim(), email, phone: phone || undefined, instagram, referredBy: referrer?.id };
           return {
             ...s,
-            members: patchMember(s, { name: `${firstName} ${lastName}`.trim(), email, phone: phone || undefined, instagram, signedUp: true, referredBy: referrer?.id }),
+            activeMemberId: target,
+            members: s.members.map((m) => (m.id !== target ? m : demo ? { ...m, ...details, onboarded: false } : { ...m, ...details, signedUp: true })),
             accounts: [...(s.accounts ?? []), { email, phone: phone ?? "", instagram }],
           };
         }),
@@ -1019,8 +1114,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-4 px-6 text-center">
         <span className="font-wordmark text-xl tracking-[0.35em]">ARTHA</span>
         <h1 className="font-heading text-4xl">Goodbye, {state.goodbye}</h1>
-        <p className="text-sm text-muted">Your trial has ended and your account has been deleted, as you asked. You weren&apos;t charged for a membership.</p>
-        <button onClick={() => update((s) => ({ ...s, goodbye: undefined }))} className="mt-4 rounded-full bg-sage px-6 py-3 text-sm font-medium text-ink">
+        <p className="text-sm text-muted">{state.goodbyeNote ?? "Your account has been deleted, as you asked."}</p>
+        <button onClick={() => update((s) => ({ ...s, goodbye: undefined, goodbyeNote: undefined }))} className="mt-4 rounded-full bg-sage px-6 py-3 text-sm font-medium text-ink">
           Back to the demo
         </button>
       </div>

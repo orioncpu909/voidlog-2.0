@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Check, Dumbbell, Flame, MapPin, Snowflake, Ticket } from "lucide-react";
+import { CalendarDays, Check, Dumbbell, Flame, Home, MapPin, QrCode, Snowflake, Sparkles, Star, Ticket, UserRound } from "lucide-react";
 import { LOCATIONS, LocationId, PriceGroup, TIERS, currentPromos, priceFor } from "@/lib/data";
 import { dateKey } from "@/lib/schedule";
 import { useStore } from "@/lib/store";
@@ -12,12 +12,13 @@ import { PriceList } from "./PriceList";
 import { PROMO_LABELS } from "./PromoBanner";
 import { Button } from "./Sheet";
 
-// First-run walkthrough: where you go, what kind of account you have, and what you'll pay.
+// First-run walkthrough, right after creating an account: welcome, a tour of the app (what each tab
+// does), where you go, and what you'll pay.
 export function Onboarding() {
   const { member, setLocation, finishOnboarding } = useStore();
   const router = useRouter();
   const tier = TIERS[member.tier];
-  const steps = tier.lockedToHome ? ["welcome", "pricing"] : ["welcome", "location", "pricing"];
+  const steps = tier.lockedToHome ? ["welcome", "tour", "pricing"] : ["welcome", "tour", "location", "pricing"];
   const [i, setI] = useState(0);
   const step = steps[i];
   const today = dateKey(new Date());
@@ -85,6 +86,8 @@ export function Onboarding() {
           </div>
         )}
 
+        {step === "tour" && <AppTour monthly={!!tier.monthly} />}
+
         {step === "location" && (
           <div>
             <h1 className="font-heading text-4xl leading-tight">Pick your home location</h1>
@@ -123,7 +126,7 @@ export function Onboarding() {
             </div>
 
             {promos.length > 0 && !tier.isMember && (
-              <div className="rounded-2xl bg-sage p-4 text-sm text-ink">
+              <div className="rounded-2xl bg-promo p-4 text-sm text-ink">
                 <p className="font-medium">Specials right now, at both locations</p>
                 <ul className="mt-1 space-y-0.5">
                   {promos.flatMap((p) =>
@@ -166,6 +169,64 @@ export function Onboarding() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// The intro to the app: the tabs along the bottom and what each part does, in the same icons.
+function AppTour({ monthly }: { monthly: boolean }) {
+  const parts = [
+    {
+      icon: Home,
+      title: "Home",
+      text: "Your streak, upcoming events and your calendar. Every booking lives here: tap one to see it, cancel it or add it to your phone's calendar.",
+    },
+    {
+      icon: Sparkles,
+      title: "Book",
+      text: "Classes, therapies and treatments at both studios. Every time shows your price, and booking takes two taps.",
+    },
+    {
+      icon: UserRound,
+      title: "Account",
+      text: monthly
+        ? "Your membership and what's included, your card, guest passes for friends, your stats and how to reach us."
+        : "Your account and prices, your card, your stats, memberships and how to reach us.",
+    },
+    { icon: QrCode, title: "Check in", text: "Tap the code at the top of any screen and show it at the front desk." },
+    { icon: Star, title: "Rate your class", text: "After a class, Home asks how it went. Reviews are anonymous." },
+    { icon: CalendarDays, title: "Free cancellation", text: "Up to 3 hours before a class or therapy, 12 before a treatment. The exact time shows before you book." },
+  ];
+  return (
+    <div className="space-y-4">
+      <div>
+        <h1 className="font-heading text-4xl leading-tight">Here&apos;s your app</h1>
+        <p className="mt-2 text-sm text-muted">Three tabs along the bottom. This is what each part does.</p>
+      </div>
+
+      {/* A small copy of the tab bar, so the icons below are easy to find later. */}
+      <div className="grid grid-cols-3 rounded-2xl border border-line bg-card p-1.5" aria-hidden>
+        {parts.slice(0, 3).map(({ icon: Icon, title }, n) => (
+          <span key={title} className={clsx("flex flex-col items-center gap-0.5 rounded-xl py-1.5 text-[11px]", n === 0 && "bg-sand")}>
+            <Icon size={18} />
+            {title}
+          </span>
+        ))}
+      </div>
+
+      <ul className="space-y-2">
+        {parts.map(({ icon: Icon, title, text }) => (
+          <li key={title} className="flex items-start gap-3 rounded-2xl border border-line bg-card p-3.5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sand text-shell">
+              <Icon size={18} />
+            </span>
+            <span className="min-w-0">
+              <span className="block font-heading text-lg leading-tight">{title}</span>
+              <span className="block text-sm leading-snug text-muted">{text}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { Suspense, createContext, useCallback, useContext, useEffect, useMemo, u
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import clsx from "clsx";
-import { ArrowRight, CalendarPlus, Check, ChevronDown, ChevronLeft, ChevronRight, Dumbbell, HandHeart, Info, Lock, MapPin, Share, Snowflake, Ticket, X } from "lucide-react";
+import { ArrowRight, CalendarPlus, Check, ChevronDown, ChevronLeft, ChevronRight, Info, Lock, MapPin, Share, Ticket, X } from "lucide-react";
 import { Category, LOCATIONS, LocationId, SERVICES, ServiceId, TIERS, bookableAt } from "@/lib/data";
 import { Session, dateKey, findSession, sessionStart, slotsFor, upcomingDays } from "@/lib/schedule";
 import { Booking, useStore } from "@/lib/store";
@@ -13,14 +13,17 @@ import { dayLabel, money, timeLabel, timeRange } from "@/lib/format";
 import { Therapist, therapistsFor } from "@/lib/therapists";
 import { addToPhoneCalendar } from "@/lib/ics";
 import { BlockedBanner } from "@/components/BlockedBanner";
-import { CardDeclinedBanner } from "@/components/CardOnFileRow";
+import { CardDeclinedPanel } from "@/components/CardOnFileRow";
+import { cardShortLabel } from "@/lib/card";
 import { InPreview } from "@/lib/gesture";
+import { useReveal } from "@/lib/reveal";
 import { PriceTag, PromoNote } from "@/components/PriceTag";
 import { Button, Sheet } from "@/components/Sheet";
 import { EmailStudioButton } from "@/components/EmailStudio";
 import { CreditsInfoButton } from "@/components/CreditsInfo";
 import { SHOW_CALENDAR_TAB, calendarHref } from "@/lib/flags";
-import { classDescription } from "@/lib/classInfo";
+import { classDescription, instructorBio } from "@/lib/classInfo";
+import { SECTION_IMAGE } from "@/lib/images";
 
 // Book opens on three stacked boxes: Classes, Therapies, Treatments, each with what's in it and the
 // next open time. Tapping one opens that section (/book?category=…): classes as one list of upcoming
@@ -152,7 +155,7 @@ function BookScreen() {
     <div className="space-y-5">
       {/* Pinned while you scroll: back to the boxes and the section's name, the location (and your
           price), then the date strip. */}
-      <div ref={stickyRef} className={clsx("sticky top-[53px] z-10 -mx-4 -mt-3 border-b border-line bg-sand px-4", showMenu && "pb-2.5")}>
+      <div ref={stickyRef} data-top-bar className={clsx("sticky top-[53px] z-10 -mx-4 -mt-3 border-b border-line bg-sand px-4", showMenu && "pb-2.5")}>
         <div className="flex items-center gap-1 pt-2">
           <button
             onClick={() => (showMenu || tab === "class" ? openSection(null) : backToMenu())}
@@ -333,8 +336,8 @@ function ServiceMenu({
 }
 
 // The Book front page: Classes, Therapies and Treatments stacked as boxes. Each shows what's in it,
-// your price and the next open time at your home studio, and opens its section when tapped.
-const SECTION_ICON = { class: Dumbbell, therapy: Snowflake, treatment: HandHeart } as const;
+// your price and the next open time at your home studio, with a photo on top (lib/images.ts), and
+// opens its section when tapped.
 const SHORT_NAME: Partial<Record<ServiceId, string>> = {
   cryo: "Cryo",
   "ir-sauna": "Sauna",
@@ -368,8 +371,9 @@ function BookFront({ onOpen }: { onOpen: (id: Tab) => void }) {
   };
 
   return (
-    // Exactly one screen tall, like Home: the three boxes share whatever room the heading leaves.
-    <div className="flex h-[calc(100dvh-145px)] min-h-[560px] flex-col gap-3">
+    // One screen tall, like Home: the three boxes share whatever room the heading leaves, and the
+    // photos stretch to fill it. On a short phone the page scrolls rather than cutting a box off.
+    <div className="flex min-h-[max(560px,calc(100dvh-145px))] flex-col gap-3">
       <div className="shrink-0">
         <h1 className="font-heading text-3xl">Book</h1>
         <p className="text-xs text-muted">
@@ -378,7 +382,6 @@ function BookFront({ onOpen }: { onOpen: (id: Tab) => void }) {
         </p>
       </div>
       {TABS.map(({ id, label }) => {
-        const Icon = SECTION_ICON[id];
         const next = nextOpen(id);
         const q = id === "therapy" ? cheapest(ids(id), quote, home, today) : quote(ids(id)[0], home, today);
         const credit = id !== "class" && member.credits > 0 && ids(id).some(canUseCredit);
@@ -386,39 +389,47 @@ function BookFront({ onOpen }: { onOpen: (id: Tab) => void }) {
         const free = ids(id).filter((s) => quote(s, home, today).price === 0);
         const onlyIncluded = id === "therapy" && free.length === 1 ? free[0] : undefined;
         return (
-          <button key={id} onClick={() => onOpen(id)} className="flex min-h-0 w-full flex-1 flex-col justify-between rounded-3xl border border-line bg-card p-5 text-left transition active:scale-[0.99] active:bg-line">
-            <div className="flex items-center gap-3.5">
-              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-moss-soft text-moss">
-                <Icon size={26} />
+          <button
+            key={id}
+            onClick={() => onOpen(id)}
+            className="flex w-full flex-1 flex-col overflow-hidden rounded-3xl border border-line bg-card text-left transition active:scale-[0.99] active:bg-line"
+          >
+            {/* The photo takes whatever height the box has left over, so Book still fits one screen.
+                The section's name sits on it, over a fade so it reads on any photo. */}
+            <span className="relative block min-h-[88px] w-full flex-1 bg-sand">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={SECTION_IMAGE[id].src} alt="" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: SECTION_IMAGE[id].position }} />
+              <span className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" aria-hidden />
+              <span className="absolute inset-x-5 bottom-2.5 flex items-center justify-between gap-3 text-[#FFF8EE]">
+                <span className="font-heading text-3xl leading-none">{label}</span>
+                <ChevronRight size={22} className="shrink-0" />
               </span>
-              <span className="min-w-0 flex-1">
-                <span className="block font-heading text-3xl leading-tight">{label}</span>
-                <span className="line-clamp-2 text-sm text-muted">{summary[id]}</span>
-              </span>
-              <ChevronRight size={20} className="shrink-0 text-muted" />
-            </div>
-            <div className="flex items-center justify-between gap-2 border-t border-line pt-3 text-sm">
-              <span className="min-w-0 truncate">
-                {next ? (
-                  <>
-                    <span className="text-muted">Next · </span>
-                    {dayLabel(next.date)} {timeLabel(next.time)} · {id === "class" ? next.title : SHORT_NAME[next.serviceId] ?? SERVICES[next.serviceId].name}
-                  </>
-                ) : (
-                  <span className="text-muted">No open times in the next two weeks</span>
-                )}
-              </span>
-              <span className="flex shrink-0 items-center gap-1.5">
-                {id === "therapy" && q.price > 0 && <span className="text-xs text-muted">from</span>}
-                {onlyIncluded ? (
-                  <span className="whitespace-nowrap rounded-full bg-moss-soft px-2.5 py-0.5 text-xs text-moss">
-                    {SHORT_NAME[onlyIncluded] ?? SERVICES[onlyIncluded].name} included
-                  </span>
-                ) : (
-                  <PriceTag quote={q} pill />
-                )}
-                {credit && id === "treatment" && <span className="text-xs text-moss">or 1 credit</span>}
-              </span>
+            </span>
+            <div className="shrink-0 px-5 pb-3.5 pt-2.5">
+              <span className="line-clamp-2 text-sm text-muted">{summary[id]}</span>
+              <div className="mt-2 flex items-center justify-between gap-2 border-t border-line pt-2.5 text-sm">
+                <span className="min-w-0 truncate">
+                  {next ? (
+                    <>
+                      <span className="text-muted">Next · </span>
+                      {dayLabel(next.date)} {timeLabel(next.time)} · {id === "class" ? next.title : SHORT_NAME[next.serviceId] ?? SERVICES[next.serviceId].name}
+                    </>
+                  ) : (
+                    <span className="text-muted">No open times in the next two weeks</span>
+                  )}
+                </span>
+                <span className="flex shrink-0 items-center gap-1.5">
+                  {id === "therapy" && q.price > 0 && <span className="text-xs text-muted">from</span>}
+                  {onlyIncluded ? (
+                    <span className="whitespace-nowrap rounded-full bg-moss-soft px-2.5 py-0.5 text-xs text-moss">
+                      {SHORT_NAME[onlyIncluded] ?? SERVICES[onlyIncluded].name} included
+                    </span>
+                  ) : (
+                    <PriceTag quote={q} pill />
+                  )}
+                  {credit && id === "treatment" && <span className="text-xs text-moss">or 1 credit</span>}
+                </span>
+              </div>
             </div>
           </button>
         );
@@ -643,8 +654,9 @@ function ClassCard({ session, onOpen, onBook }: { session: Session; onOpen: () =
   const full = left === 0 && !mine;
   const q = quote(session.serviceId, session.location, session.date);
   const [about, setAbout] = useState(false);
+  const aboutRef = useReveal<HTMLDivElement>(about);
   return (
-    <div className={clsx(full && "opacity-90")}>
+    <div ref={aboutRef} className={clsx(full && "opacity-90")}>
       <div className="flex items-center gap-3 py-3">
         <div className="flex min-w-0 flex-1 items-start gap-3">
           <button onClick={onOpen} className="w-[72px] shrink-0 text-left">
@@ -674,7 +686,21 @@ function ClassCard({ session, onOpen, onBook }: { session: Session; onOpen: () =
         </div>
         <BookPill id={session.id} mine={mine} full={full} onBook={onBook} onOpen={onOpen} label={`${session.title} at ${timeLabel(session.time)}`} />
       </div>
-      {about && <p className="-mt-1 mb-3 ml-[84px] rounded-xl bg-card px-3 py-2 text-[13px] leading-snug text-shell">{classDescription(session.title)}</p>}
+      {/* The pull-down: who's teaching and what they do, then what the class is. */}
+      {about && (
+        <div className="-mt-1 mb-3 ml-[84px] space-y-2 rounded-xl bg-card px-3 py-2.5 text-[13px] leading-snug text-shell">
+          {session.instructor && (
+            <div>
+              <p className="font-medium">{session.instructor}</p>
+              <p>{instructorBio(session.instructor)}</p>
+            </div>
+          )}
+          <div>
+            <p className="font-medium">About the class</p>
+            <p>{classDescription(session.title)}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -702,14 +728,15 @@ function BookedCheck({ size }: { size: number }) {
 // The row's action: Book (to the confirm sheet), Booked (to its page, to cancel or add to a calendar) or Full.
 function BookPill({ id, mine, full, onBook, onOpen, label }: { id: string; mine: boolean; full: boolean; onBook: () => void; onOpen: () => void; label: string }) {
   const justBooked = useContext(JustBooked) === id;
-  if (full) return <span className="w-[80px] shrink-0 rounded-full bg-line py-2 text-center text-sm text-shell">Full</span>;
+  // Outlined, not filled: the word in the same thin rounded border as the other bubbles (Your price).
+  if (full) return <span className="w-[80px] shrink-0 rounded-full border border-line py-2 text-center text-sm text-muted">Full</span>;
   return (
     <button
       onClick={mine ? onOpen : onBook}
       aria-label={`${mine ? "Booked" : "Book"} ${label}`}
       className={clsx(
-        "flex w-[80px] shrink-0 items-center justify-center rounded-full py-2 text-sm font-semibold",
-        mine ? "bg-moss text-sand" : "bg-sage text-ink active:bg-sage-light",
+        "flex min-h-[40px] w-[80px] shrink-0 items-center justify-center rounded-full border border-line bg-transparent py-2 text-sm font-semibold",
+        mine ? "text-shell active:bg-line" : "text-sage-deep active:bg-line",
         justBooked && "booked-pop",
       )}
     >
@@ -756,12 +783,12 @@ function SlotRow({ session, onOpen, onBook, showPrice }: { session: Session; onO
         )}
       </div>
       {mine ? (
-        <span className={clsx("flex items-center rounded-full bg-moss px-3.5 py-1.5 text-sm font-semibold text-ink", justBooked && "booked-pop")}>
+        <span className={clsx("flex items-center rounded-full border border-line px-3.5 py-1.5 text-sm font-semibold text-shell", justBooked && "booked-pop")}>
           {justBooked && <BookedCheck size={14} />}
           Booked
         </span>
       ) : (
-        !full && <span className="rounded-full bg-sage px-3.5 py-1.5 text-sm font-semibold text-ink">Book</span>
+        !full && <span className="rounded-full border border-line px-3.5 py-1.5 text-sm font-semibold text-sage-deep">Book</span>
       )}
     </button>
   );
@@ -792,7 +819,7 @@ function HourGroups({
         const free = list.filter((s) => spotsLeft(s) > 0).length;
         const expanded = openHour === hour;
         return (
-          <div key={hour}>
+          <HourGroup key={hour} open={expanded}>
             <button
               onClick={() => setOpenHour(expanded ? null : hour)}
               aria-expanded={expanded}
@@ -833,11 +860,17 @@ function HourGroups({
                 })}
               </div>
             )}
-          </div>
+          </HourGroup>
         );
       })}
     </div>
   );
+}
+
+// One hour's row and the times that open under it; opening it scrolls the times into view.
+function HourGroup({ open, children }: { open: boolean; children: React.ReactNode }) {
+  const ref = useReveal<HTMLDivElement>(open);
+  return <div ref={ref}>{children}</div>;
 }
 
 // Full-screen page for one class or time, like Open's class page: photo, details, and Reserve at the bottom.
@@ -980,7 +1013,7 @@ function SessionPage({ session, onClose, onBlocked }: { session: Session; onClos
         </div>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-10 bg-gradient-to-t from-sand via-sand to-transparent pb-6 pt-8">
+      <div data-bottom-bar className="fixed inset-x-0 bottom-0 z-10 bg-gradient-to-t from-sand via-sand to-transparent pb-6 pt-8">
         <div className="mx-auto max-w-md space-y-2 px-4">
           {booking ? (
             <>
@@ -1046,61 +1079,75 @@ function ConfirmBooking({ session, onClose, onBooked }: { session: Session; onCl
   const terms = cancelTerms(tier, { ...session, price: total, usedCredit: credit, perk: !credit && q.kind === "perk" });
   const [error, setError] = useState<string | null>(null);
   const [declined, setDeclined] = useState(false);
+  const [newCard, setNewCard] = useState<string | null>(null);
 
   return (
     <Sheet open onClose={onClose} title="Confirm your booking">
-      <div className="space-y-3 text-sm">
-        <div className="rounded-2xl border border-line p-4">
-          <p className="text-lg leading-tight">{session.title}</p>
-          <p className="mt-1 text-muted">
-            {dayLabel(session.date, "long")} · {timeRange(session.time, session.durationMin)}
-          </p>
-          <p className="text-muted">
-            {location.name}
-            {session.instructor ? ` · ${session.serviceId === "class" ? "w/" : "with"} ${session.instructor}` : ""}
-          </p>
-          {!tier.isMember && <p className="text-muted">{location.address}</p>}
-          {/* A plain price already shows as "You pay today"; tags like Included or First visit add something. */}
-          {q.kind !== "member" && q.kind !== "regular" && (
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <PriceTag quote={q} />
-              <PromoNote quote={q} />
+      {/* A declined card replaces the confirm step in this same sheet; saving a new card comes back here. */}
+      {declined ? (
+        <CardDeclinedPanel
+          onSaved={(card) => {
+            setDeclined(false);
+            setNewCard(cardShortLabel(card));
+          }}
+          onBack={onClose}
+        />
+      ) : (
+        <div className="space-y-3 text-sm">
+          <div className="rounded-2xl border border-line p-4">
+            <p className="text-lg leading-tight">{session.title}</p>
+            <p className="mt-1 text-muted">
+              {dayLabel(session.date, "long")} · {timeRange(session.time, session.durationMin)}
+            </p>
+            <p className="text-muted">
+              {location.name}
+              {session.instructor ? ` · ${session.serviceId === "class" ? "w/" : "with"} ${session.instructor}` : ""}
+            </p>
+            {!tier.isMember && <p className="text-muted">{location.address}</p>}
+            {/* A plain price already shows as "You pay today"; tags like Included or First visit add something. */}
+            {q.kind !== "member" && q.kind !== "regular" && (
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <PriceTag quote={q} />
+                <PromoNote quote={q} />
+              </div>
+            )}
+            {creditAvailable && (
+              <label className="mt-3 flex cursor-pointer items-center gap-3 rounded-xl bg-moss-soft p-3 text-moss">
+                <input type="checkbox" checked={useCredit} onChange={(e) => setUseCredit(e.target.checked)} className="h-4 w-4 accent-moss" />
+                <Ticket size={16} />
+                <span>
+                  Use 1 treatment credit <span className="text-muted">({member.credits} left)</span>
+                </span>
+              </label>
+            )}
+            <div className="mt-3 flex items-baseline justify-between border-t border-line pt-3">
+              <span>You pay today</span>
+              <span className="stat-num text-2xl">{money(total)}</span>
             </div>
-          )}
-          {creditAvailable && (
-            <label className="mt-3 flex cursor-pointer items-center gap-3 rounded-xl bg-moss-soft p-3 text-moss">
-              <input type="checkbox" checked={useCredit} onChange={(e) => setUseCredit(e.target.checked)} className="h-4 w-4 accent-moss" />
-              <Ticket size={16} />
-              <span>
-                Use 1 treatment credit <span className="text-muted">({member.credits} left)</span>
-              </span>
-            </label>
-          )}
-          <div className="mt-3 flex items-baseline justify-between border-t border-line pt-3">
-            <span>You pay today</span>
-            <span className="stat-num text-2xl">{money(total)}</span>
+          </div>
+          <p className="rounded-2xl bg-sand p-3 font-medium text-shell">{policyLine(terms, credit)}</p>
+          {error && <p className="rounded-2xl bg-sand p-3 text-shell">{error}</p>}
+          {newCard && <p className="rounded-2xl bg-moss-soft p-3 text-moss">Card updated. You&apos;ll pay with your {newCard}.</p>}
+          <div className="space-y-2">
+            <Button
+              variant="primary"
+              onClick={() => {
+                const r = book(session, credit);
+                if (r.ok) onBooked(r.booking);
+                else if (r.declined) {
+                  setNewCard(null);
+                  setDeclined(true);
+                } else setError(r.error);
+              }}
+            >
+              {total > 0 ? `Confirm and pay ${money(total)}` : "Confirm booking"}
+            </Button>
+            <Button variant="secondary" onClick={onClose}>
+              Go back
+            </Button>
           </div>
         </div>
-        <p className="rounded-2xl bg-sand p-3 font-medium text-shell">{policyLine(terms, credit)}</p>
-        {error && <p className="rounded-2xl bg-sand p-3 text-shell">{error}</p>}
-        <div className="space-y-2">
-          <Button
-            variant="primary"
-            onClick={() => {
-              const r = book(session, credit);
-              if (r.ok) onBooked(r.booking);
-              else if (r.declined) setDeclined(true);
-              else setError(r.error);
-            }}
-          >
-            {total > 0 ? `Confirm and pay ${money(total)}` : "Confirm booking"}
-          </Button>
-          <Button variant="secondary" onClick={onClose}>
-            Go back
-          </Button>
-        </div>
-      </div>
-      {declined && <CardDeclinedBanner onClose={() => setDeclined(false)} />}
+      )}
     </Sheet>
   );
 }

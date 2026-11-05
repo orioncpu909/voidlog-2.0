@@ -207,6 +207,13 @@ export function classesOn(location: LocationId, date: string): Session[] {
   });
 }
 
+// What an instructor teaches in a week: each class title and studio on the schedule (for their bio).
+export function weekTaughtBy(instructor: string): { title: string; location: LocationId }[] {
+  return (Object.keys(WEEK) as LocationId[]).flatMap((location) =>
+    WEEK[location].flatMap((day) => day.filter((row) => row[3] === instructor).map(([, , title]) => ({ title, location }))),
+  );
+}
+
 // How often a service can start, and how many minutes past the opening hour the first start is.
 // Cryo: every 5 min. Sauna: every hour at :20 (e.g. 4:20–5:05 PM). Float: every 90 min (45-min sessions).
 const SLOT_RULES: Partial<Record<ServiceId, { every: number; offset: number }>> = {

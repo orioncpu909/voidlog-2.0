@@ -2,13 +2,12 @@
 
 import { useState, type InputHTMLAttributes } from "react";
 import clsx from "clsx";
-import { ChevronRight, CreditCard } from "lucide-react";
+import { ChevronRight, CreditCard, Info } from "lucide-react";
 import { TIERS } from "@/lib/data";
 import { useStore } from "@/lib/store";
 import {
   CardOnFile, cardBrand, cardDeclines, cardExpiry, cardLabel, cardNumberError, cardShortLabel, cvcError, digitsOnly, expiryError, formatCardNumber, formatExpiry, toCardOnFile, zipError,
 } from "@/lib/card";
-import { BlockedBanner } from "@/components/BlockedBanner";
 import { Button, Sheet } from "@/components/Sheet";
 
 // The card on file on Account. The whole block opens the sheet to change it (or add one). Half width
@@ -53,17 +52,43 @@ export function CardOnFileRow({ compact = false }: { compact?: boolean }) {
   );
 }
 
-// When a charge fails while booking: stays up until dismissed, and updating the card happens right
-// here, so the booking underneath is still there to confirm.
-export function CardDeclinedBanner({ onClose }: { onClose: () => void }) {
+// When a charge fails while booking, this takes the place of the confirm step's contents (no second
+// pop-up): why it failed, then the card form in the same place. Saving goes back to confirm.
+export function CardDeclinedPanel({ onSaved, onBack }: { onSaved: (card: CardOnFile) => void; onBack: () => void }) {
+  const { member, setCard } = useStore();
   const [updating, setUpdating] = useState(false);
-  if (updating) return <CardSheet open onClose={onClose} />;
+  if (updating) {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm">Enter your new card. Then you&apos;ll confirm your booking.</p>
+        <CardForm
+          onSave={(next) => {
+            setCard(next);
+            onSaved(next);
+          }}
+        />
+        <Button variant="secondary" onClick={() => setUpdating(false)}>
+          Back
+        </Button>
+      </div>
+    );
+  }
   return (
-    <BlockedBanner title="Your card was declined" message="You weren't charged. You must update your card to book." onClose={onClose} persist>
-      <button onClick={() => setUpdating(true)} className="mt-2 min-h-[44px] w-full rounded-full bg-sage px-4 py-2.5 text-sm font-medium text-ink active:bg-sage-light">
-        Update card
-      </button>
-    </BlockedBanner>
+    <div className="space-y-4 text-sm">
+      <div role="alert" className="flex items-start gap-3 rounded-2xl border border-clay-deep p-4">
+        <Info size={18} className="mt-0.5 shrink-0 text-clay" />
+        <p className="leading-snug">
+          <span className="block font-medium">{member.card ? `Your ${cardShortLabel(member.card)} was declined` : "Your card was declined"}</span>
+          You weren&apos;t charged. You must update your card to book.
+        </p>
+      </div>
+      <div className="space-y-2">
+        <Button onClick={() => setUpdating(true)}>Update card</Button>
+        <Button variant="secondary" onClick={onBack}>
+          Go back
+        </Button>
+      </div>
+    </div>
   );
 }
 

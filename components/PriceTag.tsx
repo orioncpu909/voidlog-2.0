@@ -43,8 +43,9 @@ export function PromoNote({ quote }: { quote: Quote }) {
     );
   }
   if (quote.kind !== "promo" || !quote.promo) return null;
+  // Specials wear the same darker sand as the specials on Home.
   return (
-    <span className="inline-flex items-center rounded-full bg-moss-soft px-2 py-0.5 text-[11px] font-medium text-sage-deep">
+    <span className="inline-flex items-center rounded-full bg-promo px-2 py-0.5 text-[11px] font-medium text-ink">
       {quote.promo.name} · until {shortDate(quote.promo.ends)}
     </span>
   );

@@ -39,6 +39,8 @@ npm run build           # production build (stop the dev server first, see gotch
 npm run preview         # fast production preview on :3100; rebuild to see code changes (stop the dev server first)
 ```
 
+**Hosting:** not hosted. A Vercel deployment (artha-app-vert.vercel.app) ran briefly on Nov 4, 2026 for the founder pitch and was deleted at Miguel's request. To host it again: `npx vercel@latest deploy --prod --yes` from this folder, signed in to Vercel. `vercel.json` keeps any hosted copy out of search results.
+
 **In the Claude desktop app:** the preview config lives at `/Applications/Orions Belt/.claude/launch.json` (server name `artha-app`), because that's the session's main folder. Start it with the Browser pane's `preview_start` and the name `artha-app`. If you open a session directly in the artha-app folder, there's also a copy at `artha-app/.claude/launch.json`.
 
 **To check it like a phone:** use a 375×812 viewport. Home is designed to fit that screen with **no scrolling**.
@@ -66,6 +68,7 @@ app/
   stats/page.tsx        Full stats dashboard + visit history
   profile/page.tsx      Profile (header avatar on every tab): basic stats for Wellness; level, achievements, data highlights for members
   community/page.tsx    Community tab: monthly + weekly challenges, opt-in leaderboards, cold plunge logging
+  admin/page.tsx        Staff admin (outside the member tabs): class ratings by studio, period, instructor and class
   membership/page.tsx   "Account" tab (condensed): History button top right (BookingHistory), plan card, trial/membership cards, one-row stats,
                         prices, change plan, policies, contact, demo controls (no charges list)
 components/             UI pieces (HomeAlerts, StreakCard, HomeCalendar, BookingDetails, TrialCard,
@@ -81,7 +84,8 @@ lib/
   profile.ts      Profile numbers: visit levels, achievements, 1M/3M/All-time highlights and activity by service
   events.ts       Events (free RSVP or $10 ticketed)
   therapists.ts   Christian, Tiffany, Victor (bios are placeholders)
-  images.ts       Service photos (Unsplash). Not shown in Book anymore; sign-up uses the event photo
+  ratings.ts      Class ratings: when to ask (last class, 7 days), demo history; shown only in app/admin
+  images.ts       Photos (Unsplash, real photos): Book's three section boxes, and the sign-up event photo
   ics.ts          "Add to phone calendar" .ics file
 docs/artha-public-info.md   Everything collected from artha.la, with sources
 docs/artha-brand-palette.md ARTHA's colors from artha.la and how the app uses them
@@ -215,7 +219,7 @@ README.md                   Rules and where to change them
 - `Member.card` holds only the brand, last 4 and expiry. The full number and security code stay in the form and are dropped when it closes.
 - Sample accounts get a made-up Visa ending in 4242 (`withSampleCard`, also applied to saved data). Sign-up and joining don't ask for a card, so a new account shows "No card yet", even after joining a membership.
 - With a backend, replace the form with the payment provider's hosted fields, so card numbers never pass through the app.
-- **Declines:** `book` stops a charge over $0 on a card that declines (`cardDeclines`: expired, or `card.declining` from Account → Demo) and shows `CardDeclinedBanner`, which stays up and opens the card sheet in place. With a backend, set this from the provider's charge result.
+- **Declines:** `book` stops a charge over $0 on a card that declines (`cardDeclines`: expired, or `card.declining` from Account → Demo) and the Confirm sheet (or the event's ticket step) swaps its contents for `CardDeclinedPanel`: the decline, then the card form in the same sheet, then back to Confirm. No second banner. With a backend, set this from the provider's charge result.
 - **Not covered:** an account with no card still books; membership joins, renewals and late-cancel fees don't check the card.
 
 ### Stats
@@ -230,14 +234,15 @@ Every account is named "Karan". Switch between them in **Account → Demo** (tap
 
 | Account | History |
 |---|---|
-| New download | none: opens on the create-account screens, then onboarding; gets the first-visit price at booking. Account → "Open the app as a new download" replays it |
+| New download | none: opens on the create-account screens. Signing up moves to the Wellness account under the new person's details (`SIGNUP_DEMO_ID`), runs the walkthrough there, and shows its history. Account → "Open the app as a new download" replays it |
+| App intro (new account) | none: a just-created Wellness account (`INTRO_DEMO_ID`). Picking it in Account → Demo always starts the welcome walkthrough and the "Here's your app" intro, with no sign-up |
 | Wellness | intermediate: about 24 visits, 4-day streak, specials banner |
 | Classic | advanced: about 58 visits, 9-day streak, a booking tomorrow |
 | Gold | advanced: about 92 visits, 14-day streak; joined 2 days ago, with visits since, so its refund has ended |
 | Restore | intermediate (Studio City) |
 | Trial | intermediate: 3 days left on the trial |
 
-**Demo buttons on Account:** "Jump to the end of this trial", "Jump to the end of this month", and "Reset demo data".
+**Demo buttons on Account:** "Jump to the end of this trial", "Jump to the end of this month", "Open the staff admin (class ratings)", and "Reset demo data".
 
 ---
 
@@ -245,6 +250,7 @@ Every account is named "Karan". Switch between them in **Account → Demo** (tap
 
 **Marked `CONFIRM` in code:**
 - **Class descriptions** (`lib/classInfo.ts`): written from the class names for the demo, not from artha.la. Replace with ARTHA's own copy.
+- **Instructor bios** (`instructorBio` in `lib/classInfo.ts`): built only from the schedule (what each instructor teaches, at which studio, classes a week), since the app has no real bios. Add each instructor's own words to `INSTRUCTOR_BIOS` by full name and they replace the generated line.
 - **L2N Run and Industry Night** (`lib/events.ts`): dates, times, and which studio hosts Industry Night (assumed West LA).
 - **Community challenges** (`lib/community.ts`): the challenge list and names are demo choices, as are the 1-credit prize, the 7-day tie breaker with no winner if nobody finishes, and the 3:00 plunge cap (parked). Confirm them, and decide how members' names show. Demo competitors are invented names, not real members.
 - **Profile levels, achievements and Refer a friend** (`lib/profile.ts`, `app/profile/page.tsx`): demo milestones and badge names, not an ARTHA program. The referral link (`artha.la/join?ref=KARANMN45`, a code made from the account) is a demo format; artha.la doesn't read `?ref=` yet.
@@ -267,7 +273,7 @@ Every account is named "Karan". Switch between them in **Account → Demo** (tap
 - **Restore:** the unused-massage rollover isn't modeled. During the $9 special, Restore's 25%-off class ($21.75) still costs more than a Wellness class. Needs a decision.
 - **Refund window:** 5 calendar days. The agreements say 5 business days.
 - **Opening hours:** 7 AM–9 PM assumed. They aren't published.
-- **Photos:** Book is text only (removed by request). The sign-up screen's photo is Unsplash stock; swap in ARTHA's own in `lib/images.ts`.
+- **Photos:** Book's Classes, Therapies and Treatments boxes each have a photo with the section name over it (added back Nov 3 by request, non-AI only). The service menus and time lists stay text only. These and the sign-up photo are Unsplash stock, all uploaded 2016 to 2020 (the number in an Unsplash photo id is its upload time), so they predate AI image tools. Swap in ARTHA's own in `lib/images.ts` (`SECTION_IMAGE`). They load from images.unsplash.com, so they need a connection.
 - **Schedule:** one real week, repeated.
 
 ---
@@ -304,6 +310,6 @@ Every account is named "Karan". Switch between them in **Account → Demo** (tap
 1. **Fill the CONFIRM items:** real bios, end dates, capacities, hours, Gold and Restore perks.
 2. **Real backend:** for example Supabase, for sign-in, bookings, members and an admin view.
 3. **Stripe test mode:** for memberships, trials and drop-ins.
-4. **Admin tools:** let staff edit specials, events, the schedule, and partner-group (Nominations) pricing without code.
+4. **Admin tools:** let staff edit specials, events, the schedule, and partner-group (Nominations) pricing without code. `/admin` exists with class ratings only, and has no staff sign-in yet.
 5. **Native iPhone app (or Expo):** for push notifications and true calendar sync.
 6. **Streak rewards:** e.g. 5 classes earn a complimentary sauna, from the vault's Software Notes.
