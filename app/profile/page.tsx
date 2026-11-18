@@ -17,7 +17,7 @@ import { completedVisits, computeStats } from "@/lib/stats";
 import { AchievementId, PERIODS, Period, computeAchievements, computeHighlights, visitLevel } from "@/lib/profile";
 import { timeLabel } from "@/lib/format";
 import { shrinkPhoto } from "@/lib/photo";
-import { REFERRAL_CREDITS, referralLink } from "@/lib/referral";
+import { REFERRAL_CREDITS, referralLink, shareTitle } from "@/lib/referral";
 import { useReveal } from "@/lib/reveal";
 
 type Icon = typeof Flame;
@@ -101,9 +101,10 @@ const ACHIEVEMENT_ICON: Record<AchievementId, Icon> = {
 
 const monthYear = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", year: "numeric" });
 
-// Profile, opened from the avatar at the top of every tab. Everyone sees who they are, their visit
-// streak and an activity summary. Members (Trial, Restore, Classic, Gold) also get their level,
-// credits or perks, achievements and data highlights; Wellness accounts see what a membership adds.
+// Profile, opened from the avatar at the top of every tab. Everyone sees who they are and their
+// referral link. Members (Trial, Restore, Classic, Gold) also get their level, credits or perks,
+// visit streak, achievements, data highlights and an activity summary. Wellness accounts are new to
+// ARTHA, so their profile stays simple: no streaks or stats.
 export default function ProfilePage() {
   const { member, bookings } = useStore();
   const [showPlan, setShowPlan] = useState(false);
@@ -143,9 +144,47 @@ export default function ProfilePage() {
           {location.short} studio
         </p>
         {since.length > 0 && <p className="mt-2 rounded-xl border border-line bg-card px-3 py-2 text-xs text-muted">{since.join(" · ")}</p>}
+        {!tier.lockedToHome && <HomeStudioSetting />}
       </section>
 
-      {tier.isMember ? <MemberTiles visits={s.visits} /> : <BasicTiles visits={s.visits} minutes={s.minutes} />}
+      {tier.isMember && <MemberStats visits={s.visits} currentStreak={s.currentStreak} longestStreak={s.longestStreak} />}
+
+      <ReferralCard />
+    </div>
+  );
+}
+
+// Wellness Accounts: the studio the app opens on (picked at sign-up). Browsing the other studio in
+// Book doesn't change it; this does. Members' home studio is part of their membership.
+function HomeStudioSetting() {
+  const { member, setLocation } = useStore();
+  return (
+    <div className="mt-3 rounded-2xl border border-line bg-card p-3">
+      <p className="text-xs font-semibold uppercase tracking-widest text-muted">Home studio</p>
+      <p className="mt-0.5 text-xs text-muted">Where the app opens. You can book at both.</p>
+      <div className="mt-2 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Home studio">
+        {(Object.keys(LOCATIONS) as (keyof typeof LOCATIONS)[]).map((id) => (
+          <button
+            key={id}
+            role="radio"
+            aria-checked={member.home === id}
+            onClick={() => setLocation(id)}
+            className={clsx("min-h-[44px] rounded-xl border text-sm font-medium active:opacity-70", member.home === id ? "border-sage bg-sage text-ink" : "border-line bg-sand")}
+          >
+            {LOCATIONS[id].short}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Members: level and credits, the streak (opens Stats), then achievements, highlights and activity.
+function MemberStats({ visits, currentStreak, longestStreak }: { visits: number; currentStreak: number; longestStreak: number }) {
+  const s = { currentStreak, longestStreak };
+  return (
+    <>
+      <MemberTiles visits={visits} />
 
       <Link href="/stats?from=profile" className="flex items-center justify-between rounded-2xl border border-line bg-card px-4 py-3 hover:border-muted">
         <span className="text-xs font-semibold uppercase tracking-widest">Day streak</span>
@@ -159,7 +198,7 @@ export default function ProfilePage() {
         </span>
       </Link>
 
-      {s.visits === 0 ? (
+      {visits === 0 ? (
         <div className="rounded-3xl border border-dashed border-line p-6 text-center text-sm text-muted">
           <p>Your activity shows up here after your first visit.</p>
           <Link href="/book" className="mt-3 inline-block rounded-full bg-sage px-5 py-2 text-ink">
@@ -168,15 +207,12 @@ export default function ProfilePage() {
         </div>
       ) : (
         <>
-          {tier.isMember && <Achievements />}
-          {tier.isMember && <DataHighlights />}
+          <Achievements />
+          <DataHighlights />
           <ActivitySummary />
-          {!tier.isMember && <MembersSee />}
         </>
       )}
-
-      <ReferralCard />
-    </div>
+    </>
   );
 }
 
@@ -188,15 +224,6 @@ function Tile({ icon: Icon, title, value, detail }: { icon: Icon; title: string;
       <p className="mt-1 text-[11px] font-semibold uppercase tracking-widest">{title}</p>
       <p className="text-xs text-muted">{detail}</p>
     </div>
-  );
-}
-
-function BasicTiles({ visits, minutes }: { visits: number; minutes: number }) {
-  return (
-    <section className="grid grid-cols-2 gap-2">
-      <Tile icon={Medal} title="Visits" value={String(visits)} detail="all time" />
-      <Tile icon={Timer} title="Hours" value={String(Math.round(minutes / 60))} detail="at ARTHA" />
-    </section>
   );
 }
 
@@ -447,22 +474,6 @@ function ActivitySummary() {
   );
 }
 
-// Wellness accounts: what a membership adds to this page.
-function MembersSee() {
-  return (
-    <Link href="/membership" className="flex items-center gap-3 rounded-3xl border border-dashed border-line bg-card px-4 py-3 hover:border-muted">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-moss-soft text-moss">
-        <Lock size={18} />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-medium">Members see more</span>
-        <span className="block text-xs text-muted">Levels, achievements and data highlights.</span>
-      </span>
-      <ChevronRight size={18} className="shrink-0 text-muted" />
-    </Link>
-  );
-}
-
 // Everyone: a personal referral link to send friends (share sheet or copy), the reward, and how
 // each friend who used it is doing. The rules live in lib/referral.ts.
 function ReferralCard() {
@@ -495,7 +506,7 @@ function ReferralCard() {
   };
   const share = async () => {
     try {
-      if (navigator.share) await navigator.share({ title: "ARTHA", text: "Join me at ARTHA. Sign up with my link:", url: link });
+      if (navigator.share) await navigator.share({ title: shareTitle(member), text: "Join me at ARTHA. Sign up with my link:", url: link });
       else await copy();
     } catch {
       // Closing the share sheet isn't an error worth showing.
@@ -507,7 +518,7 @@ function ReferralCard() {
       <p className="mt-0.5 text-sm text-muted">
         {earns
           ? `Get ${REFERRAL_CREDITS} treatment credit for every friend who signs up with your link and becomes a member. It's added automatically once their first monthly payment goes through.`
-          : "Send your link to friends. Members get a treatment credit for every friend who joins with it."}
+          : "Send your link so friends can create a free account and see ARTHA's prices and specials."}
       </p>
       <button
         onClick={copy}

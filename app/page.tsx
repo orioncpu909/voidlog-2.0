@@ -1,6 +1,5 @@
 "use client";
 
-import { Suspense, useState } from "react";
 import Link from "next/link";
 import { BadgeCheck, Ticket } from "lucide-react";
 import { TIERS } from "@/lib/data";
@@ -8,25 +7,22 @@ import { useStore } from "@/lib/store";
 import { EventsSection } from "@/components/EventsSection";
 import { CreditsInfoButton } from "@/components/CreditsInfo";
 import { HomeAlerts } from "@/components/HomeAlerts";
-import { HomeCalendar } from "@/components/HomeCalendar";
+import { NextUpCard } from "@/components/NextUpCard";
 import { RateLastClass } from "@/components/RateClass";
 import { StreakCard } from "@/components/StreakCard";
 
-// Home fits on one phone screen: your streak, upcoming events, and this month's calendar (which also
-// holds your bookings and history while the Calendar tab is off). Account alerts (trial, cancelled
-// membership, notices, specials) show as slim rows only when they apply. Booking lives in the Book tab.
+// Home leads with what's next: how many bookings are coming up and the next one, with Check in.
+// Then the rating question, account alerts and specials (slim rows, only when they apply), the
+// streak (members only) and events. The full list, month view and history are on the Bookings tab;
+// booking lives in the Book tab.
 export default function HomePage() {
   const { member } = useStore();
-  // The day picked in the streak card or the calendar; both show it.
-  const [day, setDay] = useState<string | null>(null);
   const tier = TIERS[member.tier];
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
   return (
-    // At least one screen tall: the header (53px), top padding (12px) and tab-bar space (80px) take
-    // 145px. The calendar stretches to fill what's left, and the page scrolls if it needs more.
-    <div className="flex min-h-[max(560px,calc(100dvh-145px))] flex-col gap-2.5">
+    <div className="flex flex-col gap-2.5">
       <div className="flex shrink-0 items-end justify-between gap-3">
         <h1 className="min-w-0 truncate font-heading text-4xl leading-none text-muted">
           <span className="block font-sans text-sm">{greeting},</span>
@@ -47,14 +43,11 @@ export default function HomePage() {
           )}
         </div>
       </div>
-      <HomeAlerts />
+      <NextUpCard />
       <RateLastClass />
-      <StreakCard picked={day} />
+      <HomeAlerts />
+      <StreakCard picked={null} />
       <EventsSection />
-      {/* Suspense: the calendar reads ?day= links from elsewhere in the app. */}
-      <Suspense>
-        <HomeCalendar selected={day} onSelect={setDay} />
-      </Suspense>
     </div>
   );
 }

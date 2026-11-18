@@ -6,9 +6,10 @@ import clsx from "clsx";
 import { ChevronRight, RotateCcw, Ticket } from "lucide-react";
 import { LOCATIONS, MEMBERSHIP_ORDER, PERK_LABEL, ServiceId, TIERS, TierId } from "@/lib/data";
 import { dateKey } from "@/lib/schedule";
-import { INTRO_DEMO_ID, useStore } from "@/lib/store";
+import { FRIEND_DEMO_ID, WELLNESS_DEMO_ID, useStore } from "@/lib/store";
 import { money } from "@/lib/format";
 import { joinCharge } from "@/lib/membership";
+import { TRIAL_BECOMES, firstMonthCharge, trialEndsAt } from "@/lib/trial";
 import { PriceList } from "@/components/PriceList";
 import { NoticeBanner, TrialCard } from "@/components/TrialCard";
 import { CancelMembership, MembershipCard } from "@/components/MembershipCard";
@@ -17,8 +18,10 @@ import { SwitchToWellness } from "@/components/SwitchToWellness";
 import { EmailStudioButton } from "@/components/EmailStudio";
 import { Disclosure } from "@/components/Disclosure";
 import { CreditsInfoButton } from "@/components/CreditsInfo";
-import { CardOnFileRow } from "@/components/CardOnFileRow";
+import { CardOnFileRow, PayWithCard } from "@/components/CardOnFileRow";
 import { GuestPassesTile } from "@/components/GuestPasses";
+import { InviteFriendTile } from "@/components/InviteFriend";
+import { DeleteAccountButton } from "@/components/DeleteAccount";
 import { HistoryButton } from "@/components/BookingHistory";
 import { Button, Sheet } from "@/components/Sheet";
 
@@ -39,7 +42,17 @@ export default function AccountPage() {
               <p className="font-heading text-lg leading-tight">{t.name}</p>
               <p className="line-clamp-2 text-xs text-muted">{t.summary}</p>
             </div>
-            <p className="shrink-0 text-sm">{t.monthly ? `${money(t.monthly)}/mo` : money(t.joinFee)}</p>
+            {/* The trial renews into a membership, so its row says so next to the price. */}
+            <p className="shrink-0 text-right text-sm">
+              {t.monthly ? (
+                `${money(t.monthly)}/mo`
+              ) : (
+                <>
+                  {money(t.joinFee)}
+                  <span className="block text-[11px] text-muted">then {money(TIERS[TRIAL_BECOMES].monthly!)}/mo</span>
+                </>
+              )}
+            </p>
           </button>
         );
       })}
@@ -102,7 +115,10 @@ export default function AccountPage() {
           <GuestPassesTile />
         </div>
       ) : (
-        <CardOnFileRow />
+        <div className="grid grid-cols-2 gap-3">
+          <CardOnFileRow compact />
+          <InviteFriendTile />
+        </div>
       )}
 
       <section className="space-y-2">
@@ -158,18 +174,19 @@ export default function AccountPage() {
             <li>Please arrive 5 minutes early. No phone calls, inside voices.</li>
           </ul>
         </div>
+        <DeleteAccountButton />
       </Disclosure>
 
       <Disclosure title="Demo">
         <p className="text-xs uppercase tracking-widest text-muted">View as</p>
         <div className="mt-2 flex flex-wrap gap-2">
-          {members.map((m) => (
+          {members.filter((m) => m.signedUp !== false).map((m) => (
             <button
               key={m.id}
               onClick={() => switchMember(m.id)}
               className={clsx("rounded-full border px-3 py-1 text-xs", m.id === member.id ? "border-sage bg-sage text-ink" : "border-line bg-card")}
             >
-              {m.id === INTRO_DEMO_ID ? "App intro (new account)" : m.signedUp === false ? "New download" : m.onboarded ? `${m.name.split(" ")[0]} · ${TIERS[m.tier].name}` : "New user (first visit)"}
+              {m.id === WELLNESS_DEMO_ID ? "New user" : m.id === FRIEND_DEMO_ID ? `${m.name.split(" ")[0]} · Invited friend` : `${m.name.split(" ")[0]} · ${TIERS[m.tier].name}`}
             </button>
           ))}
         </div>
@@ -215,15 +232,18 @@ export default function AccountPage() {
               <p className="mb-2 text-xs uppercase tracking-widest text-muted">You&apos;d pay</p>
               <PriceList tier={joining} location={member.home} />
             </div>
+            <PayWithCard amount={joinCharge(member.tier, joining).amount} />
             <div className="space-y-2">
-              <Button
-                onClick={() => {
-                  changeTier(joining);
-                  setJoining(null);
-                }}
-              >
-                {joinCharge(member.tier, joining).amount > 0 ? `Confirm and pay ${money(joinCharge(member.tier, joining).amount)}` : "Confirm"}
-              </Button>
+              {(joinCharge(member.tier, joining).amount <= 0 || member.card) && (
+                <Button
+                  onClick={() => {
+                    changeTier(joining);
+                    setJoining(null);
+                  }}
+                >
+                  {joinCharge(member.tier, joining).amount > 0 ? `Confirm and pay ${money(joinCharge(member.tier, joining).amount)}` : "Confirm"}
+                </Button>
+              )}
               <Button variant="secondary" onClick={() => setJoining(null)}>
                 Not now
               </Button>
@@ -233,6 +253,12 @@ export default function AccountPage() {
       </Sheet>
     </div>
   );
+}
+
+// A trial started now: the day it ends and what the card is charged when it becomes a membership.
+function trialRenewal() {
+  const ends = trialEndsAt(new Date());
+  return { ends: ends.toLocaleDateString("en-US", { month: "short", day: "numeric" }), first: firstMonthCharge(new Date(ends.getTime() + 1)) };
 }
 
 // What the card is charged when changing plans, before they confirm.
@@ -255,6 +281,12 @@ function ChargeSummary({ tier: tierId }: { tier: TierId }) {
       {due.monthly && (
         <p className="mt-1 text-muted">
           Then {money(due.monthly)}/month, billed the 1st, starting {nextMonth}.
+        </p>
+      )}
+      {/* The trial's renewal, in the same box as the price, not only in the small print below. */}
+      {tierId === "trial" && (
+        <p className="mt-2 border-t border-line pt-2 font-medium">
+          When it ends on {trialRenewal().ends}, it becomes {TIERS[TRIAL_BECOMES].name}: {money(trialRenewal().first)} for the rest of that month, then {money(TIERS[TRIAL_BECOMES].monthly!)}/month, unless you cancel or pick another plan before then.
         </p>
       )}
     </div>

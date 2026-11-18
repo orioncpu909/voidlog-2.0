@@ -11,6 +11,8 @@ import { Booking, useStore } from "@/lib/store";
 import { dayLabel, money, timeLabel } from "@/lib/format";
 import { policyLine } from "@/lib/policy";
 import { addToPhoneCalendar } from "@/lib/ics";
+import { roomLabel } from "@/lib/invite";
+import { JoinInviteRow } from "./JoinInvite";
 import { useReveal } from "@/lib/reveal";
 import { Sheet, useTapGuard } from "./Sheet";
 import { PAST_LABEL, PastVisitRow, PastVisitSheet, bookingStart, nextSameSession } from "./BookingDetails";
@@ -25,7 +27,7 @@ const DAY = /^\d{4}-\d{2}-\d{2}$/;
 // details in place. "History" lists past visits. Links like /?day=2026-10-29 select that day.
 // The selected day is shared with the streak card (Home owns it), so picking a day in either one
 // shows it in both.
-const DAY_ROW_PX = 36; // the smallest a week can be; they grow into any spare room
+const DAY_ROW_PX = 26; // the smallest a week can be: weeks shrink to fit the screen and grow into spare room
 
 export function HomeCalendar({ selected, onSelect }: { selected: string | null; onSelect: (day: string | null) => void }) {
   const { bookings } = useStore();
@@ -126,7 +128,7 @@ export function HomeCalendar({ selected, onSelect }: { selected: string | null; 
           <>
             <div className="mb-0.5 flex items-center justify-between">
               <span className="font-medium text-moss">
-                {selected ? dayLabel(selected, "long") : upcoming.length ? `Coming up (${upcoming.length})` : "Coming up"}
+                {selected ? dayLabel(selected, "long") : `Coming up (${upcoming.length})`}
               </span>
               {pages.length > 1 && !openPage && (
                 <span className="text-[10px] text-muted">
@@ -172,7 +174,8 @@ export function HomeCalendar({ selected, onSelect }: { selected: string | null; 
         )}
       </div>
 
-      {/* Weeks take any spare room on Home, from 36px up to 44px, so the card fills a taller phone. */}
+      {/* Weeks share whatever room Home has left on screen, from 26px up to 44px each, so the calendar
+          fits the phone instead of running under the tab bar; each day sizes its circle and number to its row. */}
       <div className="mt-1 grid grid-cols-7 text-center text-[11px] text-muted">
         {WEEKDAYS.map((d, i) => (
           <span key={i}>{d}</span>
@@ -194,11 +197,11 @@ export function HomeCalendar({ selected, onSelect }: { selected: string | null; 
               onClick={() => pickDay(key)}
               aria-label={`${dayLabel(key, "long")}${c ? `, ${c.up + c.past} booked` : ""}`}
               aria-pressed={selected === key}
-              className="flex h-full min-h-0 flex-col items-center justify-center"
+              className="flex h-full min-h-0 flex-col items-center justify-center [container-type:size]"
             >
               <span
                 className={clsx(
-                  "flex aspect-square h-[calc(100%-6px)] max-h-9 items-center justify-center rounded-full text-base leading-none",
+                  "flex aspect-square h-[calc(100cqh-7px)] max-h-9 items-center justify-center rounded-full text-[clamp(12px,52cqh,16px)] leading-none",
                   isToday ? "bg-sage text-ink" : key < today ? "text-muted" : "",
                   selected === key && "ring-2 ring-shell",
                 )}
@@ -247,7 +250,7 @@ function BookingRow({
 }) {
   // Only what you actually paid or used; nothing for an included visit.
   const paid = b.usedCredit ? "1 credit" : b.perk ? "Perk" : b.price > 0 ? money(b.price) : null;
-  const facts = [b.checkedInAt && "Checked in", b.instructor?.split(" ")[0], LOCATIONS[b.location].short, `${b.durationMin} min`, paid].filter(Boolean).join(" · ");
+  const facts = [b.checkedInAt && "Checked in", b.instructor?.split(" ")[0], LOCATIONS[b.location].short, b.room && roomLabel(b.serviceId, b.room), `${b.durationMin} min`, paid].filter(Boolean).join(" · ");
   const ref = useReveal<HTMLDivElement>(expanded);
   return (
     <div ref={ref} className="flex gap-2 py-1">
@@ -285,6 +288,7 @@ function RowDetails({ booking: b, upcoming }: { booking: Booking; upcoming: bool
         <button onClick={() => addToPhoneCalendar(b, policyLine(t, b.usedCredit))} className="flex items-center gap-1 font-medium text-moss">
           <CalendarPlus size={13} /> Add to phone calendar
         </button>
+        <JoinInviteRow booking={b} />
       </div>
     );
   }

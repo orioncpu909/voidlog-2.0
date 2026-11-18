@@ -183,12 +183,6 @@ const FIRST_NAMES = [
 ];
 const DEMO_MEMBERS = Array.from({ length: BOARD_MEMBERS }, (_, i) => `${FIRST_NAMES[i % FIRST_NAMES.length]} ${"ABCDEFGHIJKLMNOPRSTVWY"[(i * 7) % 22]}.`);
 
-// New Wellness Accounts this week: around the weekly average, the same all week.
-export function signupsThisWeek(now = new Date()): number {
-  const week = Math.floor(now.getTime() / (7 * 864e5));
-  return WEEKLY_SIGNUPS - 6 + Math.floor(seeded(`signups|${week}`)() * 13);
-}
-
 function seeded(seed: string): () => number {
   let h = 2166136261;
   for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 16777619);

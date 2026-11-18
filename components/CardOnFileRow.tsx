@@ -54,6 +54,45 @@ export function CardOnFileRow({ compact = false }: { compact?: boolean }) {
 
 // When a charge fails while booking, this takes the place of the confirm step's contents (no second
 // pop-up): why it failed, then the card form in the same place. Saving goes back to confirm.
+// Above every "Confirm and pay": the card that pays, or a card form when there's none yet. A new
+// account has no card, so it adds one here before its first paid booking; the confirm button
+// waits until it's saved (the store refuses a paid booking without a card too).
+export function PayWithCard({ amount }: { amount: number }) {
+  const { member, setCard } = useStore();
+  const [changing, setChanging] = useState(false);
+  if (amount <= 0) return null;
+  if (!member.card || changing) {
+    return (
+      <div className="space-y-2 rounded-2xl border border-line p-4">
+        <p className="font-medium">{member.card ? "Change card" : "Add a card to pay"}</p>
+        <CardForm
+          current={member.card}
+          onSave={(c) => {
+            setCard(c);
+            setChanging(false);
+          }}
+        />
+        {member.card && (
+          <button onClick={() => setChanging(false)} className="min-h-[44px] w-full text-sm font-medium text-moss active:opacity-60">
+            Keep my {cardShortLabel(member.card)}
+          </button>
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-2xl border border-line py-1 pl-4 pr-2">
+      <span className="flex min-w-0 items-center gap-2">
+        <CreditCard size={16} className="shrink-0" />
+        <span className="truncate">Paying with {cardLabel(member.card)}</span>
+      </span>
+      <button onClick={() => setChanging(true)} className="min-h-[44px] shrink-0 px-2 font-medium text-moss active:opacity-60">
+        Change
+      </button>
+    </div>
+  );
+}
+
 export function CardDeclinedPanel({ onSaved, onBack }: { onSaved: (card: CardOnFile) => void; onBack: () => void }) {
   const { member, setCard } = useStore();
   const [updating, setUpdating] = useState(false);
@@ -123,7 +162,7 @@ function CardSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
 }
 
 // Only the brand, last 4 and expiry leave this form. It's unmounted when the sheet closes.
-function CardForm({ current, onSave }: { current?: CardOnFile; onSave: (card: CardOnFile) => void }) {
+export function CardForm({ current, onSave }: { current?: CardOnFile; onSave: (card: CardOnFile) => void }) {
   const [number, setNumber] = useState("");
   const [expiry, setExpiry] = useState("");
   const [cvc, setCvc] = useState("");

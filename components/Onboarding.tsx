@@ -3,22 +3,25 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { CalendarDays, Check, Dumbbell, Flame, Home, MapPin, QrCode, Snowflake, Sparkles, Star, Ticket, UserRound } from "lucide-react";
+import { Bell, CalendarClock, Check, Dumbbell, Flame, Home, MapPin, QrCode, Snowflake, Sparkles, Tag, Ticket, UserRound } from "lucide-react";
 import { LOCATIONS, LocationId, PriceGroup, TIERS, currentPromos, priceFor } from "@/lib/data";
 import { dateKey } from "@/lib/schedule";
 import { useStore } from "@/lib/store";
 import { money, shortDate } from "@/lib/format";
 import { PriceList } from "./PriceList";
 import { PROMO_LABELS } from "./PromoBanner";
+import { TRIAL_BECOMES } from "@/lib/trial";
 import { Button } from "./Sheet";
 
 // First-run walkthrough, right after creating an account: welcome, a tour of the app (what each tab
-// does), where you go, and what you'll pay.
+// does), where you go, what you'll pay, and last, whether to turn on push notifications, the way
+// any app asks: a short screen on why, then the phone's own Allow / Don't Allow prompt.
 export function Onboarding() {
-  const { member, setLocation, finishOnboarding } = useStore();
+  const { member, canStartTrial, setLocation, finishOnboarding, setPushNotifications } = useStore();
+  const [asking, setAsking] = useState(false); // the phone's notification prompt is showing
   const router = useRouter();
   const tier = TIERS[member.tier];
-  const steps = tier.lockedToHome ? ["welcome", "tour", "pricing"] : ["welcome", "tour", "location", "pricing"];
+  const steps = tier.lockedToHome ? ["welcome", "tour", "pricing", "notifications"] : ["welcome", "tour", "location", "pricing", "notifications"];
   const [i, setI] = useState(0);
   const step = steps[i];
   const today = dateKey(new Date());
@@ -27,6 +30,11 @@ export function Onboarding() {
   const finish = () => {
     finishOnboarding();
     router.push("/book");
+  };
+  const choosePush = (on: boolean) => {
+    setPushNotifications(on);
+    setAsking(false);
+    finish();
   };
 
   return (
@@ -86,7 +94,7 @@ export function Onboarding() {
           </div>
         )}
 
-        {step === "tour" && <AppTour monthly={!!tier.monthly} />}
+        {step === "tour" && <AppTour />}
 
         {step === "location" && (
           <div>
@@ -149,6 +157,20 @@ export function Onboarding() {
               </p>
             )}
 
+            {!tier.isMember && (!member.firstVisitUsed || canStartTrial) && (
+              <div className="rounded-2xl border border-line bg-card p-4 text-sm">
+                <p className="font-medium">Your welcome offers</p>
+                <ul className="mt-1.5 space-y-1.5 text-muted">
+                  {!member.firstVisitUsed && <li>Your first visit of each service is discounted. You&apos;ll see the first-visit price when you book.</li>}
+                  {canStartTrial && (
+                    <li>
+                      {TIERS.trial.name} · {money(TIERS.trial.joinFee)}: {TIERS.trial.summary.charAt(0).toLowerCase() + TIERS.trial.summary.slice(1).replace(/\.$/, "")}, then {money(TIERS[TRIAL_BECOMES].monthly!)}/month unless you cancel. Start it any time from your Account.
+                    </li>
+                  )}
+                </ul>
+              </div>
+            )}
+
             <div>
               <p className="mb-2 text-xs uppercase tracking-widest text-muted">Your prices</p>
               <PriceList tier={member.tier} location={member.home} />
@@ -160,58 +182,99 @@ export function Onboarding() {
           </div>
         )}
 
+        {step === "notifications" && <NotificationsAsk />}
+
         <div className="mt-6 space-y-2">
-          {i < steps.length - 1 ? <Button onClick={() => setI(i + 1)}>Continue</Button> : <Button onClick={finish}>Start booking</Button>}
-          {i > 0 && (
+          {step === "notifications" ? (
+            <>
+              <Button onClick={() => setAsking(true)}>Turn on notifications</Button>
+              <Button variant="secondary" onClick={() => choosePush(false)}>
+                Not now
+              </Button>
+            </>
+          ) : (
+            <Button onClick={() => setI(i + 1)}>Continue</Button>
+          )}
+          {i > 0 && step !== "notifications" && (
             <Button variant="secondary" onClick={() => setI(i - 1)}>
               Back
             </Button>
           )}
         </div>
       </div>
+      {asking && <PhoneNotificationPrompt onChoose={choosePush} />}
     </div>
   );
 }
 
-// The intro to the app: the tabs along the bottom and what each part does, in the same icons.
-function AppTour({ monthly }: { monthly: boolean }) {
+// Why turn notifications on: what they're for, before the phone asks.
+function NotificationsAsk() {
+  const reasons = [
+    { icon: CalendarClock, title: "Booking reminders", text: "A heads-up before each class or appointment." },
+    { icon: Bell, title: "Free-cancellation deadline", text: "A nudge before it passes, so plans can change for free." },
+    { icon: Tag, title: "Specials and events", text: "New specials and community events at your studio." },
+  ];
+  return (
+    <div className="space-y-4">
+      <div>
+        <h1 className="font-heading text-4xl leading-tight">Stay in the loop</h1>
+        <p className="mt-2 text-sm text-muted">Turn on notifications and ARTHA will let you know about:</p>
+      </div>
+      <ul className="space-y-2">
+        {reasons.map(({ icon: Icon, title, text }) => (
+          <li key={title} className="flex items-start gap-3 rounded-2xl border border-line bg-card p-3.5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sand text-shell">
+              <Icon size={18} />
+            </span>
+            <span className="min-w-0">
+              <span className="block font-heading text-lg leading-tight">{title}</span>
+              <span className="block text-sm leading-snug text-muted">{text}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="text-center text-xs text-muted">You can change this anytime in your phone&apos;s Settings.</p>
+    </div>
+  );
+}
+
+// Stands in for the phone's own permission prompt in this demo (a real app gets it from iOS or
+// Android). Allow or Don't Allow saves the choice and opens the app.
+function PhoneNotificationPrompt({ onChoose }: { onChoose: (on: boolean) => void }) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/50 px-10" role="alertdialog" aria-modal="true" aria-labelledby="push-title" aria-describedby="push-text">
+      <div className="w-full max-w-[270px] overflow-hidden rounded-2xl bg-[#f2f2f2] text-center text-[#111] shadow-xl">
+        <div className="px-4 pb-4 pt-5">
+          <p id="push-title" className="text-[17px] font-semibold leading-snug">&ldquo;ARTHA&rdquo; Would Like to Send You Notifications</p>
+          <p id="push-text" className="mt-1.5 text-[13px] leading-snug">Notifications may include alerts, sounds and icon badges. These can be changed in Settings.</p>
+        </div>
+        <div className="grid grid-cols-2 border-t border-black/15 text-[17px]">
+          <button onClick={() => onChoose(false)} className="min-h-[44px] border-r border-black/15 py-2.5 text-[#007aff] active:bg-black/5">
+            Don&apos;t Allow
+          </button>
+          <button onClick={() => onChoose(true)} className="min-h-[44px] py-2.5 font-semibold text-[#007aff] active:bg-black/5">
+            Allow
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// The intro to the app: just the four places a new member needs, in the same icons as the app.
+// Kept short on purpose so a new account isn't overwhelmed; everything else is found along the way.
+function AppTour() {
   const parts = [
-    {
-      icon: Home,
-      title: "Home",
-      text: "Your streak, upcoming events and your calendar. Every booking lives here: tap one to see it, cancel it or add it to your phone's calendar.",
-    },
-    {
-      icon: Sparkles,
-      title: "Book",
-      text: "Classes, therapies and treatments at both studios. Every time shows your price, and booking takes two taps.",
-    },
-    {
-      icon: UserRound,
-      title: "Account",
-      text: monthly
-        ? "Your membership and what's included, your card, guest passes for friends, your stats and how to reach us."
-        : "Your account and prices, your card, your stats, memberships and how to reach us.",
-    },
-    { icon: QrCode, title: "Check in", text: "Tap the code at the top of any screen and show it at the front desk." },
-    { icon: Star, title: "Rate your class", text: "After a class, Home asks how it went. Reviews are anonymous." },
-    { icon: CalendarDays, title: "Free cancellation", text: "Up to 3 hours before a class or therapy, 12 before a treatment. The exact time shows before you book." },
+    { icon: Home, title: "Home", text: "Your next booking, specials and events. Every booking is in the Bookings tab." },
+    { icon: Sparkles, title: "Book", text: "Where you book all your appointments and see every appointment time." },
+    { icon: QrCode, title: "Check in", text: "Tap the code at the top of any screen and have it scanned at the front desk." },
+    { icon: UserRound, title: "Account", text: "Where you find all your account information." },
   ];
   return (
     <div className="space-y-4">
       <div>
         <h1 className="font-heading text-4xl leading-tight">Here&apos;s your app</h1>
-        <p className="mt-2 text-sm text-muted">Three tabs along the bottom. This is what each part does.</p>
-      </div>
-
-      {/* A small copy of the tab bar, so the icons below are easy to find later. */}
-      <div className="grid grid-cols-3 rounded-2xl border border-line bg-card p-1.5" aria-hidden>
-        {parts.slice(0, 3).map(({ icon: Icon, title }, n) => (
-          <span key={title} className={clsx("flex flex-col items-center gap-0.5 rounded-xl py-1.5 text-[11px]", n === 0 && "bg-sand")}>
-            <Icon size={18} />
-            {title}
-          </span>
-        ))}
+        <p className="mt-2 text-sm text-muted">Four places to know.</p>
       </div>
 
       <ul className="space-y-2">

@@ -1,18 +1,26 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import clsx from "clsx";
 import { ArrowLeft, Heart, Sparkles, Timer, Trophy, UserRound } from "lucide-react";
 import { StreakFlame } from "@/components/StreakFlame";
-import { LOCATIONS, SERVICES } from "@/lib/data";
+import { LOCATIONS, SERVICES, TIERS } from "@/lib/data";
 import { useStore } from "@/lib/store";
 import { computeStats } from "@/lib/stats";
 import { money, shortDate } from "@/lib/format";
 
 // Suspense: the back arrow reads ?from= to return to the page that opened Stats.
+// Members only: a Wellness account that lands here (an old link) goes back to Home.
 export default function StatsPage() {
+  const { member } = useStore();
+  const router = useRouter();
+  const allowed = TIERS[member.tier].isMember;
+  useEffect(() => {
+    if (!allowed) router.replace("/");
+  }, [allowed, router]);
+  if (!allowed) return null;
   return (
     <Suspense>
       <StatsScreen />

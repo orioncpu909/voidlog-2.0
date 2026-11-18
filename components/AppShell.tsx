@@ -15,18 +15,20 @@ import { SwipeTabs } from "./SwipeTabs";
 import { SHOW_CALENDAR_TAB, SHOW_COMMUNITY } from "@/lib/flags";
 import HomePage from "@/app/page";
 import BookPage from "@/app/book/page";
+import BookingsPage from "@/app/calendar/page";
 import CommunityPage from "@/app/community/page";
 import AccountPage from "@/app/membership/page";
+import { AcceptInviteSheet } from "./JoinInvite";
 
 const TABS = [
   { href: "/", label: "Home", icon: Home },
   { href: "/book", label: "Book", icon: Sparkles },
-  { href: "/calendar", label: "Calendar", icon: CalendarDays },
+  { href: "/calendar", label: "Bookings", icon: CalendarDays },
   { href: "/community", label: "Community", icon: Trophy },
   { href: "/membership", label: "Account", icon: UserRound },
 ].filter((t) => (SHOW_CALENDAR_TAB || t.href !== "/calendar") && (SHOW_COMMUNITY || t.href !== "/community"));
 const TAB_HREFS = TABS.map((t) => t.href);
-const TAB_PAGES = { "/": HomePage, "/book": BookPage, "/community": CommunityPage, "/membership": AccountPage };
+const TAB_PAGES = { "/": HomePage, "/book": BookPage, "/calendar": BookingsPage, "/community": CommunityPage, "/membership": AccountPage };
 
 const CheckInSheet = dynamic(() => import("./CheckInSheet").then((m) => m.CheckInSheet), { ssr: false });
 
@@ -69,6 +71,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
       {checkingIn && <CheckInSheet onClose={() => setCheckingIn(false)} />}
+      <AcceptInviteSheet />
       <PullToRefresh>
         <SwipeTabs tabs={TAB_HREFS} pages={TAB_PAGES} onLanding={setLanding}>
           <main className="flex-1 px-4 pb-20 pt-3">{children}</main>

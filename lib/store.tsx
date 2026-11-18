@@ -5,7 +5,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { LOCATIONS, LocationId, PERK_LABEL, Quote, SERVICES, ServiceId, TIERS, TierId, bookableAt, priceFor } from "./data";
-import { Session, dateKey, eventSessions, sessionStart, slotsFor } from "./schedule";
+import { Session, dateKey, eventSessions, findSession, sessionStart, slotsFor } from "./schedule";
 import { EVENTS, eventAt, eventTicketPrice, eventVisibleTo } from "./events";
 import { CancelTerms, canUseCredit, cancelTerms } from "./policy";
 import { TRIAL_BECOMES, firstMonthCharge, trialEndsAt } from "./trial";
@@ -15,6 +15,7 @@ import { endOfMonth, inRefundWindow, joinCharge, membershipUsed } from "./member
 import { money, shortDate, timeLabel, timeRange } from "./format";
 import { REFERRAL_CREDITS, ReferralResult, findReferrer } from "./referral";
 import { GuestPass, emailKey, guestBookerId, guestPassBlock, passesLeft } from "./guest";
+import { SessionInvite, canInviteTo, invitePrice, readInviteCode, sharesRoom } from "./invite";
 import { COMMENT_MAX, canRate, commentOk, needsComment, ratingDue, seedRatingComments, seedRatings } from "./ratings";
 import {
   CHALLENGE_PRIZE_CREDITS, Challenge, ChallengeResult, PLUNGE_MAX_SECONDS, PLUNGE_MIN_SECONDS, challengeName, displayName, endedChallenges, firstPlace, isEntered, runTieBreak, scoreFor, tieBreakEnds,
@@ -29,6 +30,8 @@ export interface Member {
   home: LocationId;
   credits: number;
   onboarded: boolean;
+  // Asked once, at the end of the new-account walkthrough: true allowed, false declined, missing = not asked.
+  pushNotifications?: boolean;
   signedUp?: boolean; // false = just downloaded the app, sees the create-account screens first
   email?: string;
   phone?: string;
@@ -41,7 +44,8 @@ export interface Member {
   trialBecomes?: TierId; // membership the trial turns into; Classic when not chosen
   notice?: string; // one-time message shown on Home (e.g. trial ended)
   dismissedPromos?: string[]; // specials whose Home banner this account closed
-  firstVisitUsed?: boolean; // the first-visit price has been used
+  firstVisitUsed?: boolean; // every first-visit price is gone (the sample members, and older saved data)
+  firstVisitsUsed?: ServiceId[]; // services whose first-visit price has been used: each service gets one
   memberSince?: string; // ISO start of the current paid membership
   lastRenewal?: string; // "YYYY-MM" of the latest month paid; missing means the month they joined
   welcomeCreditsGiven?: boolean; // welcome credits are once per account, even after leaving and rejoining
@@ -93,6 +97,9 @@ export interface Booking {
   ratedAt?: string;
   ratingComment?: string; // why, required for 3 stars or fewer; private to staff, no name (lib/ratings.ts)
   ratingSkipped?: boolean; // "Not now" on the rating question
+  room?: number; // sauna or contrast: which room (lib/invite.ts roomLabel)
+  sharedRoom?: boolean; // joined someone's sauna or contrast on an invite: shares their room, takes no room of its own
+  inviteId?: string; // booked by accepting this invite (lib/invite.ts)
 }
 
 export interface Charge {
@@ -116,6 +123,8 @@ interface State {
   guestPasses?: GuestPass[]; // every account's, since a guest can only ever claim one
   accounts?: AccountDetails[]; // details used to sign up, kept when the demo restarts as a new download
   ratingsSeeded?: boolean; // demo class ratings were added (data saved before ratings existed gets them once)
+  invites?: SessionInvite[]; // join-me invites to a sauna, contrast or class (lib/invite.ts)
+  pendingInvite?: string; // id of the invite this phone opened, waiting to be accepted
 }
 
 export interface AccountDetails {
@@ -133,25 +142,116 @@ const daysAgo = (n: number) => new Date(Date.now() - n * 864e5).toISOString();
 // The brand-new download: no account yet, so the app opens on the create-account screens.
 const NEW_DOWNLOAD: Member = { id: "m-new", name: "Karan", tier: "wellness", home: "weho", credits: 0, onboarded: false, signedUp: false };
 
-// A just-created account, for seeing the welcome walkthrough and app intro without signing up.
-// Switching to it from Account → Demo always starts the walkthrough again.
-export const INTRO_DEMO_ID = "m-intro";
-const INTRO_DEMO: Member = { id: INTRO_DEMO_ID, name: "Karan", tier: "wellness", home: "weho", credits: 0, onboarded: false };
-// Saved data from before this account existed gets it too.
-const withIntroDemo = (members: Member[]): Member[] => (members.some((m) => m.id === INTRO_DEMO_ID) ? members : [members[0], { ...INTRO_DEMO }, ...members.slice(1)]);
+// The one Wellness sample account. Picking it (or Continue after the sign-up picture) always starts
+// the welcome walkthrough and app intro, then shows its history and bookings.
+export const WELLNESS_DEMO_ID = "m-wellness";
+// Saved data from when the app intro had its own account: drop that account and move off it.
+const LEGACY_INTRO_ID = "m-intro";
+const withoutLegacyIntro = (s: State): State =>
+  s.members.some((m) => m.id === LEGACY_INTRO_ID)
+    ? { ...s, members: s.members.filter((m) => m.id !== LEGACY_INTRO_ID), activeMemberId: s.activeMemberId === LEGACY_INTRO_ID ? WELLNESS_DEMO_ID : s.activeMemberId }
+    : s;
+
+// The friend an invite is sent to, in the demo: Create account after opening an invite lands here,
+// so the sender's own account (often the New user) is left as it was. A fresh Wellness Account with
+// no card, so accepting asks for one.
+export const FRIEND_DEMO_ID = "m-friend";
+const FRIEND_DEMO: Member = { id: FRIEND_DEMO_ID, name: "Sam", tier: "wellness", home: "weho", credits: 0, onboarded: false };
+const withFriendDemo = (s: State): State => (s.members.some((m) => m.id === FRIEND_DEMO_ID) ? s : { ...s, members: [...s.members, { ...FRIEND_DEMO }] });
 
 // Where a demo sign-up lands: the Wellness sample account, since a new sign-up is a free account.
-const SIGNUP_DEMO_ID = "m-wellness";
+const SIGNUP_DEMO_ID = WELLNESS_DEMO_ID;
+
+// The "New user" account: a brand-new Wellness account with no history, no card, the first-visit
+// prices still ahead of it and the 7-day trial offer open.
+const FRESH_WELLNESS: Member = { id: WELLNESS_DEMO_ID, name: "Karan", tier: "wellness", home: "weho", credits: 0, onboarded: false };
+
+// Saved data from when the Wellness sample came with demo history: make it the fresh new-user
+// account. Only the untouched sample (its marker flags still set) is replaced; an account someone
+// renamed by signing up is left alone.
+const withFreshWellness = (s: State): State => {
+  const old = s.members.find((m) => m.id === WELLNESS_DEMO_ID);
+  if (!old || !old.trialUsed || old.name !== "Karan") return s;
+  return {
+    ...s,
+    members: s.members.map((m) => (m.id === WELLNESS_DEMO_ID ? { ...FRESH_WELLNESS, onboarded: m.onboarded } : m)),
+    bookings: s.bookings.filter((b) => b.memberId !== WELLNESS_DEMO_ID),
+    charges: s.charges.filter((c) => c.memberId !== WELLNESS_DEMO_ID),
+    plunges: (s.plunges ?? []).filter((p) => p.memberId !== WELLNESS_DEMO_ID),
+  };
+};
+
+// Clears an account's bookings, charges and plunges, for an account that starts over.
+const withoutHistory = (s: State, id: string): State => ({
+  ...s,
+  bookings: s.bookings.filter((b) => b.memberId !== id),
+  charges: s.charges.filter((c) => c.memberId !== id),
+  plunges: (s.plunges ?? []).filter((p) => p.memberId !== id),
+});
+
+// The app as a fresh download: the new-download account rebuilt (a deleted account's slot is gone)
+// and opened, so the app starts on the welcome and create-account screens.
+const asNewDownload = (s: State): State => ({
+  ...withoutHistory(s, NEW_DOWNLOAD.id),
+  activeMemberId: NEW_DOWNLOAD.id,
+  members: [{ ...NEW_DOWNLOAD }, ...s.members.filter((m) => m.id !== NEW_DOWNLOAD.id)],
+  // The next person gets this account's id, not its passes. Claimed ones still block a repeat guest.
+  guestPasses: (s.guestPasses ?? []).filter((p) => p.senderId !== NEW_DOWNLOAD.id || p.claimedAt).map((p) => (p.senderId === NEW_DOWNLOAD.id ? { ...p, senderId: "" } : p)),
+});
+
+// The New user account made brand new again: no history, every first-visit price and the trial
+// offer ahead of it.
+const withNewUserReset = (s: State): State => {
+  const cleared = withoutHistory(s, WELLNESS_DEMO_ID);
+  return { ...cleared, members: [...cleared.members.filter((m) => m.id !== WELLNESS_DEMO_ID), { ...FRESH_WELLNESS }] };
+};
+
+// The deck's QR code and invite links open /?signup=1. That always starts the full new-user flow,
+// even on a phone that already opened the demo: the app's first screen (Create account or I already
+// have an account), then a brand-new account. The flag comes off the address so a reload or
+// pull-to-refresh doesn't start over again.
+let signupPending = false; // until the fresh start is saved (React can load twice before that)
+function takeSignupLink(s: State): State {
+  if (typeof window === "undefined") return s;
+  const url = new URL(window.location.href);
+  if (url.searchParams.has("signup")) {
+    url.searchParams.delete("signup");
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+    signupPending = true;
+  }
+  if (!signupPending) return s;
+  return asNewDownload(withNewUserReset({ ...s, goodbye: undefined, goodbyeNote: undefined }));
+}
+
+// An invite link (/?invite=…) opens the app's first screen too, with the invite waiting: the friend
+// creates an account (or picks one) and then confirms it. The sender's accounts aren't reset.
+let invitePending: string | null = null;
+function takeInviteLink(s: State): State {
+  if (typeof window === "undefined") return s;
+  const url = new URL(window.location.href);
+  const code = url.searchParams.get("invite");
+  if (code) {
+    url.searchParams.delete("invite");
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+    invitePending = code;
+  }
+  if (!invitePending) return s;
+  const invite = readInviteCode(invitePending);
+  if (!invite) return s;
+  const known = (s.invites ?? []).find((i) => i.id === invite.id);
+  const invites = known ? s.invites! : [...(s.invites ?? []), { ...invite, fromId: s.members.some((m) => m.id === invite.fromId) ? invite.fromId : "" }];
+  return asNewDownload({ ...s, invites, pendingInvite: invite.id, goodbye: undefined, goodbyeNote: undefined });
+}
 
 // The sample accounts' made-up card. Sign-up doesn't ask for one, so a new account starts without.
 const SAMPLE_CARD: CardOnFile = { brand: "Visa", last4: "4242", expMonth: 12, expYear: 2029 };
-const withSampleCard = (m: Member): Member => (m.card || m.id === NEW_DOWNLOAD.id || m.id === INTRO_DEMO_ID ? m : { ...m, card: SAMPLE_CARD });
+const withSampleCard = (m: Member): Member => (m.card || m.id === NEW_DOWNLOAD.id || m.id === WELLNESS_DEMO_ID || m.id === FRIEND_DEMO_ID ? m : { ...m, card: SAMPLE_CARD });
 
 function seedMembers(): Member[] {
   const members: Member[] = [
     { ...NEW_DOWNLOAD },
-    { ...INTRO_DEMO },
-    { id: "m-wellness", name: "Karan", tier: "wellness", home: "weho", credits: 0, onboarded: true, trialUsed: true, firstVisitUsed: true },
+    { ...FRESH_WELLNESS },
+    { ...FRIEND_DEMO },
     { id: "m-classic", name: "Karan", tier: "classic", home: "weho", credits: 4, onboarded: true, firstVisitUsed: true, memberSince: daysAgo(20), communityJoined: true, communityJoinedAt: daysAgo(40) },
     // Joined 2 days ago with visits since, so the 5-day refund has ended.
     { id: "m-gold", name: "Karan", tier: "gold", home: "weho", credits: 5, onboarded: true, firstVisitUsed: true, memberSince: daysAgo(2), communityJoined: true, communityJoinedAt: daysAgo(2) },
@@ -217,10 +317,6 @@ const ACTIVITY: Record<string, Activity> = {
   "m-restore": {
     weeks: 8, perWeek: 2, streak: 3, recovery: 0.4, doubles: 0.35, treatmentsPerMonth: 1,
     mix: [["ir-sauna", 2], ["cryo", 2], ["contrast", 1]],
-  },
-  "m-wellness": {
-    weeks: 6, perWeek: 2.5, streak: 4, recovery: 0.35, doubles: 0.35, treatmentsPerMonth: 0.5,
-    mix: [["cryo", 3], ["ir-sauna", 2], ["contrast", 1]],
   },
   "m-trial": {
     weeks: 5, perWeek: 2, streak: 3, recovery: 0.3, doubles: 0.3, treatmentsPerMonth: 0,
@@ -326,6 +422,17 @@ function upcomingBookings(member: Member, taken: Map<string, number>): Booking[]
     taken.set(s.id, (taken.get(s.id) ?? 0) + 1); // the demo accounts share these sessions
     return { ...makeBooking(member, s, priceFor(member.tier, s.serviceId, member.home, s.date).price, false), createdAt: daysAgo(1) };
   });
+}
+
+// The demo accounts always have classes coming up on Home: an account whose demo bookings have all
+// gone by (days after the last reset) gets a fresh set, the same as a reset would give it.
+function withUpcomingDemoBookings(s: State): State {
+  const now = Date.now();
+  const ahead = s.bookings.filter((b) => b.status === "booked" && sessionStart(b.date, b.time).getTime() > now);
+  const taken = new Map<string, number>();
+  for (const b of ahead) taken.set(b.sessionId, (taken.get(b.sessionId) ?? 0) + 1);
+  const added = s.members.filter((m) => ACTIVITY[m.id] && !ahead.some((b) => b.memberId === m.id)).flatMap((m) => upcomingBookings(m, taken));
+  return added.length ? { ...s, bookings: [...s.bookings, ...added] } : s;
 }
 
 function seedState(): State {
@@ -590,12 +697,15 @@ function load(): State {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as State;
-      if (parsed.version === 2) return settle(withSeedRatings({ ...parsed, members: withIntroDemo(parsed.members).map(withSampleCard) }));
+      if (parsed.version === 2) {
+        const migrated = withFreshWellness(withoutLegacyIntro(parsed));
+        return takeInviteLink(takeSignupLink(settle(withUpcomingDemoBookings(withSeedRatings(withFriendDemo({ ...migrated, members: migrated.members.map(withSampleCard) }))))));
+      }
     }
   } catch {
     // Storage unavailable or corrupt; start fresh.
   }
-  return settle(seedState());
+  return takeInviteLink(takeSignupLink(settle(seedState())));
 }
 
 export type BookResult = { ok: true; booking: Booking } | { ok: false; error: string; declined?: boolean };
@@ -616,7 +726,7 @@ interface Store {
   accountTaken: (details: { email: string; phone: string; instagram?: string }) => "email" | "phone" | "instagram" | null;
   quote: (serviceId: ServiceId, location: LocationId, date: string) => Quote;
   perksLeft: (serviceId: ServiceId, date: string) => number; // monthly perks (Restore) still free that month
-  firstVisitEligible: boolean;
+  firstVisitEligible: boolean; // some first-visit price is still ahead (one per service)
   refundWindowOpen: boolean;
   refundLostToUse: boolean; // inside the first 5 days, but the membership has been used
   cancelMembership: (choice?: TrialCancelChoice) => void; // "downgrade" (the default) keeps a free Wellness Account
@@ -655,8 +765,17 @@ interface Store {
   setLocation: (loc: LocationId) => void;
   toggleRsvp: (eventId: string) => void;
   finishOnboarding: () => void;
+  setPushNotifications: (on: boolean) => void;
+  inviteFor: (bookingId: string) => SessionInvite | undefined; // the invite this account sent for a booking
+  createInvite: (bookingId: string) => SessionInvite | null; // Wellness Accounts: a sauna, contrast or class booking
+  inviteForBooking: (b: Booking) => SessionInvite | undefined; // the invite behind a booking, either side
+  pendingInvite: SessionInvite | null; // an invite this phone opened, for the account now open
+  inviteWaiting: SessionInvite | null; // an invite opened on this phone, not accepted yet (the first screen shows it; sign-up uses the friend account)
+  acceptInvite: () => BookResult; // the friend pays the invite's price and gets the booking
+  dismissInvite: () => void;
   signUp: (details: { firstName: string; lastName: string; email: string; phone?: string; instagram?: string; referralCode?: string }) => void;
   restartAsNewDownload: () => void; // demo: wipe the new-user account and open the app as a fresh download
+  deleteAccount: () => void; // a Wellness Account deletes itself; upcoming bookings are released and refunded
   refresh: () => void; // pull-to-refresh: reload saved data and apply anything due (ended trials, months)
   reset: () => void;
 }
@@ -692,6 +811,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!state) return;
     try {
       localStorage.setItem(KEY, JSON.stringify(state));
+      signupPending = false;
     } catch {
       // Ignore; the demo still works for this session.
     }
@@ -711,7 +831,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const charge = (label: string, amount: number): Charge => ({ id: uid(), memberId: member.id, at: new Date().toISOString(), label, amount });
 
     const spotsLeft = (session: Session) => {
-      const ours = active.filter((b) => b.sessionId === session.id).length;
+      const ours = active.filter((b) => b.sessionId === session.id && !b.sharedRoom).length;
       return Math.max(0, session.capacity - session.bookedByOthers - ours);
     };
 
@@ -725,6 +845,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (member.tier === "trial" && member.trialEndsAt && day > new Date(member.trialEndsAt)) return member.trialCancel ? "wellness" : (member.trialBecomes ?? TRIAL_BECOMES);
       return member.tier;
     };
+    // Each service's first visit is at a special rate, once per account.
+    const firstVisitsUsed = member.firstVisitsUsed ?? [];
+    const firstVisitFor = (serviceId: ServiceId) => !member.firstVisitUsed && !firstVisitsUsed.includes(serviceId);
     const firstVisitEligible = !member.firstVisitUsed;
     // Monthly perks left for this service in the calendar month of `date`. A free cancel gives the
     // perk back (cancelled bookings don't count); a late cancel uses it up.
@@ -742,7 +865,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const name = PERK_LABEL[serviceId] ?? serviceId;
         return { price: 0, regular, kind: "perk", label: `This month's included ${name}`, tag: `${TIERS[tierOn(date)].name} monthly perk`, creditEligible: false };
       }
-      return priceFor(tierOn(date), serviceId, location, date, firstVisitEligible);
+      return priceFor(tierOn(date), serviceId, location, date, firstVisitFor(serviceId));
     };
 
     // Why this account can't take this time, if it can't: one of each therapy a day, and no overlaps.
@@ -789,6 +912,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     const guestBookingsOf = (pass: GuestPass) => active.filter((b) => b.memberId === guestBookerId(pass));
 
+    // Saunas and contrast rooms are numbered. People booked outside the app hold the top numbers, so a
+    // new booking takes the lowest room nobody here is in.
+    const nextRoom = (session: Session): number | undefined => {
+      if (!sharesRoom(session.serviceId)) return undefined;
+      const taken = new Set(active.filter((b) => b.sessionId === session.id && b.room).map((b) => b.room));
+      for (let r = 1; r <= session.capacity; r++) if (!taken.has(r)) return r;
+      return undefined;
+    };
+
     const book: Store["book"] = (session, useCredit) => {
       const start = sessionStart(session.date, session.time);
       if (start.getTime() <= Date.now()) return { ok: false, error: "This time has already started. Please pick a later time." };
@@ -809,18 +941,86 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const firstVisit = !credit && q.kind === "firstVisit";
       const perk = !credit && q.kind === "perk";
       const price = credit ? 0 : event ? eventTicketPrice(event, tier.isMember) : q.price;
+      if (price > 0 && !member.card) return { ok: false, error: "Add a card to pay for this booking." };
       if (price > 0 && cardDeclines(member.card)) return { ok: false, declined: true, error: "Your card was declined." };
-      const booking = { ...makeBooking(member, session, price, credit), firstVisit, perk };
+      const booking: Booking = { ...makeBooking(member, session, price, credit), firstVisit, perk, room: nextRoom(session) };
       bookingNow.current.add(session.id);
 
       update((s) => ({
         ...s,
-        members: credit || firstVisit ? patchMember(s, { ...(credit && { credits: member.credits - 1 }), ...(firstVisit && { firstVisitUsed: true }) }) : s.members,
+        members: credit || firstVisit ? patchMember(s, { ...(credit && { credits: member.credits - 1 }), ...(firstVisit && { firstVisitsUsed: [...firstVisitsUsed, session.serviceId] }) }) : s.members,
         bookings: [...s.bookings, booking],
         charges: price > 0 ? [...s.charges, charge(`${session.title} · ${session.date} ${session.time}${firstVisit ? " (first visit price)" : ""}`, price)] : s.charges,
       }));
       return { ok: true, booking };
     };
+
+    // Join-me invites (lib/invite.ts).
+    const invites = state.invites ?? [];
+    const inviteFor: Store["inviteFor"] = (bookingId) => invites.find((i) => i.bookingId === bookingId && i.fromId === member.id);
+    const inviteForBooking: Store["inviteForBooking"] = (b) => (b.inviteId ? invites.find((i) => i.id === b.inviteId) : invites.find((i) => i.bookingId === b.id));
+    const createInvite: Store["createInvite"] = (bookingId) => {
+      const existing = inviteFor(bookingId);
+      if (existing) return existing;
+      const b = active.find((x) => x.id === bookingId && x.memberId === member.id);
+      if (!b || member.tier !== "wellness" || !canInviteTo(b.serviceId) || b.inviteId) return null;
+      if (sessionStart(b.date, b.time).getTime() <= Date.now()) return null;
+      const session = findSession(b.sessionId);
+      // A booking from before rooms were numbered gets its room now.
+      const room = sharesRoom(b.serviceId) ? (b.room ?? (session ? nextRoom(session) : 1) ?? 1) : undefined;
+      const invite: SessionInvite = {
+        id: uid(),
+        fromId: member.id,
+        fromName: member.name.split(" ")[0],
+        bookingId: b.id,
+        sessionId: b.sessionId,
+        serviceId: b.serviceId,
+        location: b.location,
+        date: b.date,
+        time: b.time,
+        durationMin: b.durationMin,
+        title: b.title,
+        instructor: b.instructor,
+        room,
+        // The friend pays what the sender paid (a special or first-visit price included); a free
+        // booking (credit or perk) falls back to the Wellness price.
+        price: b.price > 0 ? b.price : invitePrice(b.serviceId, b.location, b.date),
+        sentAt: new Date().toISOString(),
+      };
+      update((s) => ({
+        ...s,
+        invites: [...(s.invites ?? []), invite],
+        bookings: room && !b.room ? s.bookings.map((x) => (x.id === b.id ? { ...x, room } : x)) : s.bookings,
+      }));
+      return invite;
+    };
+    const opened = state.pendingInvite ? invites.find((i) => i.id === state.pendingInvite) : undefined;
+    const pendingInvite =
+      opened && !opened.acceptedBy && opened.fromId !== member.id && member.signedUp !== false && sessionStart(opened.date, opened.time).getTime() > Date.now() ? opened : null;
+    const acceptInvite: Store["acceptInvite"] = () => {
+      const inv = pendingInvite;
+      if (!inv) return { ok: false, error: "This invite is no longer open." };
+      const session = findSession(inv.sessionId);
+      if (!session) return { ok: false, error: "This time is no longer on the schedule." };
+      if (myBookingFor(session.id)) return { ok: false, error: "You're already booked for this time." };
+      const shared = sharesRoom(inv.serviceId);
+      // Joining a sauna or contrast uses the sender's room; a class needs its own spot.
+      if (!shared && spotsLeft(session) <= 0) return { ok: false, error: "This class just filled up." };
+      const conflict = bookingConflict(session);
+      if (conflict) return { ok: false, error: conflict };
+      if (inv.price > 0 && !member.card) return { ok: false, error: "Add a card to accept." };
+      if (inv.price > 0 && cardDeclines(member.card)) return { ok: false, declined: true, error: "Your card was declined." };
+      const booking: Booking = { ...makeBooking(member, session, inv.price, false), room: inv.room, sharedRoom: shared || undefined, inviteId: inv.id };
+      update((s) => ({
+        ...s,
+        pendingInvite: undefined,
+        invites: (s.invites ?? []).map((i) => (i.id === inv.id ? { ...i, acceptedBy: member.id, acceptedName: member.name.split(" ")[0], acceptedAt: new Date().toISOString() } : i)),
+        bookings: [...s.bookings, booking],
+        charges: inv.price > 0 ? [...s.charges, charge(`${inv.title} with ${inv.fromName} · ${inv.date} ${inv.time}`, inv.price)] : s.charges,
+      }));
+      return { ok: true, booking };
+    };
+    const dismissInvite = () => update((s) => ({ ...s, pendingInvite: undefined }));
 
     const termsForBooking = (b: Booking) => cancelTerms(tier, b);
 
@@ -833,7 +1033,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (t.refund > 0) extra.push(charge(`Refund: ${label}`, -t.refund));
       if (t.fee > 0) extra.push(charge(`Late-cancel fee: ${label}`, t.fee));
       // A free cancellation gives back the credit, and the first-visit discount if it was used here.
-      const restore = { ...(t.creditBack && tier.isMember && { credits: member.credits + 1 }), ...(b.firstVisit && !t.late && { firstVisitUsed: false }) };
+      const restore = { ...(t.creditBack && tier.isMember && { credits: member.credits + 1 }), ...(b.firstVisit && !t.late && { firstVisitUsed: false, firstVisitsUsed: firstVisitsUsed.filter((id) => id !== b.serviceId) }) };
       update((s) => ({
         ...s,
         members: Object.keys(restore).length ? patchMember(s, restore) : s.members,
@@ -915,8 +1115,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         update((s) => ({
           ...s,
           activeMemberId: id,
-          // The intro account replays the walkthrough every time it's picked.
-          members: id === INTRO_DEMO_ID ? s.members.map((m) => (m.id === id ? { ...m, onboarded: false } : m)) : s.members,
+          // The Wellness account replays the walkthrough and app intro every time it's picked.
+          members: id === WELLNESS_DEMO_ID ? s.members.map((m) => (m.id === id ? { ...m, onboarded: false } : m)) : s.members,
         })),
       changeTier: (tierId) =>
         update((s) => {
@@ -1068,13 +1268,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return { ...s, members: patchMember(s, { rsvps: rsvps.includes(eventId) ? rsvps.filter((id) => id !== eventId) : [...rsvps, eventId] }) };
         }),
       finishOnboarding: () => update((s) => ({ ...s, members: patchMember(s, { onboarded: true }) })),
+      setPushNotifications: (on) => update((s) => ({ ...s, members: patchMember(s, { pushNotifications: on }) })),
+      inviteFor,
+      createInvite,
+      inviteForBooking,
+      pendingInvite,
+      inviteWaiting: opened && !opened.acceptedBy ? opened : null,
+      acceptInvite,
+      dismissInvite,
       // Demo sign-up: keeps the name, email and phone on this device. The password is never stored.
-      // The new person then lands in the Wellness sample account (history, streak, bookings) under
-      // their own details, after the welcome walkthrough, so the demo isn't an empty account. The
-      // new-download account stays as it was, so the sign-up demo can run again.
+      // The new person lands in the New user Wellness account under their own details, after the
+      // welcome walkthrough: a brand-new account, first-visit prices and the trial offer ahead of
+      // it. The new-download account stays as it was, so the sign-up demo can run again.
       signUp: ({ firstName, lastName, email, phone, instagram, referralCode }) =>
         update((s) => {
-          const demo = s.members.find((m) => m.id === SIGNUP_DEMO_ID);
+          const demo = s.members.find((m) => m.id === (s.pendingInvite ? FRIEND_DEMO_ID : SIGNUP_DEMO_ID));
           const target = demo?.id ?? member.id;
           const referrer = referralCode ? findReferrer(referralCode, s.members.filter((m) => m.id !== member.id && m.id !== target)) : undefined;
           const details = { name: `${firstName} ${lastName}`.trim(), email, phone: phone || undefined, instagram, referredBy: referrer?.id };
@@ -1085,18 +1293,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             accounts: [...(s.accounts ?? []), { email, phone: phone ?? "", instagram }],
           };
         }),
-      restartAsNewDownload: () =>
-        update((s) => ({
-          ...s,
-          activeMemberId: NEW_DOWNLOAD.id,
-          // Rebuilt rather than reset, since a deleted account's slot is gone.
-          members: [{ ...NEW_DOWNLOAD }, ...s.members.filter((m) => m.id !== NEW_DOWNLOAD.id)],
-          bookings: s.bookings.filter((b) => b.memberId !== NEW_DOWNLOAD.id),
-          charges: s.charges.filter((c) => c.memberId !== NEW_DOWNLOAD.id),
-          plunges: (s.plunges ?? []).filter((p) => p.memberId !== NEW_DOWNLOAD.id),
-          // The next person gets this account's id, not its passes. Claimed ones still block a repeat guest.
-          guestPasses: (s.guestPasses ?? []).filter((p) => p.senderId !== NEW_DOWNLOAD.id || p.claimedAt).map((p) => (p.senderId === NEW_DOWNLOAD.id ? { ...p, senderId: "" } : p)),
-        })),
+      restartAsNewDownload: () => update(asNewDownload),
+      // Wellness Accounts can delete themselves from Account → Contact us. Upcoming bookings are
+      // released and anything paid for them goes back. It's a demo, so the account comes back as it
+      // started (the New user brand new again) and the app opens as a fresh download.
+      deleteAccount: () =>
+        update((s) => {
+          if (member.tier !== "wellness") return s;
+          const now = new Date();
+          const released = (b: Booking) => b.memberId === member.id && b.status === "booked" && sessionStart(b.date, b.time) > now;
+          const refunds = s.bookings.filter((b) => released(b) && b.price > 0).length;
+          const seed = seedState();
+          const fresh = member.id === WELLNESS_DEMO_ID ? { ...FRESH_WELLNESS } : seed.members.find((m) => m.id === member.id);
+          const cleared = withoutHistory(s, member.id);
+          const restored: State = {
+            ...cleared,
+            members: fresh ? cleared.members.map((m) => (m.id === member.id ? fresh : m)) : cleared.members.filter((m) => m.id !== member.id),
+            bookings: [...cleared.bookings, ...(member.id === WELLNESS_DEMO_ID ? [] : seed.bookings.filter((b) => b.memberId === member.id))],
+            charges: [...cleared.charges, ...(member.id === WELLNESS_DEMO_ID ? [] : seed.charges.filter((c) => c.memberId === member.id))],
+          };
+          return {
+            ...asNewDownload(restored),
+            goodbye: member.name.split(" ")[0],
+            goodbyeNote: `Your account has been deleted, as you asked.${refunds ? " Your upcoming bookings were cancelled and refunded." : ""}`,
+          };
+        }),
       refresh: () => setState(load()),
       reset: () => setState(settle(seedState())),
     };

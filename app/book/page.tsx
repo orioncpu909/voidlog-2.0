@@ -13,7 +13,9 @@ import { dayLabel, money, timeLabel, timeRange } from "@/lib/format";
 import { Therapist, therapistsFor } from "@/lib/therapists";
 import { addToPhoneCalendar } from "@/lib/ics";
 import { BlockedBanner } from "@/components/BlockedBanner";
-import { CardDeclinedPanel } from "@/components/CardOnFileRow";
+import { CardDeclinedPanel, PayWithCard } from "@/components/CardOnFileRow";
+import { CancelSheet } from "@/components/CancelSheet";
+import { JoinInviteRow } from "@/components/JoinInvite";
 import { cardShortLabel } from "@/lib/card";
 import { InPreview } from "@/lib/gesture";
 import { useReveal } from "@/lib/reveal";
@@ -54,7 +56,7 @@ function BookScreen() {
   const preview = useContext(InPreview);
   const params = useMemo(() => (preview ? new URLSearchParams() : urlParams), [preview, urlParams]); // the copy beside the page ignores the link
   const router = useRouter();
-  const { member, setLocation, bookingConflict } = useStore();
+  const { member, bookingConflict } = useStore();
   const tier = TIERS[member.tier];
   // A link can open one session's page directly (/book?session=…) or a tab (/book?category=therapy).
   const linked = useMemo(() => {
@@ -93,18 +95,21 @@ function BookScreen() {
   const [toast, setToast] = useState<Booking | null>(null);
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast(null), 3500);
+    // Long enough to read and tap; it can also be closed. The booking is on Home and in Bookings either way.
+    const t = setTimeout(() => setToast(null), 8000);
     return () => clearTimeout(t);
   }, [toast]);
   const days = useMemo(() => upcomingDays(DAYS_AHEAD), []);
 
-  // Wellness Accounts switch their location for everything. Members switch only for classes:
-  // their therapies and treatments are always at their home location.
+  // Wellness Accounts can browse either studio for everything. Members switch only for classes:
+  // their therapies and treatments are always at their home location. Switching here only changes
+  // what's shown: it never changes the home studio picked at sign-up (that's on Profile).
   const [classLocation, setClassLocation] = useState<LocationId | null>(linked?.serviceId === "class" ? linked.location : null);
+  const [browseLocation, setBrowseLocation] = useState<LocationId | null>(linked ? linked.location : null);
   const memberClasses = tier.lockedToHome && tab === "class";
-  const location: LocationId = memberClasses ? (classLocation ?? member.home) : member.home;
+  const location: LocationId = tier.lockedToHome ? (memberClasses ? (classLocation ?? member.home) : member.home) : (browseLocation ?? member.home);
   const lockedHere = tier.lockedToHome && tab !== "class";
-  const pickLocation = (id: LocationId) => (tier.lockedToHome ? setClassLocation(id) : setLocation(id));
+  const pickLocation = (id: LocationId) => (tier.lockedToHome ? setClassLocation(id) : setBrowseLocation(id));
 
   const services = Object.values(SERVICES).filter((s) => s.category === tab && s.locations.includes(location));
   // The opened service may not exist at a newly chosen location; fall back to the first one there.
@@ -237,9 +242,12 @@ function BookScreen() {
             <BookedCheck size={16} />
             <span className="font-medium">Booked</span> · {toast.title}, {dayLabel(toast.date, "short")} {timeLabel(toast.time)}
           </p>
-          <Link href={calendarHref(toast.date)} className="shrink-0 font-medium text-sage-deep">
-            View
+          <Link href={calendarHref(toast.date)} className="flex min-h-[44px] shrink-0 items-center font-medium text-sage-deep">
+            See in Bookings
           </Link>
+          <button onClick={() => setToast(null)} aria-label="Close" className="-mr-2 flex h-11 w-9 shrink-0 items-center justify-center text-muted">
+            <X size={16} />
+          </button>
         </div>
       )}
     </div>
@@ -886,8 +894,10 @@ function SessionPage({ session, onClose, onBlocked }: { session: Session; onClos
   const terms = cancelTerms(tier, { ...session, price: total, usedCredit: credit, perk: !credit && q.kind === "perk" });
   const [confirming, setConfirming] = useState(false);
   const [justBooked, setJustBooked] = useState<Booking | null>(null);
+  const [cancelling, setCancelling] = useState<Booking | null>(null);
   const existing = myBookingFor(session.id);
-  const booking = justBooked ?? existing;
+  // The live booking from the store, so a cancel here clears it; justBooked only drives the check mark.
+  const booking = existing ?? null;
   const left = spotsLeft(session);
   const past = sessionStart(session.date, session.time).getTime() <= Date.now();
   // A link can open a member's therapy or treatment at the other location; say so before they try.
@@ -956,9 +966,13 @@ function SessionPage({ session, onClose, onBlocked }: { session: Session; onClos
               </p>
               <p className="mt-1 text-shell">
                 {booking.usedCredit ? "Paid with 1 treatment credit" : booking.price > 0 ? `Paid ${money(booking.price)}` : "Included, nothing charged"}
-                {booking.firstVisit && " · first visit price"}. It&apos;s in your Calendar.
+                {booking.firstVisit && " · first visit price"}. It&apos;s in Bookings.
               </p>
               <p className="mt-1 text-muted">{policyLine(termsForBooking(booking), booking.usedCredit)}</p>
+              {/* Wellness: bring a friend to this sauna, contrast or class, right after booking it. */}
+              <div className="mt-2">
+                <JoinInviteRow booking={booking} />
+              </div>
             </div>
           )}
 
@@ -1018,8 +1032,12 @@ function SessionPage({ session, onClose, onBlocked }: { session: Session; onClos
           {booking ? (
             <>
               <Link href={calendarHref(booking.date)} className="block w-full rounded-full bg-sage px-5 py-3 text-center text-sm font-medium text-ink">
-                {SHOW_CALENDAR_TAB ? "See it in my Calendar" : "See it on my calendar"}
+                {SHOW_CALENDAR_TAB ? "See it in Bookings" : "See it on my calendar"}
               </Link>
+              {/* Manage it right here too: cancelling no longer means finding it elsewhere first. */}
+              <Button variant="secondary" onClick={() => setCancelling(booking)}>
+                Cancel booking
+              </Button>
               <Button variant="secondary" onClick={onClose}>
                 Done
               </Button>
@@ -1050,6 +1068,7 @@ function SessionPage({ session, onClose, onBlocked }: { session: Session; onClos
         </div>
       </div>
 
+      <CancelSheet booking={cancelling} onClose={() => setCancelling(null)} />
       {confirming && (
         <ConfirmBooking
           session={session}
@@ -1128,7 +1147,9 @@ function ConfirmBooking({ session, onClose, onBooked }: { session: Session; onCl
           <p className="rounded-2xl bg-sand p-3 font-medium text-shell">{policyLine(terms, credit)}</p>
           {error && <p className="rounded-2xl bg-sand p-3 text-shell">{error}</p>}
           {newCard && <p className="rounded-2xl bg-moss-soft p-3 text-moss">Card updated. You&apos;ll pay with your {newCard}.</p>}
+          <PayWithCard amount={total} />
           <div className="space-y-2">
+            {(total <= 0 || member.card) && (
             <Button
               variant="primary"
               onClick={() => {
@@ -1142,6 +1163,7 @@ function ConfirmBooking({ session, onClose, onBooked }: { session: Session; onCl
             >
               {total > 0 ? `Confirm and pay ${money(total)}` : "Confirm booking"}
             </Button>
+            )}
             <Button variant="secondary" onClick={onClose}>
               Go back
             </Button>

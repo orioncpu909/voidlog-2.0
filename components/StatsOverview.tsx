@@ -2,14 +2,18 @@
 
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
+import { TIERS } from "@/lib/data";
 import { useStore } from "@/lib/store";
 import { computeStats } from "@/lib/stats";
 
 // One-row stats for the Account tab: the headline numbers, tapping through to the full dashboard
-// (visits by service, history and the rest live there).
+// (visits by service, history and the rest live there). Members only: Wellness accounts don't get
+// streaks or stats, to keep a new account simple.
 export function StatsOverview() {
-  const { bookings } = useStore();
+  const { member, bookings } = useStore();
   const s = computeStats(bookings);
+
+  if (!TIERS[member.tier].isMember) return null;
 
   if (s.visits === 0) {
     return (

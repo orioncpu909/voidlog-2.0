@@ -3,7 +3,8 @@
 // through, the referrer automatically gets 1 treatment credit, once per friend, if the referrer
 // is a paying member (Restore, Classic or Gold) at that moment.
 // CONFIRM: what a Wellness or Trial referrer gets, whether a refunded first month (cancelled within
-// 5 days) takes the credit back, and the real link format (artha.la doesn't read ?ref= yet).
+// 5 days) takes the credit back, and the real link format (artha.la doesn't read ?ref= yet; the
+// demo link below opens the hosted demo at its create-account screen).
 import type { Member } from "./store";
 
 export const REFERRAL_CREDITS = 1;
@@ -19,8 +20,19 @@ export function referralCode(member: Pick<Member, "id" | "name">): string {
   return `${first}${h.toString(36).toUpperCase().slice(-4)}`;
 }
 
-export function referralLink(member: Pick<Member, "id" | "name">): string {
-  return `https://artha.la/join?ref=${referralCode(member)}`;
+// Where an invite lands: the hosted demo, straight on the create-account screen (?signup=1).
+const APP_ORIGIN = "https://artha-app-psi.vercel.app";
+
+// A Wellness Account's link goes through /join, whose link preview reads "Start your Wellness
+// journey today"; members' links open the create-account screen directly.
+export function referralLink(member: Pick<Member, "id" | "name" | "tier">): string {
+  return member.tier === "wellness" ? `${APP_ORIGIN}/join?ref=${referralCode(member)}` : `${APP_ORIGIN}/?signup=1&ref=${referralCode(member)}`;
+}
+
+// The title the phone's share sheet shows with the link.
+export const WELLNESS_INVITE_TITLE = "Start your Wellness journey today";
+export function shareTitle(member: Pick<Member, "tier">): string {
+  return member.tier === "wellness" ? WELLNESS_INVITE_TITLE : "ARTHA";
 }
 
 // Accepts a code or a pasted link, in any case.

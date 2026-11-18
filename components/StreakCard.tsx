@@ -3,6 +3,7 @@
 import Link from "next/link";
 import clsx from "clsx";
 import { ChevronRight } from "lucide-react";
+import { TIERS } from "@/lib/data";
 import { useStore } from "@/lib/store";
 import { completedVisits, computeStats } from "@/lib/stats";
 import { dateKey } from "@/lib/schedule";
@@ -13,9 +14,10 @@ const WEEK_LETTERS = ["M", "T", "W", "T", "F", "S", "S"];
 
 // Home, top: the current streak and this week (Monday to Sunday) at a glance. Visited days are
 // filled, today is ringed, the rest of the week is faint, and a day picked in the Home calendar
-// below is ringed here too. The whole card opens Stats.
+// below is ringed here too. The whole card opens Stats. Members only (Trial included): Wellness
+// accounts are new to ARTHA and their Home stays simple, so streaks and stats aren't shown to them.
 export function StreakCard({ picked }: { picked: string | null }) {
-  const { bookings } = useStore();
+  const { member, bookings } = useStore();
   const s = computeStats(bookings);
   const visited = new Set(completedVisits(bookings).map((b) => b.date));
   const todayDate = new Date();
@@ -36,6 +38,8 @@ export function StreakCard({ picked }: { picked: string | null }) {
         : s.currentStreak > 0
           ? "Visit today to keep it going."
           : "Visit today to start a new streak.";
+
+  if (!TIERS[member.tier].isMember) return null;
 
   return (
     <Link href="/stats" className="block shrink-0 rounded-3xl border border-line bg-card p-4 transition-colors active:bg-sand">

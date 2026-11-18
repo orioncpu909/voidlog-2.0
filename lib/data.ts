@@ -286,11 +286,12 @@ export const PROMOS: Promo[] = [
 // "perk": free as a monthly membership perk. "memberOff": a member's percentage discount (Restore).
 export type QuoteKind = "included" | "perk" | "member" | "memberOff" | "promo" | "regular" | "firstVisit";
 
-// A new account's very first paid appointment is discounted: classes and therapies are half off,
-// HBOT and treatments drop to $125. Doesn't apply to special (promo) prices or event tickets.
+// The first paid visit to each service is discounted, once per service: classes are half off,
+// therapies are $30 (sauna $25), HBOT and treatments $125. Doesn't apply to special (promo) prices
+// or event tickets, and never raises a price that's already lower (cryo is $29).
 export const FIRST_VISIT_DISCOUNT = 0.5;
-// HBOT and treatments aren't half off on a first visit; they drop to a set price instead.
-export const FIRST_VISIT_FIXED: Partial<Record<PriceGroup, number>> = { hbot: 125, treatment: 125 };
+// Everything but classes drops to a set first-visit price instead of a percentage.
+export const FIRST_VISIT_FIXED: Partial<Record<PriceGroup, number>> = { cryo: 30, sauna: 25, redlight: 30, contrast: 30, float: 30, hbot: 125, treatment: 125 };
 
 export interface Quote {
   price: number;

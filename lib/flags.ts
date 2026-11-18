@@ -1,11 +1,11 @@
 // Switches for trying the app different ways.
 
-// The Calendar tab. Off: the tab bar loses Calendar; the Home calendar does the Calendar's
-// jobs (tap a day, see what's next, cancel, history), and /calendar sends you Home. Flip to true to
-// bring the tab back exactly as it was.
-export const SHOW_CALENDAR_TAB = false;
+// The Bookings tab (route /calendar): every upcoming booking with its actions, a month view and
+// History. On since the Nov 2026 new-user study, which found everyone looking for "my bookings" and
+// Home too crowded holding them. Off: no tab, /calendar sends you Home, and Home has no bookings list.
+export const SHOW_CALENDAR_TAB = true;
 
-// Where "see it in your calendar" goes: the Calendar tab, or Home with that day's bookings open.
+// Where "see it in Bookings" goes: the Bookings tab (on a day), or Home when the tab is off.
 export function calendarHref(date?: string): string {
   if (SHOW_CALENDAR_TAB) return date ? `/calendar?day=${date}` : "/calendar";
   return date ? `/?day=${date}` : "/?upcoming=1";
@@ -20,3 +20,8 @@ export const SHOW_COMMUNITY = false;
 export const SHOW_FINISHED_SPRINTS = false;
 // - the Cold Plunge Clock challenge and "Log a cold plunge" (plunge times stay in the demo data).
 export const SHOW_PLUNGE_CHALLENGE = false;
+
+// The create-account form. Off: the form is read-only and Create account opens the New user
+// account at the app intro, so nobody types real details into the demo. Flip to true for a
+// working form.
+export const SHOW_SIGNUP_FORM = false;

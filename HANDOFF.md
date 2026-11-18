@@ -39,7 +39,7 @@ npm run build           # production build (stop the dev server first, see gotch
 npm run preview         # fast production preview on :3100; rebuild to see code changes (stop the dev server first)
 ```
 
-**Hosting:** not hosted. A Vercel deployment (artha-app-vert.vercel.app) ran briefly on Nov 4, 2026 for the founder pitch and was deleted at Miguel's request. To host it again: `npx vercel@latest deploy --prod --yes` from this folder, signed in to Vercel. `vercel.json` keeps any hosted copy out of search results.
+**Hosting:** https://artha-app-psi.vercel.app (Vercel project `orioncpu909/artha-app`, redeployed Nov 10, 2026 for the founder pitch; an earlier copy ran briefly on Nov 4). It isn't linked to GitHub, so pushing doesn't update it. To publish the current folder, including uncommitted work, run `vercel deploy --prod --yes` from this folder (signed in to Vercel). `vercel.json` keeps it out of search results; anyone with the link can open it.
 
 **In the Claude desktop app:** the preview config lives at `/Applications/Orions Belt/.claude/launch.json` (server name `artha-app`), because that's the session's main folder. Start it with the Browser pane's `preview_start` and the name `artha-app`. If you open a session directly in the artha-app folder, there's also a copy at `artha-app/.claude/launch.json`.
 
@@ -234,9 +234,8 @@ Every account is named "Karan". Switch between them in **Account → Demo** (tap
 
 | Account | History |
 |---|---|
-| New download | none: opens on the create-account screens. Signing up moves to the Wellness account under the new person's details (`SIGNUP_DEMO_ID`), runs the walkthrough there, and shows its history. Account → "Open the app as a new download" replays it |
-| App intro (new account) | none: a just-created Wellness account (`INTRO_DEMO_ID`). Picking it in Account → Demo always starts the welcome walkthrough and the "Here's your app" intro, with no sign-up |
-| Wellness | intermediate: about 24 visits, 4-day streak, specials banner |
+| New download | none: opens on the welcome screen (the deck's QR goes straight to the create-account picture via `/?signup=1`). "Create account" shows a picture of the form (`SHOW_SIGNUP_FORM` in `lib/flags.ts` is off) and opens the New user account at the app intro. Account → "Open the app as a new download" replays it |
+| New user (Wellness) | none: brand new (`WELLNESS_DEMO_ID`), no card, first-visit prices and the 7-day trial offer still ahead of it. Picking it always starts the welcome walkthrough and "Here's your app" intro first; where paying members have guest passes it has Invite a friend |
 | Classic | advanced: about 58 visits, 9-day streak, a booking tomorrow |
 | Gold | advanced: about 92 visits, 14-day streak; joined 2 days ago, with visits since, so its refund has ended |
 | Restore | intermediate (Studio City) |
@@ -253,8 +252,8 @@ Every account is named "Karan". Switch between them in **Account → Demo** (tap
 - **Instructor bios** (`instructorBio` in `lib/classInfo.ts`): built only from the schedule (what each instructor teaches, at which studio, classes a week), since the app has no real bios. Add each instructor's own words to `INSTRUCTOR_BIOS` by full name and they replace the generated line.
 - **L2N Run and Industry Night** (`lib/events.ts`): dates, times, and which studio hosts Industry Night (assumed West LA).
 - **Community challenges** (`lib/community.ts`): the challenge list and names are demo choices, as are the 1-credit prize, the 7-day tie breaker with no winner if nobody finishes, and the 3:00 plunge cap (parked). Confirm them, and decide how members' names show. Demo competitors are invented names, not real members.
-- **Profile levels, achievements and Refer a friend** (`lib/profile.ts`, `app/profile/page.tsx`): demo milestones and badge names, not an ARTHA program. The referral link (`artha.la/join?ref=KARANMN45`, a code made from the account) is a demo format; artha.la doesn't read `?ref=` yet.
-- **Demo at real size** (`lib/community.ts`): 1,000 members, 3,000 Wellness Accounts and about 35 sign-ups a week, from Miguel. 340 made-up members are on the boards, assuming about a third opt in and 45% join any one challenge. CONFIRM both, and that the sign-up screen's "Join 4,000 people" line is OK to show.
+- **Profile levels, achievements and Refer a friend** (`lib/profile.ts`, `app/profile/page.tsx`): demo milestones and badge names, not an ARTHA program. The referral link (`artha-app-psi.vercel.app/?signup=1&ref=KARANMN45`, a code made from the account) opens the hosted demo on its create-account screen; artha.la doesn't read `?ref=` yet. Wellness and trial accounts also get an **Invite a friend** tile on Account (`components/InviteFriend.tsx`), where paying members have guest passes.
+- **Demo at real size** (`lib/community.ts`): 1,000 members, 3,000 Wellness Accounts and about 35 sign-ups a week, from Miguel. 340 made-up members are on the boards, assuming about a third opt in and 45% join any one challenge. CONFIRM both. The sign-up screen no longer shows a "Join N people" count (removed Nov 10 at Miguel's request).
 - **All-time stats** (`lib/community.ts`): the other people are made-up demo members whose totals grow from a seeded rate. With a backend, this needs every member's real history. CONFIRM how much members can see of each other (visit counts by service are shown today), whether hiding from the leaderboards should hide all-time too (it does), and whether Wellness visits before joining count (they do).
 - **Check-in QR** (`lib/checkin.ts`): each account has a fixed code. Needs the studio's check-in scanner linked to a backend, plus a short-lived signed code, since a screenshot of a fixed code works for anyone. Open from 1 hour before until the service ends. CONFIRM the opening time.
 - **Renewals** (`applyRenewals` in `lib/store.tsx`): on the 1st each paid membership is charged and gets its monthly credits. There's no real card, so this is only a ledger entry; a failed payment isn't modeled.

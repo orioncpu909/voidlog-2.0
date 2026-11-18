@@ -76,7 +76,7 @@ export function SwitchToWellness() {
           </p>
           <p className="text-muted">
             No monthly fee: pay for each visit at regular prices or specials, at West LA and Studio City. You&apos;ll also stay up to date on future
-            promotions, since Wellness Accounts get every new special. Your calendar, bookings and stats stay.
+            promotions, since Wellness Accounts get every new special. Your bookings and history stay.
             {loses && ` Unused ${loses} end with the membership.`}
           </p>
           <div>

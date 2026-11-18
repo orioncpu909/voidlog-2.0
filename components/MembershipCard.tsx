@@ -79,7 +79,7 @@ export function CancelMembership() {
             <p className="text-xs uppercase tracking-widest text-moss">Before you go</p>
             <p className="mt-1 font-heading text-xl leading-tight">Keep a free Wellness Account</p>
             <p className="mt-1 text-shell">
-              No monthly fee. Pay as you go at West LA and Studio City, get every new special, and keep your calendar, bookings and stats.
+              No monthly fee. Pay as you go at West LA and Studio City, get every new special, and keep your calendar and bookings.
             </p>
             <Button className="mt-3" onClick={() => finish("downgrade")}>
               {refundWindowOpen ? "Refund and switch to Wellness" : "Switch to Wellness Account"}

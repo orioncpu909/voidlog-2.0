@@ -12,6 +12,7 @@ export interface ArthaEvent {
   time: string; // HH:mm
   durationMin: number;
   description: string;
+  seasonal?: boolean; // tied to its date (a holiday): never rolled forward in the demo
   access?: EventAccess; // who it's for; "public" when left out
   // Ticketed events are booked like a class. Without a ticket, an event is a free RSVP (public
   // events only: private classes and members-only events always have a ticket).
@@ -55,7 +56,7 @@ export function eventAt(host: LocationId, date: string, time: string): ArthaEven
   return EVENTS.find((e) => e.host === host && e.date === date && e.time === time);
 }
 
-export const EVENTS: ArthaEvent[] = [
+const LISTED_EVENTS: ArthaEvent[] = [
   {
     id: "breathwork-visualization",
     title: "Breathwork & Visualization",
@@ -78,6 +79,7 @@ export const EVENTS: ArthaEvent[] = [
     time: "18:00",
     durationMin: 150,
     description: "An evening with the ARTHA community to celebrate Dia De Los Muertos.",
+    seasonal: true,
   },
   {
     id: "arm-balances-inversions",
@@ -173,3 +175,21 @@ export const EVENTS: ArthaEvent[] = [
     ticket: { capacity: 15 },
   },
 ];
+
+// ARTHA always has events coming up, so the demo always shows some: an event whose date has
+// passed comes back on the same weekday and time each week until it's ahead again. Holiday events
+// (seasonal) keep their date. Worked out once when the app loads.
+function rollForward(e: ArthaEvent, now = new Date()): ArthaEvent {
+  if (e.seasonal) return e;
+  const [y, m, d] = e.date.split("-").map(Number);
+  const [h, min] = e.time.split(":").map(Number);
+  const start = new Date(y, m - 1, d, h, min);
+  if (start.getTime() + e.durationMin * 60000 > now.getTime()) return e;
+  const weeks = Math.ceil((now.getTime() - start.getTime() - e.durationMin * 60000) / (7 * 864e5));
+  start.setDate(start.getDate() + 7 * Math.max(1, weeks));
+  if (start.getTime() + e.durationMin * 60000 <= now.getTime()) start.setDate(start.getDate() + 7);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return { ...e, date: `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}` };
+}
+
+export const EVENTS: ArthaEvent[] = LISTED_EVENTS.map((e) => rollForward(e));
