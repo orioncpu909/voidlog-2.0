@@ -11,7 +11,7 @@ import { cancelTerms, policyLine } from "@/lib/policy";
 import { dayLabel, money, timeRange } from "@/lib/format";
 import { calendarHref } from "@/lib/flags";
 import { BlockedBanner } from "./BlockedBanner";
-import { CardDeclinedPanel, PayWithCard } from "./CardOnFileRow";
+import { CardDeclinedPanel, PayWithCard, usePayWhenCardSaved } from "./CardOnFileRow";
 import { Button, Sheet } from "./Sheet";
 
 function sessionFor(e: ArthaEvent) {
@@ -141,6 +141,13 @@ function TicketPanel({ event, onLeave }: { event: ArthaEvent; onLeave: () => voi
   const clearError = useCallback(() => setError(null), []);
   const [declined, setDeclined] = useState(false);
   const session = sessionFor(event);
+  const pay = () => {
+    if (!session) return;
+    const r = book(session, false);
+    if (!r.ok && r.declined) setDeclined(true);
+    else if (!r.ok) setError(r.error);
+  };
+  const payAfterSave = usePayWhenCardSaved(pay);
   if (!session) return null;
 
   const tier = TIERS[member.tier];
@@ -201,15 +208,9 @@ function TicketPanel({ event, onLeave }: { event: ArthaEvent; onLeave: () => voi
         </div>
         <p className="rounded-2xl bg-moss-soft p-4 font-medium text-moss">{policyLine(terms, false)}</p>
         {error && <BlockedBanner message={error} onClose={clearError} />}
-        <PayWithCard amount={price} />
+        <PayWithCard amount={price} onSaved={payAfterSave} />
         {(price <= 0 || member.card) && (
-          <Button
-            onClick={() => {
-              const r = book(session, false);
-              if (!r.ok && r.declined) setDeclined(true);
-              else if (!r.ok) setError(r.error);
-            }}
-          >
+          <Button onClick={pay}>
             {price > 0 ? `Confirm and pay ${money(price)}` : "Confirm free ticket"}
           </Button>
         )}

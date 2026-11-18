@@ -39,24 +39,33 @@ function BookingsView() {
   const validDay = dayParam && /^\d{4}-\d{2}-\d{2}$/.test(dayParam) ? dayParam : null;
   const [cancelling, setCancelling] = useState<Booking | null>(null);
   const [viewing, setViewing] = useState<Booking | null>(null);
-  // A link to a day (from Book's "See it in Bookings") opens the month view on that day.
-  const [selected, setSelected] = useState<string | null>(validDay);
-  const [showMonth, setShowMonth] = useState(!!validDay);
+  // A link to a day (Book's "See in Bookings") opens the list scrolled to that day, briefly
+  // highlighted, so the new booking is on screen with its buttons, even on a small phone.
+  const [selected, setSelected] = useState<string | null>(null);
+  const [showMonth, setShowMonth] = useState(false);
+  const [highlight, setHighlight] = useState<string | null>(validDay);
   useEffect(() => {
-    if (validDay) {
-      setSelected(validDay);
-      setShowMonth(true);
-    }
+    if (!validDay) return;
+    setSelected(null);
+    setShowMonth(false);
+    setHighlight(validDay);
+    const t1 = setTimeout(() => document.getElementById(`bookings-day-${validDay}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
+    const t2 = setTimeout(() => setHighlight(null), 2500);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
   }, [validDay]);
   const [month, setMonth] = useState(() => {
-    const d = selected ? sessionStart(selected, "12:00") : new Date();
+    const d = validDay ? sessionStart(validDay, "12:00") : new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1);
   });
   const now = Date.now();
   const today = dateKey(new Date());
   const start = bookingStart;
 
-  const upcoming = bookings.filter((b) => b.status === "booked" && start(b) > now).sort((a, b) => start(a) - start(b));
+  // Still listed while it's on (until it ends): someone arriving late can check in from here.
+  const upcoming = bookings.filter((b) => b.status === "booked" && start(b) + b.durationMin * 60000 > now).sort((a, b) => start(a) - start(b));
   const bookedDays = useMemo(() => new Set(bookings.filter((b) => b.status === "booked").map((b) => b.date)), [bookings]);
   const list = selected ? bookings.filter((b) => b.date === selected && b.status === "booked").sort((a, b) => start(a) - start(b)) : upcoming;
   // Upcoming bookings under a heading per day.
@@ -154,14 +163,18 @@ function BookingsView() {
       ) : (
         <div className="space-y-4">
           {groups.map((g) => (
-            <section key={g.date} className="space-y-2">
+            <section
+              key={g.date}
+              id={`bookings-day-${g.date}`}
+              className={clsx("scroll-mt-20 space-y-2 rounded-3xl transition-shadow duration-700", highlight === g.date && "ring-2 ring-sage ring-offset-4 ring-offset-sand")}
+            >
               {!selected && (
                 <p className="text-sm font-medium">
                   {dayLabel(g.date) === longDate(g.date) ? longDate(g.date) : `${dayLabel(g.date)} · ${longDate(g.date)}`}
                 </p>
               )}
               {g.items.map((b) =>
-                start(b) <= now ? (
+                start(b) + b.durationMin * 60000 <= now ? (
                   <PastVisitRow key={b.id} booking={b} onOpen={() => setViewing(b)} />
                 ) : (
                   <UpcomingBookingCard key={b.id} booking={b} onCancel={() => setCancelling(b)} />

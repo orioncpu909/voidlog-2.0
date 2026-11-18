@@ -73,8 +73,11 @@ export function cancelTerms(tier: Tier, b: BookingLike, now = new Date()): Cance
 export function policyLine(t: CancelTerms, usedCredit: boolean): string {
   if (t.late) return `This starts soon, so it's past the free-cancellation time. If you cancel or don't show up, ${t.lateConsequence}`;
   const by = momentLabel(t.deadline);
-  if (t.noShowCharge > 0) return `To avoid a no-show charge of ${money(t.noShowCharge)}, cancel by ${by}.`;
+  // Say "free" first: a paid booking gets its money back, an included one costs nothing to cancel.
+  // The charge after the deadline comes second, so it doesn't read like an extra fee.
+  if (t.refund > 0) return `Free to cancel until ${by}: you get your ${money(t.refund)} back. After that, no refund.`;
+  if (t.noShowCharge > 0) return `Free to cancel until ${by}. After that, a late cancel or no-show is ${money(t.noShowCharge)}.`;
   const keep = t.keep ?? (usedCredit ? "your treatment credit" : undefined);
-  if (keep) return `To keep ${keep}, cancel by ${by}.`;
+  if (keep) return `Free to cancel until ${by}, and you keep ${keep}.`;
   return `If you can't make it, please cancel by ${by}. No charge during your trial.`;
 }

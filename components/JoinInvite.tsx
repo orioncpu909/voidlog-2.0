@@ -146,7 +146,7 @@ export function AcceptInviteSheet() {
         <div className="space-y-3 text-sm">
           <SessionSummary invite={inv} />
           <p>
-            You and {inv.fromName} are both booked. {money(inv.price)} was charged to your card. It&apos;s on your Home calendar.
+            You and {inv.fromName} are both booked. {money(inv.price)} was charged to your card. It&apos;s in your Bookings tab.
           </p>
           <Button onClick={close}>Done</Button>
         </div>

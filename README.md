@@ -237,4 +237,15 @@ All data lives in the browser. No payments are taken. Every demo account is name
 - **The trial says what it renews into.** The Account row reads "$29, then $199/mo"; the walkthrough offer says "then $199/month unless you cancel"; the purchase box gives the end date and the first membership charge (the rest of that month, prorated, minus the $29).
 - **After booking:** the toast stays 8 seconds with **See in Bookings** and a close button; a booked class page says "It's in Bookings" and has **Cancel booking** and **Invite a friend to join**.
 - **Wording:** Account's tile is **Refer a friend** (a sign-up link), separate from inviting a friend to a session; Profile no longer tells Wellness Accounts that members earn a credit.
-- Still open from the study: a link to the terms at sign-up, tap-to-call on bookings, an Android-friendly Add to calendar, consistent prices and first-visit labels, a "See all" for events, and Contact higher up on Account.
+- Still open from the study: a link to the terms at sign-up, tap-to-call on bookings, consistent prices and first-visit labels, a "See all" for events, and Contact higher up on Account.
+
+## Fixes from the re-test (same 10 personas, 10 tasks)
+- **One step to pay with a new card:** with no card on file the confirm sheet's button reads **Save card and pay $X**; it saves the card and books in one tap (`usePayWhenCardSaved`). The ZIP field's hint is "5 digits", not a sample ZIP.
+- **"Free to cancel until …" first:** a paid booking reads "Free to cancel until Thu 3:00 PM: you get your $14.50 back. After that, no refund." (`policyLine` in `lib/policy.ts`); included bookings say what a late cancel costs after "Free to cancel until …".
+- **See in Bookings** opens the list (not the month grid), scrolled to that day and briefly highlighted; every card shows its date.
+- **Booked class page:** one **Done** button with **See in Bookings** and **Cancel booking** as a row under it, so nothing hides the Location section; opening the page clears the booking toast.
+- **Check in:** a booking stays on Home and in Bookings until it ends; **Check in now** turns gold only while check-in is open (from 1 hour before), otherwise "Check-in opens at 4:18 PM."; with nothing booked Home offers **My check-in code**.
+- **Add to calendar** (`lib/ics.ts`, `lib/icsFormat.ts`): Android opens Google Calendar's add-event page; iPhone opens `/api/ics`, served inline as text/calendar so Safari shows "Add to Calendar"; computers download the file. The `/api/ics` route needs a server, so a static export for the native app (Capacitor) would need it hosted. Confirm on real phones before launch.
+- **Trial sheet:** one timeline: today $29 through Nov 24; Nov 25 it becomes Classic, $10.80 explained as the prorated $39.80 minus the $29; then $199/month; cancel any time before. It also says therapies are at the home studio during the trial, and the price list is labeled "During the 7 days you pay".
+- **Booked therapy times** stay in the Therapies menu row as "✓ Booked" and open the booking.
+- Copy: an invited friend's confirmation says "It's in your Bookings tab."

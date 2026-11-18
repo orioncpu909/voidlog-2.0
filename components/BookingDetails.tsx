@@ -31,7 +31,9 @@ export function UpcomingBookingCard({ booking: b, onCancel }: { booking: Booking
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-heading text-xl leading-tight">{b.title}</p>
-          <p className="mt-0.5 text-base">{timeRange(b.time, b.durationMin)}</p>
+          <p className="mt-0.5 text-base">
+            {sessionStart(b.date, "12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · {timeRange(b.time, b.durationMin)}
+          </p>
           <p className="text-sm text-muted">
             {location.name}
             {b.room ? ` · ${roomLabel(b.serviceId, b.room)}` : ""}

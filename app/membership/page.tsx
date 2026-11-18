@@ -8,7 +8,7 @@ import { LOCATIONS, MEMBERSHIP_ORDER, PERK_LABEL, ServiceId, TIERS, TierId } fro
 import { dateKey } from "@/lib/schedule";
 import { FRIEND_DEMO_ID, WELLNESS_DEMO_ID, useStore } from "@/lib/store";
 import { money } from "@/lib/format";
-import { joinCharge } from "@/lib/membership";
+import { joinCharge, monthLeft } from "@/lib/membership";
 import { TRIAL_BECOMES, firstMonthCharge, trialEndsAt } from "@/lib/trial";
 import { PriceList } from "@/components/PriceList";
 import { NoticeBanner, TrialCard } from "@/components/TrialCard";
@@ -18,7 +18,7 @@ import { SwitchToWellness } from "@/components/SwitchToWellness";
 import { EmailStudioButton } from "@/components/EmailStudio";
 import { Disclosure } from "@/components/Disclosure";
 import { CreditsInfoButton } from "@/components/CreditsInfo";
-import { CardOnFileRow, PayWithCard } from "@/components/CardOnFileRow";
+import { CardOnFileRow, PayWithCard, usePayWhenCardSaved } from "@/components/CardOnFileRow";
 import { GuestPassesTile } from "@/components/GuestPasses";
 import { InviteFriendTile } from "@/components/InviteFriend";
 import { DeleteAccountButton } from "@/components/DeleteAccount";
@@ -28,6 +28,12 @@ import { Button, Sheet } from "@/components/Sheet";
 export default function AccountPage() {
   const { member, members, spentThisMonth, switchMember, changeTier, canStartTrial, endTrialNow, endMembershipNow, restartAsNewDownload, setCardDeclines, reset } = useStore();
   const [joining, setJoining] = useState<TierId | null>(null);
+  const payPlan = () => {
+    if (!joining) return;
+    changeTier(joining);
+    setJoining(null);
+  };
+  const payPlanAfterSave = usePayWhenCardSaved(payPlan);
   const tier = TIERS[member.tier];
   const location = LOCATIONS[member.home];
   // The trial only shows for accounts that have never had one.
@@ -226,21 +232,16 @@ export default function AccountPage() {
             <p className="text-muted">
               {TIERS[joining].monthly
                 ? `${money(TIERS[joining].monthly!)}/month, month-to-month, valid at ${location.name}.`
-                : `${money(TIERS[joining].joinFee)} for 7 days at ${location.name}. After 7 days it becomes a Classic membership (${money(TIERS.classic.monthly!)}/month) automatically, unless you pick Restore or Gold instead or cancel. You can do either anytime from Home or Account. One trial per account.`}
+                : `Classes at both studios. Therapies and treatments during the trial are at ${location.name}, your home studio${!tier.lockedToHome ? " (change it on Profile before you start)" : ""}. One trial per account.`}
             </p>
             <div>
-              <p className="mb-2 text-xs uppercase tracking-widest text-muted">You&apos;d pay</p>
+              <p className="mb-2 text-xs uppercase tracking-widest text-muted">{joining === "trial" ? "During the 7 days you pay" : "You'd pay"}</p>
               <PriceList tier={joining} location={member.home} />
             </div>
-            <PayWithCard amount={joinCharge(member.tier, joining).amount} />
+            <PayWithCard amount={joinCharge(member.tier, joining).amount} onSaved={payPlanAfterSave} />
             <div className="space-y-2">
               {(joinCharge(member.tier, joining).amount <= 0 || member.card) && (
-                <Button
-                  onClick={() => {
-                    changeTier(joining);
-                    setJoining(null);
-                  }}
-                >
+                <Button onClick={payPlan}>
                   {joinCharge(member.tier, joining).amount > 0 ? `Confirm and pay ${money(joinCharge(member.tier, joining).amount)}` : "Confirm"}
                 </Button>
               )}
@@ -255,10 +256,17 @@ export default function AccountPage() {
   );
 }
 
-// A trial started now: the day it ends and what the card is charged when it becomes a membership.
+// A trial started now, step by step: when it ends, when the membership starts and what it costs
+// that first part-month (prorated, minus the $29 already paid), then the monthly price.
 function trialRenewal() {
   const ends = trialEndsAt(new Date());
-  return { ends: ends.toLocaleDateString("en-US", { month: "short", day: "numeric" }), first: firstMonthCharge(new Date(ends.getTime() + 1)) };
+  const starts = new Date(ends.getTime() + 1);
+  const { remaining, daysInMonth } = monthLeft(starts);
+  const becomes = TIERS[TRIAL_BECOMES];
+  const prorated = Math.round((becomes.neverProrated ? 1 : remaining / daysInMonth) * becomes.monthly! * 100) / 100;
+  const day = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const firstOfNext = new Date(starts.getFullYear(), starts.getMonth() + 1, 1);
+  return { ends: day(ends), starts: day(starts), first: firstMonthCharge(starts), prorated, monthStart: day(firstOfNext) };
 }
 
 // What the card is charged when changing plans, before they confirm.
@@ -284,11 +292,30 @@ function ChargeSummary({ tier: tierId }: { tier: TierId }) {
         </p>
       )}
       {/* The trial's renewal, in the same box as the price, not only in the small print below. */}
-      {tierId === "trial" && (
-        <p className="mt-2 border-t border-line pt-2 font-medium">
-          When it ends on {trialRenewal().ends}, it becomes {TIERS[TRIAL_BECOMES].name}: {money(trialRenewal().first)} for the rest of that month, then {money(TIERS[TRIAL_BECOMES].monthly!)}/month, unless you cancel or pick another plan before then.
-        </p>
-      )}
+      {/* The trial as a short timeline, each line one date and one amount, so the renewal and the
+          first part-month charge are explained once, in one place. */}
+      {tierId === "trial" &&
+        (() => {
+          const r = trialRenewal();
+          const becomes = TIERS[TRIAL_BECOMES];
+          return (
+            <ol className="mt-2 space-y-1.5 border-t border-line pt-2">
+              <li>
+                <span className="font-medium">Today:</span> {money(TIERS.trial.joinFee)} for 7 days, through {r.ends}.
+              </li>
+              <li>
+                <span className="font-medium">{r.starts}:</span> it becomes {becomes.name}.{" "}
+                {r.first > 0
+                  ? `You pay ${money(r.first)}: ${money(r.prorated)} for the rest of that month, minus the ${money(TIERS.trial.joinFee)} you already paid.`
+                  : `Nothing more that month: your ${money(TIERS.trial.joinFee)} covers it.`}
+              </li>
+              <li>
+                <span className="font-medium">From {r.monthStart}:</span> {money(becomes.monthly!)}/month.
+              </li>
+              <li className="text-muted">Cancel, or pick Restore or Gold instead, any time before {r.ends} from Account.</li>
+            </ol>
+          );
+        })()}
     </div>
   );
 }

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, type InputHTMLAttributes } from "react";
+import { useEffect, useState, type InputHTMLAttributes } from "react";
 import clsx from "clsx";
 import { ChevronRight, CreditCard, Info } from "lucide-react";
 import { TIERS } from "@/lib/data";
+import { money } from "@/lib/format";
 import { useStore } from "@/lib/store";
 import {
   CardOnFile, cardBrand, cardDeclines, cardExpiry, cardLabel, cardNumberError, cardShortLabel, cvcError, digitsOnly, expiryError, formatCardNumber, formatExpiry, toCardOnFile, zipError,
@@ -55,9 +56,9 @@ export function CardOnFileRow({ compact = false }: { compact?: boolean }) {
 // When a charge fails while booking, this takes the place of the confirm step's contents (no second
 // pop-up): why it failed, then the card form in the same place. Saving goes back to confirm.
 // Above every "Confirm and pay": the card that pays, or a card form when there's none yet. A new
-// account has no card, so it adds one here before its first paid booking; the confirm button
-// waits until it's saved (the store refuses a paid booking without a card too).
-export function PayWithCard({ amount }: { amount: number }) {
+// account has no card, so it adds one here: one button, "Save card and pay $X", saves it and pays
+// (onSaved runs the confirm once the card is in). The store refuses a paid booking without a card.
+export function PayWithCard({ amount, onSaved }: { amount: number; onSaved?: () => void }) {
   const { member, setCard } = useStore();
   const [changing, setChanging] = useState(false);
   if (amount <= 0) return null;
@@ -67,9 +68,12 @@ export function PayWithCard({ amount }: { amount: number }) {
         <p className="font-medium">{member.card ? "Change card" : "Add a card to pay"}</p>
         <CardForm
           current={member.card}
+          submitLabel={!member.card && onSaved ? `Save card and pay ${money(amount)}` : "Save card"}
           onSave={(c) => {
+            const first = !member.card;
             setCard(c);
             setChanging(false);
+            if (first) onSaved?.();
           }}
         />
         {member.card && (
@@ -91,6 +95,20 @@ export function PayWithCard({ amount }: { amount: number }) {
       </button>
     </div>
   );
+}
+
+// Runs the confirm once a just-saved card has reached the store (the confirm reads the card from it).
+export function usePayWhenCardSaved(pay: () => void): () => void {
+  const { member } = useStore();
+  const [pending, setPending] = useState(false);
+  useEffect(() => {
+    if (pending && member.card) {
+      setPending(false);
+      pay();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending, member.card]);
+  return () => setPending(true);
 }
 
 export function CardDeclinedPanel({ onSaved, onBack }: { onSaved: (card: CardOnFile) => void; onBack: () => void }) {
@@ -162,7 +180,7 @@ function CardSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
 }
 
 // Only the brand, last 4 and expiry leave this form. It's unmounted when the sheet closes.
-export function CardForm({ current, onSave }: { current?: CardOnFile; onSave: (card: CardOnFile) => void }) {
+export function CardForm({ current, onSave, submitLabel = "Save card" }: { current?: CardOnFile; onSave: (card: CardOnFile) => void; submitLabel?: string }) {
   const [number, setNumber] = useState("");
   const [expiry, setExpiry] = useState("");
   const [cvc, setCvc] = useState("");
@@ -224,9 +242,9 @@ export function CardForm({ current, onSave }: { current?: CardOnFile; onSave: (c
         inputMode="numeric"
         autoComplete="postal-code"
         name="postal"
-        placeholder="90064"
+        placeholder="5 digits"
       />
-      <Button>Save card</Button>
+      <Button>{submitLabel}</Button>
       <p className="text-center text-xs text-muted">Demo: no card is charged. Only the card type, last 4 digits and expiry are saved.</p>
     </form>
   );

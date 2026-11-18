@@ -13,7 +13,7 @@ import { dayLabel, money, timeLabel, timeRange } from "@/lib/format";
 import { Therapist, therapistsFor } from "@/lib/therapists";
 import { addToPhoneCalendar } from "@/lib/ics";
 import { BlockedBanner } from "@/components/BlockedBanner";
-import { CardDeclinedPanel, PayWithCard } from "@/components/CardOnFileRow";
+import { CardDeclinedPanel, PayWithCard, usePayWhenCardSaved } from "@/components/CardOnFileRow";
 import { CancelSheet } from "@/components/CancelSheet";
 import { JoinInviteRow } from "@/components/JoinInvite";
 import { cardShortLabel } from "@/lib/card";
@@ -93,6 +93,10 @@ function BookScreen() {
     else setQuickBook(s);
   };
   const [toast, setToast] = useState<Booking | null>(null);
+  // Opening a class page clears the toast, so it never sits on top of the page's own buttons.
+  useEffect(() => {
+    if (open) setToast(null);
+  }, [open]);
   useEffect(() => {
     if (!toast) return;
     // Long enough to read and tap; it can also be closed. The booking is on Home and in Bookings either way.
@@ -205,6 +209,7 @@ function BookScreen() {
           days={days}
           onBook={tryBook}
           onAll={openService}
+          onOpen={setOpen}
         />
       ) : (
         <>
@@ -263,19 +268,22 @@ function ServiceMenu({
   days,
   onBook,
   onAll,
+  onOpen,
 }: {
   services: ServiceId[];
   location: LocationId;
   days: string[];
   onBook: (s: Session) => void;
   onAll: (id: ServiceId) => void;
+  onOpen: (s: Session) => void;
 }) {
   const { spotsLeft, myBookingFor, quote } = useStore();
-  // The first day that still has an open time, and every open time left that day.
+  // The first day with an open time or one of yours, and those times. Your own booked time stays
+  // in the row as "Booked" (it opens the booking) instead of disappearing after you book it.
   const nextOpen = (id: ServiceId) => {
     for (const d of days) {
-      const open = upcoming(d, id, location, null).filter((s) => spotsLeft(s) > 0 && !myBookingFor(s.id));
-      if (open.length) return { date: d, times: open };
+      const times = upcoming(d, id, location, null).filter((s) => spotsLeft(s) > 0 || !!myBookingFor(s.id));
+      if (times.length) return { date: d, times, open: times.filter((s) => !myBookingFor(s.id)).length };
     }
     return null;
   };
@@ -311,24 +319,32 @@ function ServiceMenu({
               <div className="mt-1.5 flex items-center gap-2">
                 <span className="w-[58px] shrink-0 text-xs leading-tight text-muted">
                   {dayLabel(next.date)}
-                  <span className="block text-[10px]">{next.times.length} open</span>
+                  <span className="block text-[10px]">{next.open} open</span>
                 </span>
                 {/* Every open time that day: swipe sideways, tap one to book. */}
                 <div className="relative min-w-0 flex-1">
                   <div className="no-scrollbar flex snap-x gap-1.5 overflow-x-auto pr-6">
-                    {next.times.map((s) => (
-                      <button
-                        key={s.id}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onBook(s);
-                        }}
-                        aria-label={`Book ${service.name} ${dayLabel(s.date)} at ${timeLabel(s.time)}`}
-                        className="w-[74px] shrink-0 snap-start whitespace-nowrap rounded-lg border border-line bg-card py-1.5 text-[13px] font-medium active:bg-sage"
-                      >
-                        {timeLabel(s.time)}
-                      </button>
-                    ))}
+                    {next.times.map((s) => {
+                      const mine = !!myBookingFor(s.id);
+                      return (
+                        <button
+                          key={s.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (mine) onOpen(s);
+                            else onBook(s);
+                          }}
+                          aria-label={mine ? `Your ${service.name} booking ${dayLabel(s.date)} at ${timeLabel(s.time)}` : `Book ${service.name} ${dayLabel(s.date)} at ${timeLabel(s.time)}`}
+                          className={clsx(
+                            "w-[74px] shrink-0 snap-start whitespace-nowrap rounded-lg border py-1 text-[13px] font-medium leading-tight",
+                            mine ? "border-sage bg-sage text-ink" : "border-line bg-card active:bg-sage",
+                          )}
+                        >
+                          {timeLabel(s.time)}
+                          {mine && <span className="block text-[10px] font-semibold">✓ Booked</span>}
+                        </button>
+                      );
+                    })}
                   </div>
                   {next.times.length > 3 && <span className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-sand" aria-hidden />}
                 </div>
@@ -933,7 +949,7 @@ function SessionPage({ session, onClose, onBlocked }: { session: Session; onClos
 
   return (
     <div className="fixed inset-0 z-50 !mt-0 overflow-y-auto bg-sand text-shell" role="dialog" aria-modal="true" aria-label={session.title}>
-      <div className="mx-auto max-w-md pb-40">
+      <div className="mx-auto max-w-md pb-48">
         <div className="flex justify-end px-3 pb-2 pt-3">{close}</div>
 
         <div className="space-y-4 px-4">
@@ -1031,16 +1047,19 @@ function SessionPage({ session, onClose, onBlocked }: { session: Session; onClos
         <div className="mx-auto max-w-md space-y-2 px-4">
           {booking ? (
             <>
-              <Link href={calendarHref(booking.date)} className="block w-full rounded-full bg-sage px-5 py-3 text-center text-sm font-medium text-ink">
-                {SHOW_CALENDAR_TAB ? "See it in Bookings" : "See it on my calendar"}
-              </Link>
-              {/* Manage it right here too: cancelling no longer means finding it elsewhere first. */}
-              <Button variant="secondary" onClick={() => setCancelling(booking)}>
-                Cancel booking
-              </Button>
-              <Button variant="secondary" onClick={onClose}>
+              {/* One main button, the rest as a slim row, so the footer stays short enough not to hide
+                  the page's Location section. Cancelling is still right here. */}
+              <Button variant="primary" onClick={onClose}>
                 Done
               </Button>
+              <div className="grid grid-cols-2 text-sm font-medium">
+                <Link href={calendarHref(booking.date)} className="flex min-h-[44px] items-center justify-center text-moss active:opacity-60">
+                  {SHOW_CALENDAR_TAB ? "See in Bookings" : "See it on my calendar"}
+                </Link>
+                <button onClick={() => setCancelling(booking)} className="flex min-h-[44px] items-center justify-center text-clay active:opacity-60">
+                  Cancel booking
+                </button>
+              </div>
             </>
           ) : (
             <Button
@@ -1099,6 +1118,15 @@ function ConfirmBooking({ session, onClose, onBooked }: { session: Session; onCl
   const [error, setError] = useState<string | null>(null);
   const [declined, setDeclined] = useState(false);
   const [newCard, setNewCard] = useState<string | null>(null);
+  const pay = () => {
+    const r = book(session, credit);
+    if (r.ok) onBooked(r.booking);
+    else if (r.declined) {
+      setNewCard(null);
+      setDeclined(true);
+    } else setError(r.error);
+  };
+  const payAfterSave = usePayWhenCardSaved(pay);
 
   return (
     <Sheet open onClose={onClose} title="Confirm your booking">
@@ -1147,20 +1175,10 @@ function ConfirmBooking({ session, onClose, onBooked }: { session: Session; onCl
           <p className="rounded-2xl bg-sand p-3 font-medium text-shell">{policyLine(terms, credit)}</p>
           {error && <p className="rounded-2xl bg-sand p-3 text-shell">{error}</p>}
           {newCard && <p className="rounded-2xl bg-moss-soft p-3 text-moss">Card updated. You&apos;ll pay with your {newCard}.</p>}
-          <PayWithCard amount={total} />
+          <PayWithCard amount={total} onSaved={payAfterSave} />
           <div className="space-y-2">
             {(total <= 0 || member.card) && (
-            <Button
-              variant="primary"
-              onClick={() => {
-                const r = book(session, credit);
-                if (r.ok) onBooked(r.booking);
-                else if (r.declined) {
-                  setNewCard(null);
-                  setDeclined(true);
-                } else setError(r.error);
-              }}
-            >
+            <Button variant="primary" onClick={pay}>
               {total > 0 ? `Confirm and pay ${money(total)}` : "Confirm booking"}
             </Button>
             )}
