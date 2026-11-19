@@ -122,9 +122,10 @@ const LISTED_EVENTS: ArthaEvent[] = [
     ticket: { capacity: 60 },
   },
 
-  // TEST: four made-up events for trying every event state (remove before launch).
-  // A private class tonight with one ticket left; a sold-out private class; a free public RSVP
-  // off-site; a public $10 ticket. Private classes are free for members and $19 for Wellness.
+  // TEST: four made-up events for trying every event state (remove before launch). Their
+  // descriptions are written as members would read them, since the demo shows them to everyone.
+  // A private class with one ticket left; a sold-out private class; a free public RSVP off-site;
+  // a public $10 ticket. Private classes are free for members and $19 for Wellness.
   {
     id: "test-candlelit-sound-bath",
     title: "Candlelit Sound Bath",
@@ -134,7 +135,7 @@ const LISTED_EVENTS: ArthaEvent[] = [
     date: "2026-10-29",
     time: "19:30",
     durationMin: 75,
-    description: "Test event: a private class tonight (free for members, $19 for Wellness Accounts), one ticket left, inside the 3-hour late-cancel window after 4:30 PM.",
+    description: "An evening sound bath by candlelight. Arrive a few minutes early to settle in.",
     access: "private",
     ticket: { capacity: 12, taken: 11 },
   },
@@ -147,7 +148,7 @@ const LISTED_EVENTS: ArthaEvent[] = [
     date: "2026-10-30",
     time: "18:00",
     durationMin: 90,
-    description: "Test event: a private class (free for members, $19 for Wellness Accounts), sold out.",
+    description: "A cold plunge with friends, then time to warm up and talk. A relaxed evening at ARTHA Studio City.",
     access: "private",
     ticket: { capacity: 10, taken: 10 },
   },
@@ -160,7 +161,7 @@ const LISTED_EVENTS: ArthaEvent[] = [
     date: "2026-11-01",
     time: "10:00",
     durationMin: 60,
-    description: "Test event: a free RSVP at an off-site venue.",
+    description: "Meet at the Studio City Farmers Market for an easy walk together. It's free: RSVP so we know you're coming.",
   },
   {
     id: "test-breathwork-sleep",
@@ -171,7 +172,7 @@ const LISTED_EVENTS: ArthaEvent[] = [
     date: "2026-11-03",
     time: "19:00",
     durationMin: 60,
-    description: "Test event: a public ticketed class, the same $10 for every account.",
+    description: "A guided breathwork session to help you wind down before bed. Open to everyone.",
     ticket: { capacity: 15 },
   },
 ];

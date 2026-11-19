@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Bell, CalendarClock, Check, Dumbbell, Flame, Home, MapPin, QrCode, Snowflake, Sparkles, Tag, Ticket, UserRound } from "lucide-react";
+import { Bell, CalendarClock, CalendarDays, Check, Dumbbell, Flame, Home, MapPin, QrCode, Snowflake, Sparkles, Tag, Ticket, UserRound } from "lucide-react";
 import { LOCATIONS, LocationId, PriceGroup, TIERS, currentPromos, priceFor } from "@/lib/data";
 import { dateKey } from "@/lib/schedule";
 import { useStore } from "@/lib/store";
@@ -12,6 +12,7 @@ import { PriceList } from "./PriceList";
 import { PROMO_LABELS } from "./PromoBanner";
 import { TRIAL_BECOMES } from "@/lib/trial";
 import { Button } from "./Sheet";
+import { SHOW_CALENDAR_TAB } from "@/lib/flags";
 
 // First-run walkthrough, right after creating an account: welcome, a tour of the app (what each tab
 // does), where you go, what you'll pay, and last, whether to turn on push notifications, the way
@@ -261,15 +262,24 @@ function PhoneNotificationPrompt({ onChoose }: { onChoose: (on: boolean) => void
   );
 }
 
-// The intro to the app: just the four places a new member needs, in the same icons as the app.
-// Kept short on purpose so a new account isn't overwhelmed; everything else is found along the way.
+// The intro to the app: the four tabs of the bottom bar, in the same order, names and icons, so a new
+// account sees the same four words here as on the bar. Kept short on purpose so a new account isn't
+// overwhelmed; everything else is found along the way. Check in rides along on Home (its code is at
+// the top of every screen). With the Bookings tab off, Check in takes its place.
 function AppTour() {
-  const parts = [
-    { icon: Home, title: "Home", text: "Your next booking, specials and events. Every booking is in the Bookings tab." },
-    { icon: Sparkles, title: "Book", text: "Where you book all your appointments and see every appointment time." },
-    { icon: QrCode, title: "Check in", text: "Tap the code at the top of any screen and have it scanned at the front desk." },
-    { icon: UserRound, title: "Account", text: "Where you find all your account information." },
-  ];
+  const parts = SHOW_CALENDAR_TAB
+    ? [
+        { icon: Home, title: "Home", text: "Your next booking, specials and events. To check in, tap the code at the top and have it scanned at the front desk." },
+        { icon: Sparkles, title: "Book", text: "Where you book all your appointments and see every appointment time." },
+        { icon: CalendarDays, title: "Bookings", text: "Everything you've booked, in one list with the day and time." },
+        { icon: UserRound, title: "Account", text: "Where you find all your account information." },
+      ]
+    : [
+        { icon: Home, title: "Home", text: "Your upcoming bookings, specials and events." },
+        { icon: Sparkles, title: "Book", text: "Where you book all your appointments and see every appointment time." },
+        { icon: QrCode, title: "Check in", text: "Tap the code at the top of any screen and have it scanned at the front desk." },
+        { icon: UserRound, title: "Account", text: "Where you find all your account information." },
+      ];
   return (
     <div className="space-y-4">
       <div>

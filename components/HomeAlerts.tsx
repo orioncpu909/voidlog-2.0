@@ -136,54 +136,42 @@ export function HomeAlerts() {
         </Row>
       )}
 
-      {showFirstVisit && (
+      {/* First-visit prices and the running specials share one row, so they cost Home a single
+          line. The whole row opens Book (or the special's service when it's the only thing in it);
+          X only hides the row: the prices still apply when booking. */}
+      {(showFirstVisit || specials.length > 0) && (
         <div className="flex rounded-2xl bg-sage text-xs leading-snug text-ink">
-          <Link href="/book" className="flex min-w-0 flex-1 items-center gap-2.5 rounded-l-2xl py-2.5 pl-3 pr-1 active:bg-sage-light">
-            <BadgePercent size={16} className="shrink-0" />
+          <Link
+            href={!showFirstVisit && specials.length === 1 ? promoHref(specials[0].group) : "/book"}
+            className="flex min-h-[44px] min-w-0 flex-1 items-center gap-2.5 rounded-l-2xl py-2.5 pl-3 pr-1 active:bg-sage-light"
+          >
+            {showFirstVisit ? <BadgePercent size={16} className="shrink-0" /> : <Sparkles size={15} className="shrink-0" />}
             <span className="min-w-0 flex-1">
-              <span className="font-semibold">First-visit specials:</span> your first visit to{" "}
-              {firstVisitsLeft === firstVisitServices.length ? "each service" : "each service you haven't tried yet"} is at a special rate. You&apos;ll see it
-              when you book.
+              {showFirstVisit && (
+                <>
+                  <span className="font-semibold">First visits</span> at a special rate
+                </>
+              )}
+              {specials.map(({ group, ends }, i) => {
+                const q = priceFor(member.tier, PROMO_LABELS[group].sample, member.home, today);
+                return (
+                  <span key={group}>
+                    {showFirstVisit || i > 0 ? " · " : ""}
+                    <span className="font-semibold">{PROMO_LABELS[group].label}</span> {money(q.price)}{" "}
+                    {q.regular > q.price && <span className="line-through">{money(q.regular)}</span>} until {shortDate(ends)}
+                  </span>
+                );
+              })}
             </span>
             <span className="flex shrink-0 items-center font-medium">
               Book <ChevronRight size={14} />
             </span>
           </Link>
           <button
-            onClick={() => dismissPromos([FIRST_VISIT_BANNER])}
-            aria-label="Hide first-visit specials"
+            onClick={() => dismissPromos([...(showFirstVisit ? [FIRST_VISIT_BANNER] : []), ...promos.map((p) => p.id)])}
+            aria-label="Hide this row (the prices still apply when you book)"
             className="shrink-0 rounded-r-2xl px-3 active:bg-sage-light"
           >
-            <X size={14} />
-          </button>
-        </div>
-      )}
-
-      {/* One row per special, each opening that service on Book. */}
-      {specials.length > 0 && (
-        <div className="flex rounded-2xl bg-promo text-xs text-ink">
-          <div className="min-w-0 flex-1 divide-y divide-ink/15">
-            {specials.map(({ group, ends }) => {
-              const q = priceFor(member.tier, PROMO_LABELS[group].sample, member.home, today);
-              return (
-                <Link
-                  key={group}
-                  href={promoHref(group)}
-                  className="flex items-center gap-2.5 py-3 pl-3 pr-1 leading-snug first:rounded-tl-2xl last:rounded-bl-2xl active:bg-ink/10"
-                >
-                  <Sparkles size={15} className="shrink-0" />
-                  <span className="min-w-0 flex-1">
-                    <span className="font-medium">Special:</span> {PROMO_LABELS[group].label} {money(q.price)}{" "}
-                    {q.regular > q.price && <span className="line-through">{money(q.regular)}</span>} until {shortDate(ends)}
-                  </span>
-                  <span className="flex shrink-0 items-center font-medium">
-                    Book <ChevronRight size={14} />
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
-          <button onClick={() => dismissPromos(promos.map((p) => p.id))} aria-label="Hide specials" className="shrink-0 rounded-r-2xl px-3 active:bg-ink/10">
             <X size={14} />
           </button>
         </div>
